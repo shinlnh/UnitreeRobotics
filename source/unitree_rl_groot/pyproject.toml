@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools<82.0.0", "wheel", "toml"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unitree-rl-groot"
+version = "0.1.0"
+description = "Robust Unitree G1 locomotion RL and GR00T N1.7 integration for Isaac Lab 3.0"
+readme = { text = "Unitree G1 locomotion and GR00T integration extension for Isaac Lab.", content-type = "text/plain" }
+requires-python = ">=3.12,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "UnitreeRobotics Project" }]
+maintainers = [{ name = "UnitreeRobotics Project" }]
+dependencies = ["numpy>=1.26,<3"]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Repository = "local://UnitreeRobotics"
+
+[project.optional-dependencies]
+groot-client = [
+    "msgpack==1.1.0",
+    "msgpack-numpy==0.4.8",
+    "pyzmq==27.0.1",
+]
+dev = ["pytest>=8", "ruff>=0.12"]
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["unitree_rl_groot*"]
+
+[tool.setuptools.package-data]
+unitree_rl_groot = ["py.typed", "**/*.yaml", "**/*.json"]

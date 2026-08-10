@@ -1,0 +1,26 @@
+<mujoco model="unitree_multitask_grapes">
+  <asset/>
+  <worldbody>
+    <body>
+      <body name="object">
+        <geom class="visual" type="sphere" pos="-0.020 0 0.025" size="0.021" rgba="0.20 0.62 0.12 1"/>
+        <geom class="visual" type="sphere" pos="0.020 0 0.025" size="0.021" rgba="0.27 0.72 0.13 1"/>
+        <geom class="visual" type="sphere" pos="0 -0.020 0.025" size="0.021" rgba="0.18 0.57 0.10 1"/>
+        <geom class="visual" type="sphere" pos="0 0.020 0.025" size="0.021" rgba="0.31 0.75 0.15 1"/>
+        <geom class="visual" type="sphere" pos="-0.014 -0.014 0.060" size="0.020" rgba="0.24 0.68 0.12 1"/>
+        <geom class="visual" type="sphere" pos="0.014 -0.014 0.060" size="0.020" rgba="0.19 0.61 0.10 1"/>
+        <geom class="visual" type="sphere" pos="0 0.016 0.060" size="0.020" rgba="0.29 0.76 0.14 1"/>
+        <geom class="visual" type="sphere" pos="0 0 0.092" size="0.018" rgba="0.21 0.65 0.11 1"/>
+        <geom class="visual" type="capsule" pos="0 0 0.120" size="0.004 0.015" rgba="0.20 0.12 0.03 1"/>
+        <geom class="collision" type="ellipsoid" pos="0 0 0.050" size="0.048 0.046 0.075"/>
+      </body>
+      <site rgba="0 0 0 0" size="0.005" pos="0 0 0" name="bottom_site"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0 0 0.135" name="top_site"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0.050 0.050 0.055" name="horizontal_radius_site"/>
+    </body>
+  </worldbody>
+  <default>
+    <default class="visual"><geom group="1" contype="0" conaffinity="0" density="75"/></default>
+    <default class="collision"><geom group="0" rgba="1 1 1 0" density="75" friction="1.2 0.3 0.1"/></default>
+  </default>
+</mujoco>
