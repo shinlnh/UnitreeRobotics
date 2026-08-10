@@ -1,0 +1,23 @@
+{
+  "objects": [
+    "red soda can",
+    "blue plastic bottle",
+    "green foam block",
+    "yellow plastic cup",
+    "small plush toy",
+    "cardboard snack box"
+  ],
+  "sources": ["table", "low shelf", "pickup tray"],
+  "destinations": ["delivery bin", "return tray", "marked table area"],
+  "demonstrations_per_combination": 20,
+  "split_ratios": {"train": 0.7, "validation": 0.15, "test": 0.15},
+  "randomization": {
+    "object_pose": true,
+    "distractors": false,
+    "lighting": true,
+    "object_color": true,
+    "textures": false,
+    "camera_exposure": false,
+    "object_mass_and_friction": true
+  }
+}

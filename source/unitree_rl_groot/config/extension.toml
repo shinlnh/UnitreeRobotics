@@ -1,0 +1,18 @@
+[package]
+version = "0.1.0"
+category = "isaaclab"
+title = "Unitree G1 RL + GR00T"
+author = "UnitreeRobotics Project"
+maintainer = "UnitreeRobotics Project"
+description = "Robust Unitree G1 locomotion RL and GR00T N1.7 integration for Isaac Lab 3.0"
+repository = "local://UnitreeRobotics"
+keywords = ["isaaclab", "unitree", "g1", "reinforcement-learning", "groot"]
+
+[dependencies]
+"isaaclab" = {}
+"isaaclab_assets" = {}
+"isaaclab_rl" = {}
+"isaaclab_tasks" = {}
+
+[[python.module]]
+name = "unitree_rl_groot"
