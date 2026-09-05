@@ -1,0 +1,42 @@
+[project]
+name = "unitree-g1-gr00t-generalist"
+artifact_dir = "artifacts"
+
+[upstream]
+root = ".upstream"
+isaac_gr00t_repo = "https://github.com/NVIDIA/Isaac-GR00T.git"
+isaac_gr00t_revision = "51d4c89f72fda44cbf77285c6a8114b52676b8a1"
+sonic_repo = "https://github.com/NVlabs/GR00T-WholeBodyControl.git"
+sonic_revision = "a0732b642c0333077e127a2f56ab0014c196bca4"
+
+[model]
+base_model = "nvidia/GR00T-N1.7-3B"
+embodiment = "UNITREE_G1_SONIC"
+# UNITREE_G1_SONIC is a post-training embodiment. Set this to a fine-tuned
+# checkpoint before `serve`; the base checkpoint alone is intentionally rejected.
+checkpoint = ""
+device = "cuda:0"
+host = "127.0.0.1"
+bind_host = "0.0.0.0"
+port = 5550
+
+[sonic]
+variant = "sonic_v1_1"
+camera_host = "localhost"
+camera_port = 5555
+action_publish_rate = 50
+action_horizon = 40
+record_during_inference = true
+
+[training]
+num_gpus = 4
+max_steps = 20000
+global_batch_size = 32
+save_steps = 5000
+
+[safety]
+max_cartesian_delta = 0.08
+workspace_x = [0.0, 1.0]
+workspace_y = [0.0, 1.0]
+workspace_z = [0.02, 0.95]
+max_episode_steps = 120

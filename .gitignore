@@ -1,4 +1,3 @@
-.deps/
 .venv/
 __pycache__/
 *.py[cod]
@@ -9,17 +8,10 @@ htmlcov/
 dist/
 build/
 *.egg-info/
-logs/
+.upstream/
+artifacts/
 outputs/
 checkpoints/
-datasets/raw/
-datasets/lerobot/
-datasets/sonic/
-datasets/g1_fruits_multitask_hf/
-datasets/g1_locomanip_hf/
-wandb/
-videos/
+.cache/
+.vscode/browse.vc.db*
 .env
-.vscode/*.db
-.tmp-*/
-/argparse

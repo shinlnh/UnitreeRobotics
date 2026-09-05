@@ -1,48 +1,61 @@
-from __future__ import annotations
+import json
+from pathlib import Path
 
-import numpy as np
-import pytest
-from unitree_rl_groot.groot.dataset import RawNavigationEpisode, numeric_stats
-
-
-def _episode(frame_count: int = 5) -> RawNavigationEpisode:
-    return RawNavigationEpisode(
-        rgb=np.zeros((frame_count, 8, 8, 3), dtype=np.uint8),
-        state=np.arange(frame_count * 4, dtype=np.float32).reshape(frame_count, 4),
-        action=np.zeros((frame_count, 3), dtype=np.float32),
-        timestamp=np.arange(frame_count, dtype=np.float32) / 10.0,
-        language="walk forward",
-        goal_xy=np.array([4.0, 1.0], dtype=np.float32),
-        obstacles=np.array([[2.0, 0.0, 0.4]], dtype=np.float32),
-        success=True,
-    )
+from unitree_gr00t.dataset import validate_dataset
 
 
-def test_raw_episode_round_trip_without_pickle(tmp_path) -> None:
-    expected = _episode()
-    path = expected.save(tmp_path / "episode_000000.npz")
-    actual = RawNavigationEpisode.load(path)
-    np.testing.assert_array_equal(actual.rgb, expected.rgb)
-    np.testing.assert_array_equal(actual.state, expected.state)
-    np.testing.assert_array_equal(actual.goal_xy, expected.goal_xy)
-    np.testing.assert_array_equal(actual.obstacles, expected.obstacles)
-    assert actual.language == expected.language
-    assert actual.success is True
-
-
-def test_episode_contract_rejects_unsynchronized_data() -> None:
-    with pytest.raises(ValueError, match="action"):
-        RawNavigationEpisode(
-            rgb=np.zeros((5, 8, 8, 3), dtype=np.uint8),
-            state=np.zeros((5, 4), dtype=np.float32),
-            action=np.zeros((4, 3), dtype=np.float32),
-            timestamp=np.arange(5, dtype=np.float32),
-            language="walk",
+def _write_valid_dataset(root: Path) -> None:
+    (root / "meta").mkdir(parents=True)
+    (root / "data").mkdir()
+    video_dir = root / "videos" / "observation.images.ego_view"
+    video_dir.mkdir(parents=True)
+    features = {
+        key: {"dtype": "float32", "shape": [1]}
+        for key in (
+            "observation.images.ego_view",
+            "observation.state",
+            "observation.projected_gravity",
+            "action.motion_token",
+            "teleop.left_hand_joints",
+            "teleop.right_hand_joints",
         )
+    }
+    (root / "meta" / "info.json").write_text(
+        json.dumps({"fps": 50, "features": features}), encoding="utf-8"
+    )
+    modality = {
+        "state": {
+            key: {}
+            for key in (
+                "left_leg",
+                "right_leg",
+                "waist",
+                "left_arm",
+                "right_arm",
+                "left_hand",
+                "right_hand",
+                "projected_gravity",
+            )
+        },
+        "action": {key: {} for key in ("motion_token", "left_hand_joints", "right_hand_joints")},
+        "video": {"ego_view": {}},
+        "annotation": {"human.task_description": {}},
+    }
+    (root / "meta" / "modality.json").write_text(json.dumps(modality), encoding="utf-8")
+    (root / "meta" / "episodes.jsonl").write_text('{"episode_index": 0}\n', encoding="utf-8")
+    (root / "meta" / "tasks.jsonl").write_text('{"task_index": 0}\n', encoding="utf-8")
+    (root / "data" / "train-00000.parquet").touch()
+    (video_dir / "episode_000000.mp4").touch()
 
 
-def test_numeric_stats_are_per_feature() -> None:
-    stats = numeric_stats(np.array([[1.0, 10.0], [3.0, 14.0]]))
-    assert stats["mean"] == [2.0, 12.0]
-    assert stats["min"] == [1.0, 10.0]
-    assert stats["max"] == [3.0, 14.0]
+def test_valid_sonic_dataset(tmp_path: Path) -> None:
+    _write_valid_dataset(tmp_path)
+    report = validate_dataset(tmp_path)
+    assert report.valid
+    assert report.episodes == 1
+    assert report.video_files == 1
+
+
+def test_missing_dataset_is_invalid(tmp_path: Path) -> None:
+    report = validate_dataset(tmp_path / "missing")
+    assert not report.valid
