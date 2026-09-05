@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+UNIT_NAME="arena-static-apple-continuous"
+
+if systemctl --user is-active --quiet "$UNIT_NAME.service"; then
+    echo "The continuous-runtime Isaac Arena experiment is already running."
+    echo "Stop it with: systemctl --user stop $UNIT_NAME.service"
+    exit 0
+fi
+
+exec systemd-run --user \
+    --unit="$UNIT_NAME" \
+    --collect \
+    --property=MemoryHigh=22G \
+    --property=MemoryMax=24G \
+    --property=OOMScoreAdjust=700 \
+    --working-directory="$PROJECT_ROOT" \
+    /usr/bin/env ARENA_RUN_NAME=static_apple_continuous \
+    ARENA_SEED="${ARENA_SEED:-42}" \
+    ARENA_MODEL_SEED="${ARENA_MODEL_SEED:-42}" \
+    "$PROJECT_ROOT/scripts/run_arena_static_apple.sh" observe-continuous

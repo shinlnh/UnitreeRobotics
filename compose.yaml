@@ -1,0 +1,8 @@
+services:
+  cpu-smoke:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.cpu
+    volumes:
+      - ./artifacts:/artifacts
+    command: ["demo", "--episodes", "3", "--output", "/artifacts/mock_demo"]

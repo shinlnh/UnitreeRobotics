@@ -1,0 +1,32 @@
+[[tasks]]
+id = "pick_red_cube"
+kind = "pick"
+target = "red_cube"
+instruction = "Walk to the table, pick up the red cube, and lift it."
+
+[[tasks]]
+id = "pick_blue_cube"
+kind = "pick"
+target = "blue_cube"
+instruction = "Walk to the table, pick up the blue cube, and lift it."
+
+[[tasks]]
+id = "red_cube_to_green_bin"
+kind = "place"
+target = "red_cube"
+destination = "green_bin"
+instruction = "Pick up the red cube and place it in the green bin."
+
+[[tasks]]
+id = "blue_cube_to_yellow_bin"
+kind = "place"
+target = "blue_cube"
+destination = "yellow_bin"
+instruction = "Put the blue cube into the yellow bin."
+
+[[tasks]]
+id = "stack_red_on_blue"
+kind = "stack"
+target = "red_cube"
+destination = "blue_cube"
+instruction = "Stack the red cube on top of the blue cube."
