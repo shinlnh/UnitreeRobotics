@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import subprocess
+import xml.etree.ElementTree as ET
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -14,6 +15,8 @@ from typing import Any
 from .a0 import BenchmarkCase, quat_to_axis_angle
 from .a0_eval import _configure_environment_imports, _make_environment
 from .a1 import audit_training_source, load_training_records, sha256_file
+
+_AUTOLIMITS_PATCHED = False
 
 
 @dataclass(frozen=True)
@@ -75,6 +78,35 @@ def model_action(raw_action: Any, np: Any) -> Any:
     action = np.asarray(raw_action, dtype=np.float32).copy()
     action[-1] = 0.5 * (1.0 - np.sign(action[-1]))
     return action
+
+
+def mujoco_autolimits_xml(xml: str) -> str:
+    """Enable modern MuJoCo inference for ranged joints in legacy LIBERO assets."""
+
+    root = ET.fromstring(xml)
+    compiler = root.find("compiler")
+    if compiler is None:
+        compiler = ET.Element("compiler")
+        root.insert(0, compiler)
+    compiler.set("autolimits", "true")
+    return ET.tostring(root, encoding="unicode")
+
+
+def _install_mujoco_autolimits_compatibility() -> None:
+    global _AUTOLIMITS_PATCHED
+    if _AUTOLIMITS_PATCHED:
+        return
+    from robosuite.utils import binding_utils
+
+    original = binding_utils.MjSim.from_xml_string
+
+    @classmethod
+    def from_xml_string(cls: Any, xml: str) -> Any:
+        del cls
+        return original(mujoco_autolimits_xml(xml))
+
+    binding_utils.MjSim.from_xml_string = from_xml_string
+    _AUTOLIMITS_PATCHED = True
 
 
 def _video_process(path: Path, fps: int) -> subprocess.Popen[bytes]:
@@ -197,6 +229,7 @@ def _convert_one(job: ConversionJob) -> ConversionResult:
     )
     if np_module is not np:
         raise RuntimeError("A1 converter imported inconsistent NumPy modules")
+    _install_mujoco_autolimits_compatibility()
     case = BenchmarkCase("Training", job.case, Path(job.directory))
     env = _make_environment(case, bddl_utils, runtime, job.fps, Path(job.bddl))
     agent_encoder = _video_process(agent_path, job.fps)

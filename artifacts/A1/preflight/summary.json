@@ -33,6 +33,15 @@
     "camera_streams": 2,
     "converted_dataset_valid": true
   },
+  "mujoco_compatibility_pilot": {
+    "reason": "legacy window ranged joint omitted an explicit limited attribute",
+    "compatibility": "set compiler autolimits=true in generated A1 XML",
+    "source_case": "coffee_table/case137",
+    "source_frames": 1944,
+    "filtered_frames": 770,
+    "removed_noops": 1174,
+    "complete": true
+  },
   "training_pilot": {
     "gpu": "NVIDIA GeForce RTX 5070 Ti",
     "gpu_memory_mib": 16303,
@@ -74,7 +83,7 @@
   },
   "verification": {
     "ruff": "passed",
-    "pytest": "32 passed",
+    "pytest": "33 passed",
     "shell_syntax": "passed",
     "long_running_processes_left_active": 0
   }

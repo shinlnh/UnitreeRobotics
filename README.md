@@ -352,6 +352,8 @@ replay. Bốn row thiếu `demo.hdf5` và một row thiếu BDDL authoritative b
 được ghi tên trong `meta/a1_source_audit.json`. Khi một thư mục có BDDL dư, converter
 chọn chính xác basename được lưu trong metadata HDF5. Instruction dùng cho train
 cũng lấy từ `problem_info.language_instruction` của HDF5, không dùng summary lệch.
+Converter đồng thời bật MuJoCo compiler `autolimits` trên XML sinh ra để các asset
+LIBERO cũ có ranged joint (đặc biệt `window`) chạy được trên MuJoCo 2.3.7.
 
 Chạy post-training dài, có thể resume từ checkpoint mỗi 1.000 optimizer step:
 

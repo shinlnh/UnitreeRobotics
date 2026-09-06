@@ -16,3 +16,4 @@ checkpoints/
 .cache/
 .vscode/browse.vc.db*
 .env
+MUJOCO_LOG.TXT
