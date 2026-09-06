@@ -9,9 +9,14 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .a0 import discover_cases, inspect_checkpoint
+from .a1 import audit_training_source, inspect_a1_checkpoint, validate_converted_dataset
 from .commands import (
     build_a0_eval_command,
     build_a0_server_command,
+    build_a1_eval_command,
+    build_a1_prepare_command,
+    build_a1_server_command,
+    build_a1_train_command,
     build_collect_command,
     build_deploy_command,
     build_open_loop_command,
@@ -115,6 +120,48 @@ def _parser() -> argparse.ArgumentParser:
     a0_eval.add_argument("--no-trace-images", action="store_true")
     a0_eval.add_argument("--resume", action="store_true")
     a0_eval.add_argument("--execute", action="store_true")
+
+    a1_check = subparsers.add_parser(
+        "a1-check", help="Validate A1 source data, converted data, or frozen checkpoint"
+    )
+    a1_check.add_argument("--stage", choices=("source", "dataset", "checkpoint"), default="source")
+
+    a1_prepare = subparsers.add_parser(
+        "a1-prepare", help="Preview or convert RoboCerebra demonstrations to GR00T LeRobot v2"
+    )
+    a1_prepare.add_argument("--workers", type=int)
+    a1_prepare.add_argument("--limit", type=int)
+    a1_prepare.add_argument("--output")
+    a1_prepare.add_argument("--no-resume", action="store_true")
+    a1_prepare.add_argument("--execute", action="store_true")
+
+    a1_train = subparsers.add_parser(
+        "a1-train", help="Preview or post-train the shared A1 GR00T-RC checkpoint"
+    )
+    a1_train.add_argument("--max-steps", type=int)
+    a1_train.add_argument("--dataset")
+    a1_train.add_argument("--output")
+    a1_train.add_argument("--artifact")
+    a1_train.add_argument("--execute", action="store_true")
+
+    a1_server = subparsers.add_parser(
+        "a1-server", help="Preview or start the post-trained A1 GR00T-RC server"
+    )
+    a1_server.add_argument("--seed", type=int, default=7)
+    a1_server.add_argument("--execute", action="store_true")
+
+    a1_eval = subparsers.add_parser(
+        "a1-eval", help="Preview or run the no-hierarchy A1 RoboCerebra evaluation"
+    )
+    a1_eval.add_argument("--task-types", nargs="+", default=["Ideal"])
+    a1_eval.add_argument("--cases", nargs="*", default=[])
+    a1_eval.add_argument("--trials", type=int, default=1)
+    a1_eval.add_argument("--execution-horizon", type=int, default=16, choices=(8, 16))
+    a1_eval.add_argument("--seed", type=int, default=7)
+    a1_eval.add_argument("--output")
+    a1_eval.add_argument("--no-trace-images", action="store_true")
+    a1_eval.add_argument("--resume", action="store_true")
+    a1_eval.add_argument("--execute", action="store_true")
 
     subparsers.add_parser("show-config", help="Print resolved runtime configuration")
     return parser
@@ -235,6 +282,94 @@ def _run(args: argparse.Namespace) -> int:
             else config.artifact_dir / "A0" / f"H{args.execution_horizon}-seed{args.seed}"
         )
         spec = build_a0_eval_command(
+            config,
+            task_types=args.task_types,
+            case_names=args.cases,
+            trials=args.trials,
+            execution_horizon=args.execution_horizon,
+            seed=args.seed,
+            output_dir=output,
+            trace_images=not args.no_trace_images,
+            resume=args.resume,
+        )
+        return run_or_preview(spec, args.execute)
+
+    if args.command == "a1-check":
+        a1 = config.robocerebra_posttrain
+        if args.stage == "source":
+            audit = audit_training_source(
+                a1.raw_training_dir,
+                a1.training_manifest,
+                config.robocerebra.benchmark_dir,
+                expected_manifest_sha256=a1.training_manifest_sha256,
+                expected_manifest_rows=a1.expected_training_manifest_rows,
+                expected_usable_episodes=a1.expected_training_episodes,
+            )
+            payload = asdict(audit) | {
+                "source_root": str(audit.source_root),
+                "manifest": str(audit.manifest),
+                "valid": audit.valid,
+            }
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+            return 0 if audit.valid else 2
+        if args.stage == "dataset":
+            audit = validate_converted_dataset(
+                a1.lerobot_training_dir,
+                expected_episodes=a1.expected_training_episodes,
+                expected_revision=a1.training_dataset_revision,
+            )
+            payload = asdict(audit) | {"root": str(audit.root)}
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+            return 0 if audit.valid else 2
+        contract, provenance = inspect_a1_checkpoint(
+            a1.checkpoint_dir,
+            expected_training_revision=a1.training_dataset_revision,
+        )
+        payload = asdict(contract) | {
+            "checkpoint_dir": str(contract.checkpoint_dir),
+            "training_provenance": provenance,
+        }
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command == "a1-prepare":
+        spec = build_a1_prepare_command(
+            config,
+            workers=args.workers,
+            limit=args.limit,
+            resume=not args.no_resume,
+            output_dir=args.output,
+        )
+        return run_or_preview(spec, args.execute)
+
+    if args.command == "a1-train":
+        spec = build_a1_train_command(
+            config,
+            max_steps=args.max_steps,
+            dataset_dir=args.dataset,
+            checkpoint_dir=args.output,
+            artifact_dir=args.artifact,
+        )
+        return run_or_preview(spec, args.execute)
+
+    if args.command == "a1-server":
+        inspect_a1_checkpoint(
+            config.robocerebra_posttrain.checkpoint_dir,
+            expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
+        )
+        return run_or_preview(build_a1_server_command(config, args.seed), args.execute)
+
+    if args.command == "a1-eval":
+        inspect_a1_checkpoint(
+            config.robocerebra_posttrain.checkpoint_dir,
+            expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
+        )
+        output = (
+            Path(args.output).expanduser()
+            if args.output
+            else config.artifact_dir / "A1" / f"H{args.execution_horizon}-seed{args.seed}"
+        )
+        spec = build_a1_eval_command(
             config,
             task_types=args.task_types,
             case_names=args.cases,

@@ -29,6 +29,7 @@ Project end-to-end để chạy một policy vision-language-action generalist t
 | Isaac Sim + GR00T static rollout | Có, đã chạy thật | `scripts/run_arena_static_apple.sh start` |
 | Isaac Sim + GR00T loco-manipulation | Có, đã chạy thật | `scripts/run_arena_loco_box.sh start` |
 | A0: GR00T-N1.7-LIBERO original | Có | `gr00t-g1 a0-check` |
+| A1: shared GR00T-RC post-training | Có | `gr00t-g1 a1-check` |
 | G1 real deployment interlock | Có | `gr00t-g1 deploy --mode real` |
 
 ## Ba demo Isaac Sim đã chạy thật
@@ -330,3 +331,46 @@ inference latency, robustness delta, H8/H16 ablation, environment/provenance và
 SHA-256 của các file artifact chính. A0 không có high-level planner hoặc VideoQA,
 vì vậy Plan Match, symbolic Plan Efficiency và VideoQA completion được ghi `N/A`
 thay vì suy diễn một con số không tồn tại.
+
+## Experiment A1: shared GR00T-RC post-training
+
+A1 bắt đầu từ đúng checkpoint A0, post-train một checkpoint chung trên snapshot
+`qiukingballball/RoboCerebra` đã pin, rồi dùng lại evaluator liên tục H16/H8 của
+A0. A1 vẫn chỉ nhận full-task instruction và không có hierarchy, stop selector,
+retry hoặc recovery. Đây là baseline đo riêng tác động của post-training.
+
+Tải phần dữ liệu tối thiểu cần cho state replay (không tải bản RLDS/MP4 trùng lặp),
+audit nguồn và convert sang LeRobot v2.1:
+
+```bash
+scripts/download_a1_training_data.sh
+A1_CONVERSION_WORKERS=10 scripts/run_a1_prepare_dataset.sh
+```
+
+Snapshot có 1.000 manifest row; contract đã pin chấp nhận đúng 995 episode có thể
+replay. Bốn row thiếu `demo.hdf5` và một row thiếu BDDL authoritative bị loại và
+được ghi tên trong `meta/a1_source_audit.json`. Khi một thư mục có BDDL dư, converter
+chọn chính xác basename được lưu trong metadata HDF5. Instruction dùng cho train
+cũng lấy từ `problem_info.language_instruction` của HDF5, không dùng summary lệch.
+
+Chạy post-training dài, có thể resume từ checkpoint mỗi 1.000 optimizer step:
+
+```bash
+PYTHONPATH="$PWD/src" .venv/bin/python -m unitree_gr00t.cli a1-train --execute
+```
+
+Profile một GPU 16 GiB giữ nguyên projector + diffusion action model trainable,
+đóng băng language/visual backbone, dùng BF16, gradient checkpointing, Adafactor,
+micro-batch 2 × gradient accumulation 16, tám data-loader worker và 20.000 step.
+Các lựa chọn khác với launcher NVIDIA mặc định được ghi trong training manifest.
+
+Sau khi checkpoint hoàn tất, chạy full benchmark A1 và sinh reviewer artifact:
+
+```bash
+scripts/run_a1_full_benchmark.sh
+```
+
+Output lớn (checkpoint, raw decisions, frame trace và shard) được giữ local. Bundle
+reviewer-safe được force-add lên nhánh A1 gồm manifest, summary, CSV/JSON report,
+chart, environment, inventory và SHA-256 của artifact raw để GitHub không nhận file
+vượt giới hạn 100 MiB.

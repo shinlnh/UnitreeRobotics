@@ -1,4 +1,4 @@
-"""RoboCerebra rollout runner for the frozen A0 policy baseline."""
+"""Frozen no-hierarchy RoboCerebra rollout runner used by A0 and A1."""
 
 from __future__ import annotations
 
@@ -30,13 +30,15 @@ from .a0 import (
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Evaluate A0 on RoboCerebra without hierarchy")
+    parser = argparse.ArgumentParser(description="Evaluate a no-hierarchy policy on RoboCerebra")
     parser.add_argument("--robocerebra-source", type=Path, required=True)
     parser.add_argument("--benchmark-dir", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--benchmark-revision", required=True)
     parser.add_argument("--model-revision", required=True)
     parser.add_argument("--dataset-revision", required=True)
+    parser.add_argument("--experiment-id", default=A0_ID)
+    parser.add_argument("--variant", default=A0_VARIANT)
     parser.add_argument("--task-types", nargs="+", required=True)
     parser.add_argument("--cases", nargs="*", default=[])
     parser.add_argument("--trials", type=int, default=1)
@@ -91,18 +93,28 @@ def _configure_environment_imports(
 
 
 def _make_environment(
-    case: BenchmarkCase, bddl_utils: Any, runtime: Any, control_frequency_hz: int
+    case: BenchmarkCase,
+    bddl_utils: Any,
+    runtime: Any,
+    control_frequency_hz: int,
+    bddl_file: Path | None = None,
 ) -> Any:
     task_mapping, load_controller_config = runtime
-    bddl_files = tuple(case.path.glob("*.bddl"))
-    if len(bddl_files) != 1:
-        raise RuntimeError(f"Expected one BDDL file in {case.path}, found {len(bddl_files)}")
-    problem = bddl_utils.get_problem_info(str(bddl_files[0]))
+    if bddl_file is None:
+        bddl_files = tuple(case.path.glob("*.bddl"))
+        if len(bddl_files) != 1:
+            raise RuntimeError(f"Expected one BDDL file in {case.path}, found {len(bddl_files)}")
+        selected_bddl = bddl_files[0]
+    else:
+        selected_bddl = bddl_file
+        if not selected_bddl.is_file() or selected_bddl.parent != case.path:
+            raise RuntimeError(f"Selected BDDL does not belong to {case.path}: {selected_bddl}")
+    problem = bddl_utils.get_problem_info(str(selected_bddl))
     problem_name = problem["problem_name"]
     if problem_name not in task_mapping:
         raise RuntimeError(f"LIBERO problem is not registered: {problem_name}")
     return task_mapping[problem_name](
-        bddl_file_name=str(bddl_files[0]),
+        bddl_file_name=str(selected_bddl),
         robots=["Panda"],
         controller_configs=load_controller_config(default_controller="OSC_POSE"),
         has_renderer=False,
@@ -429,6 +441,8 @@ def _run_episode(
     seed: int,
     trace_images: bool,
     provenance: dict[str, str],
+    experiment_id: str,
+    variant: str,
     np: Any,
 ) -> dict[str, Any]:
     task = parse_task_description(case.path / "task_description.txt")
@@ -524,8 +538,8 @@ def _run_episode(
         _append_jsonl(
             trace_path,
             {
-                "experiment_id": A0_ID,
-                "variant": A0_VARIANT,
+                "experiment_id": experiment_id,
+                "variant": variant,
                 "protocol": "continuous_no_restore",
                 **provenance,
                 "task_type": case.task_type,
@@ -557,8 +571,8 @@ def _run_episode(
 
     final_success = _final_predicates_hold(env, goal)
     return {
-        "experiment_id": A0_ID,
-        "variant": A0_VARIANT,
+        "experiment_id": experiment_id,
+        "variant": variant,
         "protocol": "continuous_no_restore",
         **provenance,
         "task_type": case.task_type,
@@ -608,8 +622,8 @@ def _run_manifest(
 ) -> dict[str, Any]:
     return {
         "schema_version": 1,
-        "experiment_id": A0_ID,
-        "variant": A0_VARIANT,
+        "experiment_id": args.experiment_id,
+        "variant": args.variant,
         "protocol": "continuous_no_restore",
         "checkpoint": str(contract.checkpoint_dir),
         "benchmark_dir": str(args.benchmark_dir.expanduser().resolve()),
@@ -689,7 +703,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     ]
     if existing and not args.resume:
         raise FileExistsError(
-            f"Refusing to mix A0 runs in {output_dir}; existing files: {', '.join(existing)}"
+            f"Refusing to mix {args.experiment_id} runs in {output_dir}; "
+            f"existing files: {', '.join(existing)}"
         )
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest = _run_manifest(args, contract, cases, output_dir)
@@ -699,7 +714,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if actual_manifest != manifest:
             raise ValueError("--resume configuration does not match run_manifest.json")
     elif existing:
-        raise ValueError("Cannot --resume an A0 directory without run_manifest.json")
+        raise ValueError(
+            f"Cannot --resume an {args.experiment_id} directory without run_manifest.json"
+        )
     else:
         _write_json(manifest_path, manifest)
 
@@ -755,6 +772,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         seed=args.seed,
                         trace_images=not args.no_trace_images,
                         provenance=provenance,
+                        experiment_id=args.experiment_id,
+                        variant=args.variant,
                         np=np,
                     )
                     results.append(result)

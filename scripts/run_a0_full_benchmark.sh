@@ -2,7 +2,11 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ARTIFACT_ROOT="${PROJECT_ROOT}/artifacts/A0/full-benchmark"
+EXPERIMENT_ID="${ROBOCEREBRA_EXPERIMENT_ID:-A0}"
+VARIANT="${ROBOCEREBRA_VARIANT:-GR00T-N1.7-LIBERO-original}"
+CHECKPOINT_PATH="${ROBOCEREBRA_CHECKPOINT:-${PROJECT_ROOT}/checkpoints/robocerebra/GR00T-N1.7-LIBERO/libero_10}"
+MODEL_REVISION="${ROBOCEREBRA_MODEL_REVISION:-2ea293aa20ba7cf5bbf3ba17a5fbcb1a01cbfe21}"
+ARTIFACT_ROOT="${ROBOCEREBRA_ARTIFACT_ROOT:-${PROJECT_ROOT}/artifacts/${EXPERIMENT_ID}/full-benchmark}"
 SHARD_ROOT="${ARTIFACT_ROOT}/shards"
 BASE_SEED=7
 TRIALS=10
@@ -30,7 +34,7 @@ start_server() {
   (
     cd "${PROJECT_ROOT}/.upstream/Isaac-GR00T-N1.7"
     exec setsid uv run --no-sync python gr00t/eval/run_gr00t_server.py \
-      --model-path "${PROJECT_ROOT}/checkpoints/robocerebra/GR00T-N1.7-LIBERO/libero_10" \
+      --model-path "${CHECKPOINT_PATH}" \
       --embodiment-tag LIBERO_PANDA \
       --device cuda:0 \
       --host 0.0.0.0 \
@@ -43,7 +47,7 @@ start_server() {
   local server_ready=false
   for _ in $(seq 1 120); do
     if ! kill -0 "${SERVER_PID}" 2>/dev/null; then
-      echo "A0 policy server exited during startup. See ${server_log}." >&2
+      echo "${EXPERIMENT_ID} policy server exited during startup. See ${server_log}." >&2
       exit 1
     fi
     if PYTHONPATH="${PROJECT_ROOT}/src" "${PROJECT_ROOT}/.venv-a0/bin/python" - <<'PY' \
@@ -60,7 +64,7 @@ PY
     sleep 2
   done
   if [[ "${server_ready}" != true ]]; then
-    echo "A0 policy server did not become ready. See ${server_log}." >&2
+    echo "${EXPERIMENT_ID} policy server did not become ready. See ${server_log}." >&2
     exit 1
   fi
 }
@@ -83,11 +87,13 @@ run_shard() {
     "${PROJECT_ROOT}/.venv-a0/bin/python" -m unitree_gr00t.a0_eval
     --robocerebra-source "${PROJECT_ROOT}/.upstream/RoboCerebra"
     --benchmark-dir "${PROJECT_ROOT}/.cache/robocerebra/bench"
-    --checkpoint "${PROJECT_ROOT}/checkpoints/robocerebra/GR00T-N1.7-LIBERO/libero_10"
+    --checkpoint "${CHECKPOINT_PATH}"
     --benchmark-revision 2573426c13dfcd5e7d7831c15587b058aaa1c0c0
-    --model-revision 2ea293aa20ba7cf5bbf3ba17a5fbcb1a01cbfe21
+    --model-revision "${MODEL_REVISION}"
     --dataset-revision 4e386b9aa266f05b199739d7b58950252244ea21
     --task-types "${task_types[@]}"
+    --experiment-id "${EXPERIMENT_ID}"
+    --variant "${VARIANT}"
     --trials "${TRIALS}"
     --execution-horizon "${horizon}"
     --control-frequency-hz 20
@@ -139,7 +145,7 @@ run_parallel_h8() {
   [[ "${failed}" == 0 ]] || { echo "At least one H8 shard failed" >&2; return 1; }
 }
 
-if [[ "${A0_FUNCTIONS_ONLY:-false}" == true ]]; then
+if [[ "${ROBOCEREBRA_FUNCTIONS_ONLY:-${A0_FUNCTIONS_ONLY:-false}}" == true ]]; then
   return 0 2>/dev/null || exit 0
 fi
 
@@ -186,6 +192,8 @@ PYTHONPATH="${PROJECT_ROOT}/src" "${PROJECT_ROOT}/.venv-a0/bin/python" \
   --run "H16=${ARTIFACT_ROOT}/H16" \
   --run "H8=${ARTIFACT_ROOT}/H8" \
   --output "${ARTIFACT_ROOT}/reviewer" \
+  --experiment-id "${EXPERIMENT_ID}" \
+  --variant "${VARIANT}" \
   >"${ARTIFACT_ROOT}/reviewer-report.log" 2>&1
 
-echo "A0 full benchmark and reviewer report completed: ${ARTIFACT_ROOT}"
+echo "${EXPERIMENT_ID} full benchmark and reviewer report completed: ${ARTIFACT_ROOT}"

@@ -15,6 +15,12 @@ def test_project_config_resolves_paths() -> None:
     assert config.robocerebra_dir == ROOT / ".upstream" / "RoboCerebra"
     assert config.robocerebra.action_horizon == 16
     assert config.robocerebra.fixed_execution_horizons == (8, 16)
+    assert config.robocerebra_posttrain.experiment_id == "A1"
+    assert config.robocerebra_posttrain.expected_training_manifest_rows == 1000
+    assert len(config.robocerebra_posttrain.training_manifest_sha256) == 64
+    assert config.robocerebra_posttrain.expected_training_episodes == 995
+    assert config.robocerebra_posttrain.micro_batch_size == 2
+    assert config.robocerebra_posttrain.gradient_accumulation_steps == 16
 
 
 def test_task_catalog_and_selection() -> None:

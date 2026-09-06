@@ -1,4 +1,4 @@
-"""Reviewer-oriented metrics and artifact report for the full A0 benchmark."""
+"""Reviewer-oriented metrics and artifact report for no-hierarchy baselines."""
 
 from __future__ import annotations
 
@@ -41,6 +41,8 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--bootstrap-samples", type=int, default=10_000)
+    parser.add_argument("--experiment-id", default="A0")
+    parser.add_argument("--variant", default="GR00T-N1.7-LIBERO-original")
     return parser
 
 
@@ -446,7 +448,7 @@ def _paired_delta(
     left_rows = keyed(left)
     right_rows = keyed(right)
     if left_rows.keys() != right_rows.keys():
-        raise ValueError("Paired A0 runs do not contain identical episode keys")
+        raise ValueError("Paired runs do not contain identical episode keys")
     pairs = [(left_rows[key], right_rows[key]) for key in sorted(left_rows)]
 
     def paired_metric(function: Callable[[dict[str, Any]], float], offset: int) -> dict[str, Any]:
@@ -615,9 +617,9 @@ print(json.dumps(payload))
     return json.loads(output) if output else None
 
 
-def _environment_metadata() -> dict[str, Any]:
+def _environment_metadata(experiment_id: str = "A0") -> dict[str, Any]:
     project_root = Path(__file__).resolve().parents[2]
-    implementation_paths = (
+    implementation_paths = [
         "configs/project.toml",
         "scripts/run_a0_full_benchmark.sh",
         "scripts/setup_robocerebra_a0.sh",
@@ -625,7 +627,18 @@ def _environment_metadata() -> dict[str, Any]:
         "src/unitree_gr00t/a0_eval.py",
         "src/unitree_gr00t/a0_merge.py",
         "src/unitree_gr00t/a0_report.py",
-    )
+    ]
+    if experiment_id == "A1":
+        implementation_paths.extend(
+            (
+                "scripts/download_a1_training_data.sh",
+                "scripts/run_a1_prepare_dataset.sh",
+                "scripts/run_a1_full_benchmark.sh",
+                "src/unitree_gr00t/a1.py",
+                "src/unitree_gr00t/a1_data.py",
+                "src/unitree_gr00t/a1_train.py",
+            )
+        )
     packages = {}
     for name in ("numpy", "mujoco", "robosuite", "pyzmq", "msgpack", "torch"):
         try:
@@ -790,24 +803,39 @@ def _write_summary_figure(path: Path, metrics: dict[str, Any]) -> None:
         axis.set_xticks(x, labels, rotation=20, ha="right")
         axis.grid(axis="y", alpha=0.25)
     axes[0, 0].legend(frameon=False)
-    figure.suptitle("A0 — GR00T N1.7 LIBERO original, continuous no-restore", fontsize=14)
+    figure.suptitle(
+        f"{metrics['experiment_id']} — {metrics['variant']}, continuous no-restore",
+        fontsize=14,
+    )
     figure.savefig(path, dpi=180)
     plt.close(figure)
 
 
 def _markdown(metrics: dict[str, Any]) -> str:
+    experiment_id = str(metrics["experiment_id"])
+    variant = str(metrics["variant"])
+    if experiment_id == "A0":
+        scope = (
+            "A0 measures how far the unmodified `GR00T-N1.7-LIBERO/libero_10` "
+            "low-level policy can execute a long-horizon full-task instruction"
+        )
+    else:
+        scope = (
+            f"{experiment_id} measures the shared post-trained `{variant}` low-level policy's "
+            "ability to execute a long-horizon full-task instruction"
+        )
     lines = [
-        "# A0 full RoboCerebra benchmark — reviewer report",
+        f"# {experiment_id} full RoboCerebra benchmark — reviewer report",
         "",
         "## Scope and research question",
         "",
-        "A0 measures how far the unmodified `GR00T-N1.7-LIBERO/libero_10` low-level policy can execute a long-horizon full-task instruction without a hierarchy, stop/adaptive chunk selector, retry, or recovery. The benchmark covers static, memory, partial-observation, disturbance, and mixed conditions on one continuous simulator timeline.",
+        f"{scope} without a hierarchy, stop/adaptive chunk selector, retry, or recovery. The benchmark covers static, memory, partial-observation, disturbance, and mixed conditions on one continuous simulator timeline.",
         "",
         f"The official [RoboCerebra paper]({PAPER_URL}) defines 60 tasks and 10 rollouts per task, and reports predicate/subtask success as its SR. This report additionally retains terminal goal-state success, ordered-goal reach, confidence intervals, action efficiency, post-reach stability, latency, and per-episode artifacts. The statistical reporting follows the artifact-level caution recommended by the [2026 manipulation benchmark audit]({AUDIT_URL}).",
         "",
         "## Benchmark coverage",
         "",
-        "| Condition | Capability stressed | A0 continuous-track realization |",
+        f"| Condition | Capability stressed | {experiment_id} continuous-track realization |",
         "| --- | --- | --- |",
         "| Ideal | Static, fully observable long-horizon execution | Official Ideal task and initial state |",
         "| Memory_Exploration | Active exploration to build an internal representation | Official exploration task, description, goals, scene, and initial state |",
@@ -816,7 +844,7 @@ def _markdown(metrics: dict[str, Any]) -> str:
         "| Random_Disturbance | Unexpected environment changes | Seeded 0.15 m object-y displacements during one uninterrupted rollout |",
         "| Mix | Memory plus dynamic change and partial observation | Official Mix scene with shifted start and the same seeded displacement rule |",
         "",
-        "Each policy sees the unchanged full-task language instruction and live agent/wrist RGB plus proprioception. A0 supplies no subgoal, symbolic memory, failure detector, retry, or state restoration.",
+        f"Each policy sees the unchanged full-task language instruction and live agent/wrist RGB plus proprioception. {experiment_id} supplies no subgoal, symbolic memory, failure detector, retry, or state restoration.",
         "",
         "## Headline results",
         "",
@@ -833,14 +861,14 @@ def _markdown(metrics: dict[str, Any]) -> str:
             f"{overall['mean_policy_inference_ms']:.2f} ms |"
         )
 
-    lines.extend(["", "![A0 benchmark metric summary](summary_metrics.png)"])
+    lines.extend(["", f"![{experiment_id} benchmark metric summary](summary_metrics.png)"])
 
     lines.extend(
         [
             "",
             "## Published RoboCerebra context",
             "",
-            "These Table 3 averages use the paper's benchmark-compatible resume/anchor protocol and are context only; they are not directly rank-comparable with this report's continuous no-restore A0 track.",
+            f"These Table 3 averages use the paper's benchmark-compatible resume/anchor protocol and are context only; they are not directly rank-comparable with this report's continuous no-restore {experiment_id} track.",
             "",
             "| Published system | Average SR |",
             "| --- | ---: |",
@@ -895,22 +923,29 @@ def _markdown(metrics: dict[str, Any]) -> str:
             "- Reference-evaluator pooled SR: all completed state transitions divided by all possible transitions, matching the public evaluator's aggregate logger. It is reported separately because unequal task lengths make it differ from task-macro SR.",
             "- Terminal goal-state SR (machine-readable legacy key `strict_full_task_success_rate`): every object's terminal goal predicate must hold in the final frame. It can be true even when the ordered evaluator never observed the full transition sequence.",
             "- Ordered-goal reached SR: the public evaluator's sequential `_check_success` became true at least once. Stability/reactivation metrics are conditioned only on these reached episodes.",
-            "- Plan Match Accuracy and symbolic Plan Efficiency: N/A for A0 because it emits no symbolic high-level plan.",
-            "- VideoQA Action Completion Accuracy: N/A because A0 has no reflection/VideoQA head.",
-            "- Failure-detection precision/recall/latency and recovery success: N/A because A0 intentionally has neither detector nor recovery policy. Injection exposure and conditional outcomes remain in the raw episodes/traces.",
+            f"- Plan Match Accuracy and symbolic Plan Efficiency: N/A for {experiment_id} because it emits no symbolic high-level plan.",
+            f"- VideoQA Action Completion Accuracy: N/A because {experiment_id} has no reflection/VideoQA head.",
+            f"- Failure-detection precision/recall/latency and recovery success: N/A because {experiment_id} intentionally has neither detector nor recovery policy. Injection exposure and conditional outcomes remain in the raw episodes/traces.",
             "",
             "## Reproducibility and limitations",
             "",
             "Every run fixes model, dataset, and evaluator revisions; seed, task, trial, initial state, action conversion, 20 Hz control, full model input tensors, predicted chunks, executed transitions, and simulator state are retained. Policy/evaluator semantics and H8/H16 were frozen before inspecting full-test outcomes; only resumability, hardware sharding, integrity checks, and reporting were changed during execution. Confidence intervals quantify rollout uncertainty but do not establish real-world transfer. Simulator workers share one seeded stochastic policy server, so task/trial initial states are matched across horizons but policy diffusion noise is not paired under concurrent request interleaving. This continuous no-restore protocol is intentionally stricter than RoboCerebra's anchor/resume mechanism, so the paper table is contextual rather than a direct leaderboard comparison.",
             "",
-            "See `metrics.json`, the condition/case CSV files, `environment.json`, and `artifact_inventory.json` for machine-readable evidence. The environment file hashes the exact A0 implementation sources; the inventory hashes every core JSON/JSONL file and the complete frame tree.",
+            f"See `metrics.json`, the condition/case CSV files, `environment.json`, and `artifact_inventory.json` for machine-readable evidence. The environment file hashes the exact {experiment_id} implementation sources; the inventory hashes every core JSON/JSONL file and the complete frame tree.",
             "",
         ]
     )
     return "\n".join(lines)
 
 
-def build_report(run_specs: list[str], output: Path, samples: int) -> dict[str, Any]:
+def build_report(
+    run_specs: list[str],
+    output: Path,
+    samples: int,
+    *,
+    experiment_id: str = "A0",
+    variant: str = "GR00T-N1.7-LIBERO-original",
+) -> dict[str, Any]:
     if samples < 1000:
         raise ValueError("--bootstrap-samples must be at least 1000")
     parsed: list[tuple[str, Path]] = []
@@ -928,8 +963,8 @@ def build_report(run_specs: list[str], output: Path, samples: int) -> dict[str, 
     payload: dict[str, Any] = {
         "schema_version": 1,
         "benchmark": "RoboCerebra",
-        "experiment_id": "A0",
-        "variant": "GR00T-N1.7-LIBERO-original",
+        "experiment_id": experiment_id,
+        "variant": variant,
         "protocol": "continuous_no_restore",
         "outcome_tuning_policy": (
             "Policy/evaluator semantics and fixed horizons were frozen before full-test outcome "
@@ -943,7 +978,7 @@ def build_report(run_specs: list[str], output: Path, samples: int) -> dict[str, 
         "published_context": {
             "source": PAPER_URL,
             "comparison_warning": (
-                "RoboCerebra Table 3 uses benchmark resume/anchor behavior; A0 uses continuous "
+                f"RoboCerebra Table 3 uses benchmark resume/anchor behavior; {experiment_id} uses continuous "
                 "no-restore rollouts, so these values are contextual rather than a leaderboard."
             ),
             "table_3_average_sr": {
@@ -962,7 +997,7 @@ def build_report(run_specs: list[str], output: Path, samples: int) -> dict[str, 
             "average_plan_match_accuracy": None,
             "plan_efficiency": None,
             "videoqa_action_completion_accuracy": None,
-            "reason": "A0 has no high-level planner, symbolic action trace, or VideoQA reflection head",
+            "reason": f"{experiment_id} has no high-level planner, symbolic action trace, or VideoQA reflection head",
         },
         "runs": {},
     }
@@ -1018,7 +1053,7 @@ def build_report(run_specs: list[str], output: Path, samples: int) -> dict[str, 
     _write_csv(output / "metrics_by_condition.csv", condition_csv)
     _write_csv(output / "metrics_by_case.csv", case_csv)
     _write_summary_figure(output / "summary_metrics.png", payload)
-    _write_json(output / "environment.json", _environment_metadata())
+    _write_json(output / "environment.json", _environment_metadata(experiment_id))
     inventory = {run["label"]: _artifact_inventory(run) for run in runs}
     for run in runs:
         label = run["label"]
@@ -1070,7 +1105,13 @@ def _write_json(path: Path, value: Any) -> None:
 
 def main() -> int:
     args = _parser().parse_args()
-    payload = build_report(args.run, args.output, args.bootstrap_samples)
+    payload = build_report(
+        args.run,
+        args.output,
+        args.bootstrap_samples,
+        experiment_id=args.experiment_id,
+        variant=args.variant,
+    )
     headline = {
         label: {
             "paper_sr": run["overall"]["paper_subtask_success_rate"],

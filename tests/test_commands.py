@@ -5,6 +5,9 @@ import pytest
 from unitree_gr00t.commands import (
     build_a0_eval_command,
     build_a0_server_command,
+    build_a1_eval_command,
+    build_a1_prepare_command,
+    build_a1_train_command,
     build_deploy_command,
     build_server_command,
     build_train_command,
@@ -77,3 +80,30 @@ def test_a0_eval_is_frozen_to_declared_execution_horizons(tmp_path: Path) -> Non
             seed=7,
             output_dir=tmp_path / "invalid",
         )
+
+
+def test_a1_commands_pin_shared_posttraining_contract(tmp_path: Path) -> None:
+    config = load_config(ROOT / "configs" / "project.toml")
+    prepare = build_a1_prepare_command(config, workers=8)
+    assert "995" in prepare.argv
+    assert "1000" in prepare.argv
+    assert "--resume" in prepare.argv
+
+    train = build_a1_train_command(config, max_steps=20_000)
+    assert str(config.robocerebra_posttrain.base_checkpoint_dir) in train.argv
+    assert "--micro-batch-size" in train.argv
+    assert "--gradient-accumulation-steps" in train.argv
+    assert "LIBERO_PANDA" not in train.argv  # enforced inside the provenance-locked runner
+
+    evaluate = build_a1_eval_command(
+        config,
+        task_types=["Ideal"],
+        case_names=["case1"],
+        trials=1,
+        execution_horizon=16,
+        seed=7,
+        output_dir=tmp_path / "a1",
+    )
+    assert str(config.robocerebra_posttrain.checkpoint_dir) in evaluate.argv
+    assert "A1" in evaluate.argv
+    assert "GR00T-RC" in evaluate.argv

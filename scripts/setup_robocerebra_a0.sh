@@ -25,6 +25,8 @@ uv pip install --python "${EVAL_VENV}/bin/python" \
   "bddl==1.0.1" \
   "gym==0.25.2" \
   "h5py>=3.10,<4" \
+  "pandas>=2.2,<3" \
+  "pyarrow>=18,<24" \
   "future>=0.18,<2" \
   "cloudpickle>=2.1,<4" \
   "easydict>=1.9,<2" \

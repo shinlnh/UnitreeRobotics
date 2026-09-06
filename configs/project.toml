@@ -42,6 +42,32 @@ steps_per_subtask = 150
 initial_wait_steps = 15
 post_success_observation_steps = 80
 
+[robocerebra_posttrain]
+experiment_id = "A1"
+variant = "GR00T-RC"
+training_dataset = "qiukingballball/RoboCerebra"
+training_dataset_revision = "5d2e1e361bf65aabbe4d18179515f5a10936cc96"
+training_manifest = ".cache/robocerebra/train/RoboCerebra_trainset/trainingset.json"
+training_manifest_sha256 = "3211be95643a2ff8fdda2253267137272617821ac93ae827fd12355e7a39d46f"
+raw_training_dir = ".cache/robocerebra/train/RoboCerebra_trainset"
+lerobot_training_dir = "outputs/robocerebra/gr00t-lerobot-v2"
+base_checkpoint_dir = "checkpoints/robocerebra/GR00T-N1.7-LIBERO/libero_10"
+checkpoint_dir = "checkpoints/robocerebra/GR00T-RC"
+expected_training_manifest_rows = 1000
+# The pinned source has four missing HDF5 demos and one missing authoritative BDDL.
+expected_training_episodes = 995
+download_workers = 32
+conversion_workers = 10
+dataset_fps = 20
+max_steps = 20000
+# Pilot-selected maximum stable throughput on the 16 GiB RTX 5070 Ti.
+micro_batch_size = 2
+gradient_accumulation_steps = 16
+dataloader_workers = 8
+learning_rate = 1e-4
+state_dropout_probability = 0.2
+save_steps = 1000
+
 [model]
 base_model = "nvidia/GR00T-N1.7-3B"
 embodiment = "UNITREE_G1_SONIC"

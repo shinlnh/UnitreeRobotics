@@ -36,6 +36,14 @@ The exact repository, dataset, model revisions, and evaluation constants are in
 the checkpoint used by NVIDIA's official LIBERO examples. Only inference files
 are required; optimizer and RNG states are excluded from downloads.
 
+The A1 training snapshot is `qiukingballball/RoboCerebra` at the pinned revision.
+Its 1,000-row manifest contains 995 replayable demonstrations: four rows have no
+HDF5 demonstration and one HDF5 row has no matching authoritative BDDL. Those
+five exclusions are frozen by source audit and reported in the converted-dataset
+provenance. HDF5 `problem_info.language_instruction` and `bddl_file_name` are the
+authoritative label and environment contract when manifest summaries or duplicate
+BDDL files disagree.
+
 ## Two evaluation tracks
 
 ### Track A — benchmark-compatible
