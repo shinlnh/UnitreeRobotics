@@ -5,9 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
+from .a0 import discover_cases, inspect_checkpoint
 from .commands import (
+    build_a0_eval_command,
+    build_a0_server_command,
     build_collect_command,
     build_deploy_command,
     build_open_loop_command,
@@ -86,6 +90,31 @@ def _parser() -> argparse.ArgumentParser:
     collect.add_argument("--dataset-name")
     collect.add_argument("--execute", action="store_true")
     collect.add_argument("--acknowledge-real-robot-risk", default="")
+
+    a0_check = subparsers.add_parser(
+        "a0-check", help="Validate frozen A0 checkpoint and benchmark assets"
+    )
+    a0_check.add_argument("--task-types", nargs="+", default=["Ideal"])
+    a0_check.add_argument("--cases", nargs="*", default=[])
+
+    a0_server = subparsers.add_parser(
+        "a0-server", help="Preview or start the original GR00T N1.7 LIBERO server"
+    )
+    a0_server.add_argument("--seed", type=int, default=7)
+    a0_server.add_argument("--execute", action="store_true")
+
+    a0_eval = subparsers.add_parser(
+        "a0-eval", help="Preview or run the no-hierarchy A0 RoboCerebra evaluation"
+    )
+    a0_eval.add_argument("--task-types", nargs="+", default=["Ideal"])
+    a0_eval.add_argument("--cases", nargs="*", default=[])
+    a0_eval.add_argument("--trials", type=int, default=1)
+    a0_eval.add_argument("--execution-horizon", type=int, default=16, choices=(8, 16))
+    a0_eval.add_argument("--seed", type=int, default=7)
+    a0_eval.add_argument("--output")
+    a0_eval.add_argument("--no-trace-images", action="store_true")
+    a0_eval.add_argument("--resume", action="store_true")
+    a0_eval.add_argument("--execute", action="store_true")
 
     subparsers.add_parser("show-config", help="Print resolved runtime configuration")
     return parser
@@ -179,6 +208,43 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "collect":
         _require_real_ack(args)
         spec = build_collect_command(config, args.mode, args.prompt, args.dataset_name)
+        return run_or_preview(spec, args.execute)
+
+    if args.command == "a0-check":
+        contract = inspect_checkpoint(config.robocerebra.checkpoint_dir)
+        cases = discover_cases(config.robocerebra.benchmark_dir, args.task_types, args.cases)
+        if contract.action_horizon != config.robocerebra.action_horizon:
+            raise ValueError(
+                "Configured A0 action horizon does not match checkpoint contract: "
+                f"H{config.robocerebra.action_horizon} != H{contract.action_horizon}"
+            )
+        payload = asdict(contract)
+        payload["checkpoint_dir"] = str(contract.checkpoint_dir)
+        payload["benchmark_cases"] = [f"{case.task_type}/{case.case_name}" for case in cases]
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command == "a0-server":
+        inspect_checkpoint(config.robocerebra.checkpoint_dir)
+        return run_or_preview(build_a0_server_command(config, args.seed), args.execute)
+
+    if args.command == "a0-eval":
+        output = (
+            Path(args.output).expanduser()
+            if args.output
+            else config.artifact_dir / "A0" / f"H{args.execution_horizon}-seed{args.seed}"
+        )
+        spec = build_a0_eval_command(
+            config,
+            task_types=args.task_types,
+            case_names=args.cases,
+            trials=args.trials,
+            execution_horizon=args.execution_horizon,
+            seed=args.seed,
+            output_dir=output,
+            trace_images=not args.no_trace_images,
+            resume=args.resume,
+        )
         return run_or_preview(spec, args.execute)
 
     if args.command == "show-config":

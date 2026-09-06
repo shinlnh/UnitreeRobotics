@@ -11,7 +11,10 @@ def test_project_config_resolves_paths() -> None:
     assert config.root == ROOT
     assert config.model.embodiment == "UNITREE_G1_SONIC"
     assert config.sonic.action_horizon == 40
-    assert config.isaac_gr00t_dir == ROOT / ".upstream" / "Isaac-GR00T"
+    assert config.isaac_gr00t_dir == ROOT / ".upstream" / "Isaac-GR00T-N1.7"
+    assert config.robocerebra_dir == ROOT / ".upstream" / "RoboCerebra"
+    assert config.robocerebra.action_horizon == 16
+    assert config.robocerebra.fixed_execution_horizons == (8, 16)
 
 
 def test_task_catalog_and_selection() -> None:

@@ -227,6 +227,111 @@ def build_open_loop_command(
     return CommandSpec(tuple(argv), config.isaac_gr00t_dir, "Run open-loop checkpoint evaluation")
 
 
+def build_a0_server_command(config: ProjectConfig, seed: int = 7) -> CommandSpec:
+    """Start the unmodified NVIDIA LIBERO checkpoint behind its official API."""
+
+    argv = (
+        "uv",
+        "run",
+        "--no-sync",
+        "python",
+        "gr00t/eval/run_gr00t_server.py",
+        "--model-path",
+        str(config.robocerebra.checkpoint_dir),
+        "--embodiment-tag",
+        config.robocerebra.embodiment,
+        "--device",
+        config.model.device,
+        "--host",
+        config.model.bind_host,
+        "--port",
+        str(config.model.port),
+        "--seed",
+        str(seed),
+        "--use-sim-policy-wrapper",
+    )
+    return CommandSpec(argv, config.isaac_gr00t_dir, "Start the frozen A0 policy server")
+
+
+def build_a0_eval_command(
+    config: ProjectConfig,
+    *,
+    task_types: list[str],
+    case_names: list[str],
+    trials: int,
+    execution_horizon: int,
+    seed: int,
+    output_dir: str | Path,
+    trace_images: bool = True,
+    resume: bool = False,
+) -> CommandSpec:
+    """Build the separate RoboCerebra client command for experiment A0."""
+
+    if trials < 1:
+        raise ValueError("trials must be at least 1")
+    if execution_horizon not in config.robocerebra.fixed_execution_horizons:
+        allowed = ", ".join(f"H{value}" for value in config.robocerebra.fixed_execution_horizons)
+        raise ValueError(f"A0 execution horizon must be one of: {allowed}")
+    unknown_types = sorted(set(task_types) - set(config.robocerebra.task_types))
+    if unknown_types:
+        raise ValueError(f"Unknown RoboCerebra task types: {', '.join(unknown_types)}")
+
+    evaluator_python = config.root / ".venv-a0" / "bin" / "python"
+    output = Path(output_dir).expanduser().resolve()
+    argv = [
+        "/usr/bin/env",
+        f"PYTHONPATH={config.root / 'src'}",
+        str(evaluator_python),
+        "-m",
+        "unitree_gr00t.a0_eval",
+        "--robocerebra-source",
+        str(config.robocerebra_dir),
+        "--benchmark-dir",
+        str(config.robocerebra.benchmark_dir),
+        "--checkpoint",
+        str(config.robocerebra.checkpoint_dir),
+        "--benchmark-revision",
+        config.upstream.robocerebra_revision,
+        "--model-revision",
+        config.robocerebra.model_revision,
+        "--dataset-revision",
+        config.robocerebra.dataset_revision,
+        "--task-types",
+        *task_types,
+    ]
+    if case_names:
+        argv.extend(("--cases", *case_names))
+    argv.extend(
+        (
+            "--trials",
+            str(trials),
+            "--execution-horizon",
+            str(execution_horizon),
+            "--control-frequency-hz",
+            str(config.robocerebra.control_frequency_hz),
+            "--steps-per-subtask",
+            str(config.robocerebra.steps_per_subtask),
+            "--initial-wait-steps",
+            str(config.robocerebra.initial_wait_steps),
+            "--post-success-steps",
+            str(config.robocerebra.post_success_observation_steps),
+            "--seed",
+            str(seed),
+            "--policy-host",
+            config.model.host,
+            "--policy-port",
+            str(config.model.port),
+            "--output",
+            str(output),
+        )
+    )
+    if not trace_images:
+        argv.append("--no-trace-images")
+    if resume:
+        argv.append("--resume")
+    return CommandSpec(tuple(argv), config.root, "Run A0 on RoboCerebra")
+
+
 def run_or_preview(spec: CommandSpec, execute: bool) -> int:
     print(f"{spec.description}:\n{spec.display()}")
     if not execute:

@@ -13,8 +13,36 @@ class UpstreamConfig:
     root: Path
     isaac_gr00t_repo: str
     isaac_gr00t_revision: str
+    isaac_gr00t_dirname: str
     sonic_repo: str
     sonic_revision: str
+    sonic_dirname: str
+    robocerebra_repo: str
+    robocerebra_revision: str
+    robocerebra_dirname: str
+    sparkvla_repo: str
+    sparkvla_revision: str
+    sparkvla_dirname: str
+
+
+@dataclass(frozen=True)
+class RoboCerebraConfig:
+    dataset: str
+    dataset_revision: str
+    model: str
+    model_revision: str
+    checkpoint_subdir: str
+    checkpoint_dir: Path
+    benchmark_dir: Path
+    embodiment: str
+    task_types: tuple[str, ...]
+    trials_per_task: int
+    control_frequency_hz: int
+    action_horizon: int
+    fixed_execution_horizons: tuple[int, ...]
+    steps_per_subtask: int
+    initial_wait_steps: int
+    post_success_observation_steps: int
 
 
 @dataclass(frozen=True)
@@ -61,6 +89,7 @@ class ProjectConfig:
     name: str
     artifact_dir: Path
     upstream: UpstreamConfig
+    robocerebra: RoboCerebraConfig
     model: ModelConfig
     sonic: SonicConfig
     training: TrainingConfig
@@ -68,11 +97,19 @@ class ProjectConfig:
 
     @property
     def isaac_gr00t_dir(self) -> Path:
-        return self.upstream.root / "Isaac-GR00T"
+        return self.upstream.root / self.upstream.isaac_gr00t_dirname
 
     @property
     def sonic_dir(self) -> Path:
-        return self.upstream.root / "GR00T-WholeBodyControl"
+        return self.upstream.root / self.upstream.sonic_dirname
+
+    @property
+    def robocerebra_dir(self) -> Path:
+        return self.upstream.root / self.upstream.robocerebra_dirname
+
+    @property
+    def sparkvla_dir(self) -> Path:
+        return self.upstream.root / self.upstream.sparkvla_dirname
 
 
 def _pair(value: Any, key: str) -> tuple[float, float]:
@@ -95,6 +132,7 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
     root = config_path.parent.parent
     project = raw["project"]
     upstream = raw["upstream"]
+    robocerebra = raw["robocerebra"]
     model = raw["model"]
     sonic = raw["sonic"]
     training = raw["training"]
@@ -108,6 +146,14 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
     if not artifact_dir.is_absolute():
         artifact_dir = root / artifact_dir
 
+    checkpoint_dir = Path(robocerebra["checkpoint_dir"])
+    if not checkpoint_dir.is_absolute():
+        checkpoint_dir = root / checkpoint_dir
+
+    benchmark_dir = Path(robocerebra["benchmark_dir"])
+    if not benchmark_dir.is_absolute():
+        benchmark_dir = root / benchmark_dir
+
     return ProjectConfig(
         root=root,
         name=str(project["name"]),
@@ -116,8 +162,36 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
             root=upstream_root,
             isaac_gr00t_repo=str(upstream["isaac_gr00t_repo"]),
             isaac_gr00t_revision=str(upstream["isaac_gr00t_revision"]),
+            isaac_gr00t_dirname=str(upstream.get("isaac_gr00t_dirname", "Isaac-GR00T")),
             sonic_repo=str(upstream["sonic_repo"]),
             sonic_revision=str(upstream["sonic_revision"]),
+            sonic_dirname=str(upstream.get("sonic_dirname", "GR00T-WholeBodyControl")),
+            robocerebra_repo=str(upstream["robocerebra_repo"]),
+            robocerebra_revision=str(upstream["robocerebra_revision"]),
+            robocerebra_dirname=str(upstream.get("robocerebra_dirname", "RoboCerebra")),
+            sparkvla_repo=str(upstream["sparkvla_repo"]),
+            sparkvla_revision=str(upstream["sparkvla_revision"]),
+            sparkvla_dirname=str(upstream.get("sparkvla_dirname", "SparkVLA")),
+        ),
+        robocerebra=RoboCerebraConfig(
+            dataset=str(robocerebra["dataset"]),
+            dataset_revision=str(robocerebra["dataset_revision"]),
+            model=str(robocerebra["model"]),
+            model_revision=str(robocerebra["model_revision"]),
+            checkpoint_subdir=str(robocerebra["checkpoint_subdir"]),
+            checkpoint_dir=checkpoint_dir,
+            benchmark_dir=benchmark_dir,
+            embodiment=str(robocerebra["embodiment"]),
+            task_types=tuple(str(value) for value in robocerebra["task_types"]),
+            trials_per_task=int(robocerebra["trials_per_task"]),
+            control_frequency_hz=int(robocerebra["control_frequency_hz"]),
+            action_horizon=int(robocerebra["action_horizon"]),
+            fixed_execution_horizons=tuple(
+                int(value) for value in robocerebra["fixed_execution_horizons"]
+            ),
+            steps_per_subtask=int(robocerebra["steps_per_subtask"]),
+            initial_wait_steps=int(robocerebra["initial_wait_steps"]),
+            post_success_observation_steps=int(robocerebra["post_success_observation_steps"]),
         ),
         model=ModelConfig(
             base_model=str(model["base_model"]),

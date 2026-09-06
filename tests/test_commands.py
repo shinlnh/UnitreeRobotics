@@ -3,6 +3,8 @@ from pathlib import Path
 import pytest
 
 from unitree_gr00t.commands import (
+    build_a0_eval_command,
+    build_a0_server_command,
     build_deploy_command,
     build_server_command,
     build_train_command,
@@ -36,3 +38,42 @@ def test_deploy_uses_matching_sonic_variant() -> None:
     assert "policy/sonic_v1_1/observation_config.yaml" in spec.argv
     assert "--no-data-exporter" in spec.argv
     assert "pick up the apple" in rendered
+
+
+def test_a0_server_uses_original_libero_checkpoint_and_wrapper() -> None:
+    config = load_config(ROOT / "configs" / "project.toml")
+    spec = build_a0_server_command(config, seed=13)
+    assert str(config.robocerebra.checkpoint_dir) in spec.argv
+    assert "LIBERO_PANDA" in spec.argv
+    assert "--use-sim-policy-wrapper" in spec.argv
+    assert spec.cwd == ROOT / ".upstream" / "Isaac-GR00T-N1.7"
+
+
+def test_a0_eval_is_frozen_to_declared_execution_horizons(tmp_path: Path) -> None:
+    config = load_config(ROOT / "configs" / "project.toml")
+    spec = build_a0_eval_command(
+        config,
+        task_types=["Ideal"],
+        case_names=["case1"],
+        trials=1,
+        execution_horizon=16,
+        seed=7,
+        output_dir=tmp_path / "a0",
+        resume=True,
+    )
+    assert "unitree_gr00t.a0_eval" in spec.argv
+    assert "--model-revision" in spec.argv
+    assert "--dataset-revision" in spec.argv
+    assert "--resume" in spec.argv
+    assert "16" in spec.argv
+
+    with pytest.raises(ValueError, match="H8, H16"):
+        build_a0_eval_command(
+            config,
+            task_types=["Ideal"],
+            case_names=[],
+            trials=1,
+            execution_horizon=4,
+            seed=7,
+            output_dir=tmp_path / "invalid",
+        )
