@@ -455,6 +455,10 @@ PYTHONPATH=src python3 -m unitree_gr00t.cli b-train --execute
 PYTHONPATH=src python3 -m unitree_gr00t.cli b-check --stage checkpoint
 ```
 
+Trainer luôn chạy đủ 20.000 step đã freeze và xuất checkpoint có development
+loss thấp nhất (nếu hòa thì chọn step sớm hơn); mọi metric theo từng mốc vẫn nằm
+trong provenance, không dùng held-out outcome để chọn weights.
+
 Pilot dùng `b-server` và `b-eval` giống cách A2 tách server/client. Feature resume
 được khóa bằng hash của index, A1 weights, seed, device và batch size; policy RNG
 cũng được derive từ seed episode + decision index ở mỗi request để kết quả không

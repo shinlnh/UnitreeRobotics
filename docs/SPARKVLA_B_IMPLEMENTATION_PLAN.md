@@ -85,6 +85,8 @@ Ordinal labels follow the paper's Algorithm 1:
 - unsuccessful-rollout STOP weight `1.5`;
 - pairwise ranking plus STOP-aware log-sum-exp loss with
   `lambda_stop = 1`;
+- run all 20,000 scheduled optimizer steps, then export the checkpoint with
+  minimum frozen-development loss (earliest step breaks an exact tie);
 - train seed `7`.
 
 The available source supports successful demonstrations only. It does not expose

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import pickle
 import random
@@ -363,17 +364,26 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "near_boundary_stop_weight": args.near_boundary_stop_weight,
         "unsuccessful_rank_weight": args.unsuccessful_rank_weight,
         "unsuccessful_stop_weight": args.unsuccessful_stop_weight,
+        "checkpoint_selection": "minimum development loss; earliest step breaks ties",
     }
     history: list[dict[str, Any]] = []
+    best_record: dict[str, Any] | None = None
+    best_model_path: Path | None = None
+    best_weights_sha256: str | None = None
     start_step = 0
     if resume:
         resume_artifacts = [path for pair in resume_slots for path in pair if path.exists()]
         allowed_artifacts = set(resume_artifacts)
         if final_weights_path.exists():
             allowed_artifacts.add(final_weights_path)
+        best_artifacts = {
+            path for path in destination.glob("best_model_step_*.safetensors") if path.is_file()
+        }
+        allowed_artifacts.update(best_artifacts)
         temporary_patterns = (
             "resume_model_[01].tmp-*.safetensors",
             "training_state_[01].tmp-*.pt",
+            "best_model_step_*.tmp-*.safetensors",
             "model.tmp-*.safetensors",
         )
         temporary_artifacts = {
@@ -401,12 +411,27 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     "history",
                     "contract",
                     "resume_weights_sha256",
+                    "best_record",
+                    "best_model_filename",
+                    "best_weights_sha256",
                 }
                 if not required_state.issubset(state):
                     continue
                 if state["contract"] != resume_contract:
                     continue
                 if state["resume_weights_sha256"] != sha256_file(resume_model_path):
+                    continue
+                best_filename = str(state["best_model_filename"])
+                if (
+                    Path(best_filename).name != best_filename
+                    or not best_filename.startswith("best_model_step_")
+                    or not best_filename.endswith(".safetensors")
+                ):
+                    continue
+                candidate_best_path = destination / best_filename
+                if not candidate_best_path.is_file() or state["best_weights_sha256"] != sha256_file(
+                    candidate_best_path
+                ):
                     continue
                 valid_slots.append((int(state["step"]), resume_model_path, state))
             except (EOFError, KeyError, OSError, RuntimeError, ValueError, pickle.UnpicklingError):
@@ -428,6 +453,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     raise ValueError("B resume checkpoint CUDA device count does not match")
                 torch.cuda.set_rng_state_all(cuda_rng_state_all)
             history = list(state["history"])
+            best_record = dict(state["best_record"])
+            best_model_path = destination / str(state["best_model_filename"])
+            best_weights_sha256 = str(state["best_weights_sha256"])
         for path in temporary_artifacts:
             path.unlink(missing_ok=True)
 
@@ -479,11 +507,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 torch=torch,
             )
             record = {"step": step, "learning_rate": rate, **metrics}
+            if not math.isfinite(float(record["loss"])):
+                raise ValueError("B development loss is not finite")
             history.append(record)
             print(json.dumps(record), flush=True)
             resume_weights = {
                 key: value.detach().cpu().contiguous() for key, value in model.state_dict().items()
             }
+            if best_record is None or float(record["loss"]) < float(best_record["loss"]):
+                best_model_path = destination / f"best_model_step_{step:08d}.safetensors"
+                temporary_best = best_model_path.with_suffix(f".tmp-{os.getpid()}.safetensors")
+                save_file(resume_weights, temporary_best)
+                temporary_best.replace(best_model_path)
+                best_weights_sha256 = sha256_file(best_model_path)
+                best_record = dict(record)
             slot = (len(history) - 1) % len(resume_slots)
             resume_model_path, resume_state_path = resume_slots[slot]
             temporary_model = resume_model_path.with_suffix(f".tmp-{os.getpid()}.safetensors")
@@ -502,13 +539,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     "history": history,
                     "contract": resume_contract,
                     "resume_weights_sha256": sha256_file(resume_model_path),
+                    "best_record": best_record,
+                    "best_model_filename": best_model_path.name,
+                    "best_weights_sha256": best_weights_sha256,
                 },
                 temporary_state,
             )
             temporary_state.replace(resume_state_path)
 
     weights_path = final_weights_path
-    state = {key: value.detach().cpu().contiguous() for key, value in model.state_dict().items()}
+    if best_record is None or best_model_path is None or best_weights_sha256 is None:
+        raise RuntimeError("B training completed without a development-selected checkpoint")
+    if sha256_file(best_model_path) != best_weights_sha256:
+        raise ValueError("B best-development checkpoint hash changed before final export")
+    state = load_file(str(best_model_path))
     temporary_weights = weights_path.with_suffix(f".tmp-{os.getpid()}.safetensors")
     save_file(state, temporary_weights)
     temporary_weights.replace(weights_path)
@@ -543,6 +587,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "unsuccessful_rank_weight": args.unsuccessful_rank_weight,
             "unsuccessful_stop_weight": args.unsuccessful_stop_weight,
             "seed": args.seed,
+            "checkpoint_selection": "minimum development loss; earliest step breaks ties",
+            "selected_step": int(best_record["step"]),
         },
         "selection": {
             "stop_confirmation_window": args.stop_confirmation_window,
@@ -552,6 +598,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "samples": len(fixed_development),
             "metrics": history,
             "final": history[-1],
+            "best": best_record,
         },
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
     }
@@ -562,6 +609,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     for pattern in ("resume_model_[01].tmp-*.safetensors", "training_state_[01].tmp-*.pt"):
         for path in destination.glob(pattern):
             path.unlink(missing_ok=True)
+    for path in destination.glob("best_model_step_*.safetensors"):
+        path.unlink(missing_ok=True)
+    for path in destination.glob("best_model_step_*.tmp-*.safetensors"):
+        path.unlink(missing_ok=True)
     return provenance
 
 
