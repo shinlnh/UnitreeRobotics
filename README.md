@@ -474,3 +474,11 @@ anchor-history hash (kèm vector anchor mới một lần), STOP streak/commit, 
 H16 chunk, prefix thật sự thực thi và transition vật lý. Reviewer report so khớp B
 với A2 theo task/case/trial/horizon để cô lập tác động của learned execution
 selector.
+
+Run frozen cuối đã hoàn tất 600 episode cho mỗi horizon. Task-macro predicate SR
+là 1,28% ở H16 và 0,52% ở H8; terminal goal-state SR lần lượt là 1,00% và
+0,17%. So với A2, delta task-macro SR là -1,52 điểm phần trăm ở H16 và -2,13
+điểm phần trăm ở H8, với cả hai khoảng tin cậy 95% không cắt zero. Kết quả âm và
+STOP quá mạnh được giữ nguyên, không tuning lại trên held-out outcome. Xem
+[`artifacts/B/full-benchmark/reviewer/REVIEWER_REPORT.md`](artifacts/B/full-benchmark/reviewer/REVIEWER_REPORT.md)
+và [`artifacts/B/preflight/summary.json`](artifacts/B/preflight/summary.json).
