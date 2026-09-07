@@ -551,6 +551,11 @@ def _run(args: argparse.Namespace) -> int:
             if payload.get("benchmark_exact_prompt_overlaps") != 0:
                 raise ValueError("B selector index overlaps exact held-out prompts")
         else:
+            contract, _ = inspect_a1_checkpoint(
+                config.robocerebra_posttrain.checkpoint_dir,
+                expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
+            )
+            verify_a1_weight_hashes(contract, payload.get("checkpoint_weight_shards_sha256"))
             hashes = payload.get("feature_files_sha256")
             if not isinstance(hashes, dict) or len(hashes) != int(payload.get("feature_files", -1)):
                 raise ValueError("B feature manifest is missing its complete hash inventory")

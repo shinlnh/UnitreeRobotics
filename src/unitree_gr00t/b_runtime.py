@@ -6,7 +6,7 @@ import hashlib
 from typing import Any
 
 from .a0 import ACTION_KEYS
-from .b import BContractError, candidate_validity
+from .b import BContractError, candidate_validity, select_unified_candidate
 
 
 class BackboneCapture:
@@ -121,7 +121,7 @@ def build_selector_sim_policy(
                     torch.as_tensor([valid], device=context.device, dtype=torch.bool),
                 )
             score_values = scores[0].float().cpu().numpy()
-            candidate = int(np.argmax(score_values))
+            candidate = select_unified_candidate(score_values.tolist(), valid)
             selector_info = {
                 "candidate": candidate,
                 "scores": score_values,

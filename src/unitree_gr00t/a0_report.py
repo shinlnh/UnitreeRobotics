@@ -696,6 +696,8 @@ def _environment_metadata(experiment_id: str = "A0") -> dict[str, Any]:
         implementation_paths.extend(
             (
                 "docs/SPARKVLA_B_IMPLEMENTATION_PLAN.md",
+                "scripts/run_b_full_benchmark.sh",
+                "scripts/run_b_pipeline.sh",
                 "src/unitree_gr00t/b.py",
                 "src/unitree_gr00t/b_data.py",
                 "src/unitree_gr00t/b_features.py",
