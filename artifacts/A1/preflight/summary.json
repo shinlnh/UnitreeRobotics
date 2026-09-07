@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "experiment_id": "A1",
+  "variant": "GR00T-RC",
+  "complete": false,
+  "phase": "preflight_complete_long_run_pending",
+  "source": {
+    "dataset": "qiukingballball/RoboCerebra",
+    "revision": "5d2e1e361bf65aabbe4d18179515f5a10936cc96",
+    "manifest_sha256": "3211be95643a2ff8fdda2253267137272617821ac93ae827fd12355e7a39d46f",
+    "manifest_rows": 1000,
+    "usable_episodes": 995,
+    "unique_training_prompts": 945,
+    "benchmark_prompts": 25,
+    "exact_prompt_overlap_count": 0,
+    "excluded_missing_demonstrations": [
+      "coffee_table/case485",
+      "coffee_table/case487",
+      "coffee_table/case500",
+      "coffee_table/case622"
+    ],
+    "excluded_missing_bddl": [
+      "coffee_table/case13"
+    ],
+    "resolved_ambiguous_bddl_count": 8
+  },
+  "conversion_pilot": {
+    "source_case": "coffee_table/case1",
+    "source_frames": 5504,
+    "filtered_frames": 1031,
+    "removed_noops": 4473,
+    "fps": 20,
+    "camera_streams": 2,
+    "converted_dataset_valid": true
+  },
+  "mujoco_compatibility_pilot": {
+    "reason": "legacy window ranged joint omitted an explicit limited attribute",
+    "compatibility": "set compiler autolimits=true in generated A1 XML",
+    "source_case": "coffee_table/case137",
+    "source_frames": 1944,
+    "filtered_frames": 770,
+    "removed_noops": 1174,
+    "complete": true
+  },
+  "training_pilot": {
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "gpu_memory_mib": 16303,
+    "trainable_parameters": 1620515968,
+    "tuned_modules": [
+      "projector",
+      "diffusion_model"
+    ],
+    "frozen_modules": [
+      "language_backbone",
+      "visual_backbone"
+    ],
+    "selected_profile": {
+      "dtype": "bfloat16",
+      "optimizer": "adafactor",
+      "gradient_checkpointing": true,
+      "micro_batch_size": 2,
+      "gradient_accumulation_steps": 16,
+      "effective_batch_size": 32,
+      "dataloader_workers": 8,
+      "pilot_optimizer_steps": 1,
+      "pilot_train_loss": 0.7019636631011963,
+      "checkpoint_contract_valid": true
+    },
+    "rejected_profiles": [
+      {
+        "profile": "fp32_upstream_default_batch1_accum32",
+        "reason": "CUDA OOM during backward at 14.66 GiB process usage"
+      },
+      {
+        "profile": "bf16_backbone_fp32_trainable_batch1_accum32",
+        "reason": "CUDA OOM during backward at 14.44 GiB process usage"
+      },
+      {
+        "profile": "bf16_batch4_accum8",
+        "reason": "valid but lower observed pilot throughput than batch2_accum16"
+      }
+    ]
+  },
+  "verification": {
+    "ruff": "passed",
+    "pytest": "33 passed",
+    "shell_syntax": "passed",
+    "long_running_processes_left_active": 0
+  }
+}

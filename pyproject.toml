@@ -14,7 +14,8 @@ authors = [{ name = "Unitree GR00T Project" }]
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.8"]
+dev = ["numpy>=1.26,<2", "pytest>=8.0", "ruff>=0.8"]
+a1-data = ["h5py>=3.12,<4", "pandas>=2.2,<3", "pyarrow>=18,<24"]
 
 [project.scripts]
 gr00t-g1 = "unitree_gr00t.cli:main"

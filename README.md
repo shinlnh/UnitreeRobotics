@@ -28,6 +28,8 @@ Project end-to-end để chạy một policy vision-language-action generalist t
 | SONIC + MuJoCo rollout | Có | `gr00t-g1 deploy --mode sim` |
 | Isaac Sim + GR00T static rollout | Có, đã chạy thật | `scripts/run_arena_static_apple.sh start` |
 | Isaac Sim + GR00T loco-manipulation | Có, đã chạy thật | `scripts/run_arena_loco_box.sh start` |
+| A0: GR00T-N1.7-LIBERO original | Có | `gr00t-g1 a0-check` |
+| A1: shared GR00T-RC post-training | Có | `gr00t-g1 a1-check` |
 | G1 real deployment interlock | Có | `gr00t-g1 deploy --mode real` |
 
 ## Ba demo Isaac Sim đã chạy thật
@@ -263,3 +265,114 @@ CPU tests không tải model và không gửi command tới robot. Các command 
 - [GEAR-SONIC VLA inference](https://nvlabs.github.io/GR00T-WholeBodyControl/tutorials/vla_inference.html)
 
 Project code dùng Apache-2.0. Model weights và robot assets tuân theo license riêng của từng upstream/Hugging Face repository.
+
+## Experiment A0: GR00T-N1.7-LIBERO original
+
+A0 chạy nguyên checkpoint NVIDIA `nvidia/GR00T-N1.7-LIBERO/libero_10` trên
+RoboCerebra. Policy luôn nhận full-task instruction; A0 không có hierarchical
+planner, stop/adaptive selector, retry hoặc recovery. Contract `libero_sim` thật
+của checkpoint xuất 16 action mỗi lần infer, vì vậy `H16` là cấu hình native;
+`H8` chỉ là fixed receding-horizon control.
+
+Kiểm tra checkpoint, model shards và benchmark cases:
+
+```bash
+PYTHONPATH=src python3 -m unitree_gr00t.cli a0-check \
+  --task-types Ideal \
+  --cases case1
+```
+
+Cài môi trường MuJoCo/LIBERO riêng cho evaluator:
+
+```bash
+scripts/setup_robocerebra_a0.sh
+```
+
+Chạy server trong terminal thứ nhất:
+
+```bash
+PYTHONPATH=src python3 -m unitree_gr00t.cli a0-server --seed 7 --execute
+```
+
+Chạy deterministic pilot trong terminal thứ hai:
+
+```bash
+PYTHONPATH=src python3 -m unitree_gr00t.cli a0-eval \
+  --task-types Ideal \
+  --cases case1 \
+  --trials 1 \
+  --execution-horizon 16 \
+  --seed 7 \
+  --output artifacts/A0/pilot-ideal-case1-h16-seed7 \
+  --execute
+```
+
+Mỗi policy decision ghi full predicted chunk, fixed prefix đã thực thi, subtask
+progress, provenance, trạng thái simulator sau từng action và đường dẫn đến đúng
+RGB/proprioception tensor đã đưa vào model. Evaluator chạy trên timeline liên tục,
+không restore state trong rollout; hai condition động dùng injection có seed, còn
+observation mismatch dùng shifted initial state chính thức. Kết quả episode phân
+biệt `reached_success` với `final_success` sau cửa sổ hậu thành công để phát hiện
+policy tự phá kết quả. Một output directory đã có trace sẽ không được tái sử dụng,
+tránh trộn hai run.
+
+Chạy artifact đầy đủ (60 task × 10 rollout cho cả H16 và H8):
+
+```bash
+scripts/run_a0_full_benchmark.sh
+```
+
+Runner giữ lại episode hoàn chỉnh khi tiếp tục sau gián đoạn, chạy các simulator
+shard song song qua một policy server GPU, kiểm tra đủ đúng 600 episode cho mỗi
+horizon rồi mới merge. Báo cáo reviewer được sinh tại
+`artifacts/A0/full-benchmark/reviewer/`, gồm SR theo benchmark, terminal goal-state
+SR với CI 95%, kết quả theo condition/task, action efficiency, stability,
+inference latency, robustness delta, H8/H16 ablation, environment/provenance và
+SHA-256 của các file artifact chính. A0 không có high-level planner hoặc VideoQA,
+vì vậy Plan Match, symbolic Plan Efficiency và VideoQA completion được ghi `N/A`
+thay vì suy diễn một con số không tồn tại.
+
+## Experiment A1: shared GR00T-RC post-training
+
+A1 bắt đầu từ đúng checkpoint A0, post-train một checkpoint chung trên snapshot
+`qiukingballball/RoboCerebra` đã pin, rồi dùng lại evaluator liên tục H16/H8 của
+A0. A1 vẫn chỉ nhận full-task instruction và không có hierarchy, stop selector,
+retry hoặc recovery. Đây là baseline đo riêng tác động của post-training.
+
+Tải phần dữ liệu tối thiểu cần cho state replay (không tải bản RLDS/MP4 trùng lặp),
+audit nguồn và convert sang LeRobot v2.1:
+
+```bash
+scripts/download_a1_training_data.sh
+A1_CONVERSION_WORKERS=10 scripts/run_a1_prepare_dataset.sh
+```
+
+Snapshot có 1.000 manifest row; contract đã pin chấp nhận đúng 995 episode có thể
+replay. Bốn row thiếu `demo.hdf5` và một row thiếu BDDL authoritative bị loại và
+được ghi tên trong `meta/a1_source_audit.json`. Khi một thư mục có BDDL dư, converter
+chọn chính xác basename được lưu trong metadata HDF5. Instruction dùng cho train
+cũng lấy từ `problem_info.language_instruction` của HDF5, không dùng summary lệch.
+Converter đồng thời bật MuJoCo compiler `autolimits` trên XML sinh ra để các asset
+LIBERO cũ có ranged joint (đặc biệt `window`) chạy được trên MuJoCo 2.3.7.
+
+Chạy post-training dài, có thể resume từ checkpoint mỗi 1.000 optimizer step:
+
+```bash
+PYTHONPATH="$PWD/src" .venv/bin/python -m unitree_gr00t.cli a1-train --execute
+```
+
+Profile một GPU 16 GiB giữ nguyên projector + diffusion action model trainable,
+đóng băng language/visual backbone, dùng BF16, gradient checkpointing, Adafactor,
+micro-batch 2 × gradient accumulation 16, tám data-loader worker và 20.000 step.
+Các lựa chọn khác với launcher NVIDIA mặc định được ghi trong training manifest.
+
+Sau khi checkpoint hoàn tất, chạy full benchmark A1 và sinh reviewer artifact:
+
+```bash
+scripts/run_a1_full_benchmark.sh
+```
+
+Output lớn (checkpoint, raw decisions, frame trace và shard) được giữ local. Bundle
+reviewer-safe được force-add lên nhánh A1 gồm manifest, summary, CSV/JSON report,
+chart, environment, inventory và SHA-256 của artifact raw để GitHub không nhận file
+vượt giới hạn 100 MiB.

@@ -1,4 +1,5 @@
 .venv/
+.venv-a0/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -15,3 +16,4 @@ checkpoints/
 .cache/
 .vscode/browse.vc.db*
 .env
+MUJOCO_LOG.TXT

@@ -1,0 +1,59 @@
+{
+  "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+  "python": "3.10.20",
+  "machine": "x86_64",
+  "processor": "x86_64",
+  "cpu": "Architecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           46 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  20\nOn-line CPU(s) list:                     0-19\nVendor ID:                               GenuineIntel\nModel name:                              Intel(R) Core(TM) i5-14600K\nCPU family:                              6\nModel:                                   183\nThread(s) per core:                      2\nCore(s) per socket:                      14\nSocket(s):                               1\nStepping:                                1\nCPU(s) scaling MHz:                      57%\nCPU max MHz:                             5300.0000\nCPU min MHz:                             800.0000\nBogoMIPS:                                6988.80\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid movdiri movdir64b fsrm md_clear serialize pconfig arch_lbr ibt flush_l1d arch_capabilities\nVirtualization:                          VT-x\nL1d cache:                               544 KiB (14 instances)\nL1i cache:                               704 KiB (14 instances)\nL2 cache:                                20 MiB (8 instances)\nL3 cache:                                24 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-19\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Mitigation; Clear Register File\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Not affected\nVulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Not affected\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Mitigation; IBPB before exit to userspace",
+  "gpu": "NVIDIA GeForce RTX 5070 Ti, GPU-da696980-637c-75d7-e5a2-2e4579d14d9e, 595.84, 16303 MiB",
+  "packages_in_report_environment": {
+    "numpy": "1.26.4",
+    "mujoco": "2.3.7",
+    "robosuite": "1.4.0",
+    "pyzmq": "27.2.0",
+    "msgpack": "1.2.2",
+    "torch": null
+  },
+  "evaluator_environment": {
+    "python": "3.10.20",
+    "packages": {
+      "numpy": "1.26.4",
+      "mujoco": "2.3.7",
+      "robosuite": "1.4.0",
+      "pyzmq": "27.2.0",
+      "msgpack": "1.2.2",
+      "torch": null,
+      "transformers": null
+    }
+  },
+  "policy_server_environment": {
+    "python": "3.10.20",
+    "packages": {
+      "numpy": "1.26.4",
+      "mujoco": null,
+      "robosuite": null,
+      "pyzmq": "27.0.1",
+      "msgpack": "1.1.0",
+      "torch": "2.7.1+cu128",
+      "transformers": "4.57.3"
+    },
+    "torch_cuda": "12.8",
+    "cudnn": 90701,
+    "cuda_available": true
+  },
+  "git_head": "8c472889a6cd5fdb8a2b43c4add690619fcbfbc2",
+  "git_branch": "feat(A0)/implement-GR00T-N1.7-LIBERO-original",
+  "git_worktree_status": "M .gitignore\n M README.md\n M configs/project.toml\n M pyproject.toml\n M scripts/bootstrap_upstreams.sh\n M src/unitree_gr00t/cli.py\n M src/unitree_gr00t/commands.py\n M src/unitree_gr00t/config.py\n M tests/test_commands.py\n M tests/test_config.py\n M uv.lock\n?? docs/ROBOCEREBRA_RECOVERY_PROTOCOL.md\n?? scripts/run_a0_full_benchmark.sh\n?? scripts/setup_robocerebra_a0.sh\n?? src/unitree_gr00t/a0.py\n?? src/unitree_gr00t/a0_eval.py\n?? src/unitree_gr00t/a0_merge.py\n?? src/unitree_gr00t/a0_report.py\n?? tests/test_a0.py\n?? tests/test_a0_eval.py\n?? tests/test_a0_report.py",
+  "implementation_sha256": {
+    "configs/project.toml": "3be1519f2df4918c542d74fed80c6ac85b2010d7d6d78f89cfaddf186be044c0",
+    "scripts/run_a0_full_benchmark.sh": "57afd1b322ce9232b647c983169f7e58233f683b1ec63467b42de5233f8e3fef",
+    "scripts/setup_robocerebra_a0.sh": "59bf0e7d86af09c3215de94a418390d46279a401b959a9590c9ad709e14b484d",
+    "src/unitree_gr00t/a0.py": "00d2a831f355f9b99ab1899502b4e7488a1ea55474a83eb05e94b408b2a859a7",
+    "src/unitree_gr00t/a0_eval.py": "2810a7b795488fccf5a6b1b32d9925571f3dff849891c72c32679986289db0b6",
+    "src/unitree_gr00t/a0_merge.py": "5cc2b363b34142d7f6b85c29fe5b4938e96a2c4a2c87d16f1b2be6a5e2ccbd48",
+    "src/unitree_gr00t/a0_report.py": "5ecdeb4df87219aa9660d1954038783c7d1b9dc84b6677eb0eeaf04bc516d8e0"
+  },
+  "actual_upstream_git_heads": {
+    "Isaac-GR00T-N1.7": "4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e",
+    "RoboCerebra": "2573426c13dfcd5e7d7831c15587b058aaa1c0c0"
+  }
+}
