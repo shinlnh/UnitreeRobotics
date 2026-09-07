@@ -457,7 +457,8 @@ PYTHONPATH=src python3 -m unitree_gr00t.cli b-check --stage checkpoint
 
 Pilot dùng `b-server` và `b-eval` giống cách A2 tách server/client. Feature resume
 được khóa bằng hash của index, A1 weights, seed, device và batch size; policy RNG
-cũng reset theo seed từng episode để kết quả không phụ thuộc thứ tự shard/resume.
+cũng được derive từ seed episode + decision index ở mỗi request để kết quả không
+phụ thuộc thứ tự shard/resume.
 Pipeline đầy đủ có resume từ feature episode và benchmark shard:
 
 ```bash

@@ -56,6 +56,7 @@ from .b import (
     confirm_stop,
     inspect_selector_checkpoint,
     select_unified_candidate,
+    selector_decision_seed,
 )
 
 
@@ -171,6 +172,8 @@ def _run_episode(
                 "anchor_history": anchors,
                 "subgoal_start": subgoal_start,
                 "max_prefix": execution_horizon,
+                "episode_seed": episode_seed,
+                "decision_index": policy_calls,
                 # Use only the frozen global budget. The shorter evaluator-only
                 # post-success window must not leak success into selector masks.
                 "remaining_steps": max_steps - step,
@@ -194,6 +197,12 @@ def _run_episode(
             raise RuntimeError("B server runtime provenance does not match evaluator artifacts")
         if selector_info.get("episode_seed") != episode_seed:
             raise RuntimeError("B server did not retain the evaluator's episode seed")
+        expected_decision_seed = selector_decision_seed(episode_seed, policy_calls)
+        if (
+            selector_info.get("decision_index") != policy_calls
+            or selector_info.get("decision_seed") != expected_decision_seed
+        ):
+            raise RuntimeError("B server did not apply the request-local decision seed")
         scores = np.asarray(selector_info["scores"], dtype=np.float32)
         valid = np.asarray(selector_info["valid"], dtype=np.bool_)
         candidate = int(selector_info["candidate"])
@@ -292,6 +301,7 @@ def _run_episode(
                 "seed": episode_seed,
                 "initial_state_source": initial_state_source,
                 "policy_call": policy_calls,
+                "decision_seed": expected_decision_seed,
                 "policy_latency_seconds": policy_latency,
                 "step_before": before_step,
                 "step_after": step,

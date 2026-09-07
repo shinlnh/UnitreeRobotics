@@ -130,8 +130,8 @@ tunes it on the 60 held-out cases.
 8. **B7 — selector training/freeze:** train only the selector, validate on the
    frozen development split, and write safetensors plus byte-level provenance.
 9. **B8 — inference service:** combine byte-validated A1 and selector checkpoints
-   behind the official GR00T wire protocol, seed diffusion independently for
-   every episode, and return auditable decisions.
+   behind the official GR00T wire protocol, derive a request-local diffusion
+   seed from episode seed plus decision index, and return auditable decisions.
 10. **B9 — continuous evaluator:** replace time anchors with confirmed STOP and
     learned prefixes; retain complete traces, resume/merge, and explicit
     `retry=false`, `recovery=false`.

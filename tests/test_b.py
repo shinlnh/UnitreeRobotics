@@ -17,6 +17,7 @@ from unitree_gr00t.b import (
     confirm_stop,
     inspect_selector_checkpoint,
     select_unified_candidate,
+    selector_decision_seed,
     verify_a1_weight_hashes,
 )
 
@@ -83,6 +84,12 @@ def test_unified_selection_masks_invalid_and_confirms_stop() -> None:
     assert first.stop_pending and not first.stop_committed
     assert second.stop_committed and second.state.streak == 0
     assert action.executed_prefix_length == 3 and action.state.streak == 0
+
+
+def test_selector_decision_seed_is_order_independent() -> None:
+    assert selector_decision_seed(7, 12) == selector_decision_seed(7, 12)
+    assert selector_decision_seed(7, 12) != selector_decision_seed(7, 13)
+    assert selector_decision_seed(7, 12) != selector_decision_seed(8, 12)
 
 
 def test_selector_checkpoint_fails_closed_on_weight_drift(tmp_path: Path) -> None:

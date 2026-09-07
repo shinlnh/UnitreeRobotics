@@ -6,7 +6,12 @@ import hashlib
 from typing import Any
 
 from .a0 import ACTION_KEYS
-from .b import BContractError, candidate_validity, select_unified_candidate
+from .b import (
+    BContractError,
+    candidate_validity,
+    select_unified_candidate,
+    selector_decision_seed,
+)
 
 
 class BackboneCapture:
@@ -75,17 +80,27 @@ def build_selector_sim_policy(
             self.capture = BackboneCapture(base_policy.model.backbone)
             self.selector = selector
             self.selector.eval()
-            self.episode_seed: int | None = None
 
         def _get_action(
             self, observation: dict[str, Any], options: dict[str, Any] | None = None
         ) -> tuple[dict[str, Any], dict[str, Any]]:
             options = options or {}
-            if self.episode_seed is None:
-                raise BContractError("B policy must be reset with an episode seed before inference")
             selector_options = options.get("b_selector")
             if not isinstance(selector_options, dict):
                 raise BContractError("B policy request is missing b_selector options")
+            episode_seed = selector_options.get("episode_seed")
+            decision_index = selector_options.get("decision_index")
+            if not isinstance(episode_seed, int) or not isinstance(decision_index, int):
+                raise BContractError("B policy request requires integer episode/decision seeds")
+            decision_seed = selector_decision_seed(episode_seed, decision_index)
+            import random
+
+            # PolicyServer serializes requests, so request-local reseeding makes
+            # diffusion invariant to interleaved simulator shards and resume.
+            random.seed(decision_seed)
+            np.random.seed(decision_seed)
+            torch.manual_seed(decision_seed)
+            torch.cuda.manual_seed_all(decision_seed)
             action, info = super()._get_action(observation, options)
             # Match the frozen offline cache exactly: float16 storage followed
             # by float32 selector compute for both contexts and proposed actions.
@@ -130,7 +145,9 @@ def build_selector_sim_policy(
                 "scores": score_values,
                 "valid": np.asarray(valid, dtype=np.bool_),
                 "current_context_sha256": context_sha256(context.cpu().numpy()),
-                "episode_seed": self.episode_seed,
+                "episode_seed": episode_seed,
+                "decision_index": decision_index,
+                "decision_seed": decision_seed,
                 "runtime_provenance": dict(runtime_provenance or {}),
             }
             if subgoal_start:
@@ -142,13 +159,6 @@ def build_selector_sim_policy(
             episode_seed = options.get("episode_seed")
             if not isinstance(episode_seed, int) or not 0 <= episode_seed < 2**31:
                 raise BContractError("B reset requires an integer episode_seed inside [0, 2^31)")
-            import random
-
-            random.seed(episode_seed)
-            np.random.seed(episode_seed)
-            torch.manual_seed(episode_seed)
-            torch.cuda.manual_seed_all(episode_seed)
-            self.episode_seed = episode_seed
             return dict(super().reset(None)) | {"episode_seed": episode_seed}
 
     return BSelectorSimPolicy()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from collections.abc import Sequence
@@ -62,6 +63,15 @@ def a1_weight_hashes(contract: object) -> dict[str, str]:
     root = Path(contract.checkpoint_dir)
     shards = tuple(contract.weight_shards)
     return {name: sha256_file(root / name) for name in shards}
+
+
+def selector_decision_seed(episode_seed: int, decision_index: int) -> int:
+    """Derive a request-local seed that is invariant to shard scheduling."""
+
+    if episode_seed < 0 or decision_index < 0:
+        raise BContractError("selector seed inputs cannot be negative")
+    payload = f"B-decision-v1:{episode_seed}:{decision_index}".encode()
+    return int.from_bytes(hashlib.sha256(payload).digest()[:4], "big") & 0x7FFF_FFFF
 
 
 def verify_a1_weight_hashes(contract: object, expected: object) -> dict[str, str]:
