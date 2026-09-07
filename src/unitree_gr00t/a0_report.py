@@ -39,6 +39,13 @@ def _parser() -> argparse.ArgumentParser:
         metavar="LABEL=PATH",
         help="Completed run, for example H16=artifacts/A0/full-benchmark/H16",
     )
+    parser.add_argument(
+        "--baseline-run",
+        action="append",
+        default=[],
+        metavar="LABEL=PATH",
+        help="Optional matched baseline run for an incremental ablation",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--bootstrap-samples", type=int, default=10_000)
     parser.add_argument("--experiment-id", default="A0")
@@ -464,7 +471,13 @@ def _scan_decisions(path: Path) -> dict[str, Any]:
 
 
 def _paired_delta(
-    left: dict[str, Any], right: dict[str, Any], *, samples: int, seed: int
+    left: dict[str, Any],
+    right: dict[str, Any],
+    *,
+    samples: int,
+    seed: int,
+    left_name: str | None = None,
+    right_name: str | None = None,
 ) -> dict[str, Any]:
     def keyed(run: dict[str, Any]) -> dict[tuple[str, str, int], dict[str, Any]]:
         return {(row["task_type"], row["case"], int(row["trial"])): row for row in run["episodes"]}
@@ -486,7 +499,9 @@ def _paired_delta(
 
     score_deltas = [_episode_score(a) - _episode_score(b) for a, b in pairs]
     return {
-        "delta_definition": f"{left['label']} minus {right['label']}",
+        "delta_definition": (
+            f"{left_name or left['label']} minus {right_name or right['label']}"
+        ),
         "paired_episodes": len(pairs),
         "pairing_note": (
             "Environment task/trial keys and initial-state seeds are matched. Policy diffusion noise is "
@@ -742,7 +757,7 @@ def _interval(metric: dict[str, Any]) -> str:
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
@@ -965,6 +980,28 @@ def _markdown(metrics: dict[str, Any]) -> str:
             ]
         )
 
+    baseline = metrics.get("baseline_comparison")
+    if baseline:
+        lines.extend(
+            [
+                "## Paired fixed-hierarchy ablation against A1",
+                "",
+                f"A2 is paired against `{baseline['experiment_id']}` / `{baseline['variant']}` by identical task, case, trial, initial-state seed, and execution horizon. Policy diffusion noise is not paired because concurrent clients share one server RNG stream.",
+                "",
+                "| Run | Paper SR delta | Pooled SR delta | Terminal SR delta | Step delta | Wins/ties/losses |",
+                "| --- | ---: | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for label, comparison in baseline["by_run"].items():
+            lines.append(
+                f"| {label} | {_interval(comparison['paper_subtask_success_rate_delta'])} | "
+                f"{_interval(comparison['reference_pooled_subtask_success_rate_delta'])} | "
+                f"{_interval(comparison['strict_full_task_success_rate_delta'])} | "
+                f"{comparison['executed_steps_delta']['estimate']:.2f} | "
+                f"{comparison['partial_completion_wins_ties_losses']} |"
+            )
+        lines.append("")
+
     lines.extend(
         [
             "## Metric applicability",
@@ -999,6 +1036,7 @@ def build_report(
     *,
     experiment_id: str = "A0",
     variant: str = "GR00T-N1.7-LIBERO-original",
+    baseline_run_specs: list[str] | None = None,
 ) -> dict[str, Any]:
     if samples < 1000:
         raise ValueError("--bootstrap-samples must be at least 1000")
@@ -1119,6 +1157,41 @@ def build_report(
             runs[0], runs[1], samples=samples, seed=20263905
         )
 
+    if baseline_run_specs:
+        parsed_baselines: list[tuple[str, Path]] = []
+        for spec in baseline_run_specs:
+            if "=" not in spec:
+                raise ValueError(f"Invalid --baseline-run value: {spec!r}")
+            label, raw_path = spec.split("=", 1)
+            if not label or not raw_path:
+                raise ValueError(f"Invalid --baseline-run value: {spec!r}")
+            parsed_baselines.append((label, Path(raw_path)))
+        baseline_runs = [_load_run(label, path) for label, path in parsed_baselines]
+        current_by_label = {run["label"]: run for run in runs}
+        baseline_by_label = {run["label"]: run for run in baseline_runs}
+        if current_by_label.keys() != baseline_by_label.keys():
+            raise ValueError("Baseline run labels must exactly match current run labels")
+        baseline_ids = {str(run["manifest"]["experiment_id"]) for run in baseline_runs}
+        baseline_variants = {str(run["manifest"]["variant"]) for run in baseline_runs}
+        if len(baseline_ids) != 1 or len(baseline_variants) != 1:
+            raise ValueError("Baseline runs must share one experiment identity and variant")
+        payload["baseline_comparison"] = {
+            "experiment_id": next(iter(baseline_ids)),
+            "variant": next(iter(baseline_variants)),
+            "delta_definition": f"{experiment_id} minus {next(iter(baseline_ids))}",
+            "by_run": {
+                label: _paired_delta(
+                    current_by_label[label],
+                    baseline_by_label[label],
+                    samples=samples,
+                    seed=20264905 + index * 100,
+                    left_name=f"{experiment_id}-{label}",
+                    right_name=f"{next(iter(baseline_ids))}-{label}",
+                )
+                for index, label in enumerate(sorted(current_by_label))
+            },
+        }
+
     output = output.expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
     _write_json(output / "metrics.json", payload)
@@ -1183,6 +1256,7 @@ def main() -> int:
         args.bootstrap_samples,
         experiment_id=args.experiment_id,
         variant=args.variant,
+        baseline_run_specs=args.baseline_run,
     )
     headline = {
         label: {

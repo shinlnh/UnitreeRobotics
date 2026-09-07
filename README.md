@@ -420,3 +420,8 @@ Chạy full benchmark 600 episode cho từng H16 và H8:
 ```bash
 scripts/run_a2_full_benchmark.sh
 ```
+
+Reviewer report ghép từng rollout A2 với A1 theo đúng task/case/trial và horizon,
+nhờ đó delta chính là tác động của fixed hierarchy trên checkpoint dùng chung;
+report vẫn ghi riêng cảnh báo rằng diffusion-noise stream không được pair khi các
+simulator worker gọi chung một policy server.

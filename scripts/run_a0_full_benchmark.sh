@@ -8,6 +8,7 @@ CHECKPOINT_PATH="${ROBOCEREBRA_CHECKPOINT:-${PROJECT_ROOT}/checkpoints/robocereb
 MODEL_REVISION="${ROBOCEREBRA_MODEL_REVISION:-2ea293aa20ba7cf5bbf3ba17a5fbcb1a01cbfe21}"
 EVALUATOR_MODULE="${ROBOCEREBRA_EVALUATOR_MODULE:-unitree_gr00t.a0_eval}"
 MERGE_MODULE="${ROBOCEREBRA_MERGE_MODULE:-unitree_gr00t.a0_merge}"
+BASELINE_ARTIFACT_ROOT="${ROBOCEREBRA_BASELINE_ARTIFACT_ROOT:-}"
 ARTIFACT_ROOT="${ROBOCEREBRA_ARTIFACT_ROOT:-${PROJECT_ROOT}/artifacts/${EXPERIMENT_ID}/full-benchmark}"
 SHARD_ROOT="${ARTIFACT_ROOT}/shards"
 BASE_SEED=7
@@ -208,13 +209,21 @@ else
   echo "H8 target already has 600 validated episodes; skipping it"
 fi
 
-PYTHONPATH="${PROJECT_ROOT}/src" "${PROJECT_ROOT}/.venv-a0/bin/python" \
-  -m unitree_gr00t.a0_report \
-  --run "H16=${ARTIFACT_ROOT}/H16" \
-  --run "H8=${ARTIFACT_ROOT}/H8" \
-  --output "${ARTIFACT_ROOT}/reviewer" \
-  --experiment-id "${EXPERIMENT_ID}" \
-  --variant "${VARIANT}" \
-  >"${ARTIFACT_ROOT}/reviewer-report.log" 2>&1
+report_command=(
+  /usr/bin/env "PYTHONPATH=${PROJECT_ROOT}/src"
+  "${PROJECT_ROOT}/.venv-a0/bin/python" -m unitree_gr00t.a0_report
+  --run "H16=${ARTIFACT_ROOT}/H16"
+  --run "H8=${ARTIFACT_ROOT}/H8"
+  --output "${ARTIFACT_ROOT}/reviewer"
+  --experiment-id "${EXPERIMENT_ID}"
+  --variant "${VARIANT}"
+)
+if [[ -n "${BASELINE_ARTIFACT_ROOT}" ]]; then
+  report_command+=(
+    --baseline-run "H16=${BASELINE_ARTIFACT_ROOT}/H16"
+    --baseline-run "H8=${BASELINE_ARTIFACT_ROOT}/H8"
+  )
+fi
+"${report_command[@]}" >"${ARTIFACT_ROOT}/reviewer-report.log" 2>&1
 
 echo "${EXPERIMENT_ID} full benchmark and reviewer report completed: ${ARTIFACT_ROOT}"
