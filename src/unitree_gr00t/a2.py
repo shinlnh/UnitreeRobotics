@@ -103,9 +103,7 @@ def select_subgoal(plan: FixedPlan, executed_steps: int) -> PlannerDecision:
     """Select solely by the fixed execution clock, never by observations or success."""
 
     if executed_steps < 0 or executed_steps >= plan.max_steps:
-        raise A2ContractError(
-            f"A2 planner step {executed_steps} is outside [0, {plan.max_steps})"
-        )
+        raise A2ContractError(f"A2 planner step {executed_steps} is outside [0, {plan.max_steps})")
     index = executed_steps // plan.subgoal_horizon_steps
     start = index * plan.subgoal_horizon_steps
     end = start + plan.subgoal_horizon_steps
@@ -136,9 +134,7 @@ def select_fixed_prefix_length(
     )
 
 
-def audit_fixed_hierarchy(
-    cases: list[BenchmarkCase], subgoal_horizon_steps: int
-) -> HierarchyAudit:
+def audit_fixed_hierarchy(cases: list[BenchmarkCase], subgoal_horizon_steps: int) -> HierarchyAudit:
     issues: list[str] = []
     plans: list[FixedPlan] = []
     for case in cases:

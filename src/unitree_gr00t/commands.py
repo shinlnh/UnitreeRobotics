@@ -554,6 +554,244 @@ def build_a2_eval_command(
     return CommandSpec(tuple(argv), config.root, "Run A2 fixed hierarchy on RoboCerebra")
 
 
+def build_b_prepare_command(
+    config: ProjectConfig, *, limit: int | None = None, output_dir: str | Path | None = None
+) -> CommandSpec:
+    """Build B's audited demonstration-boundary index."""
+
+    a1 = config.robocerebra_posttrain
+    b = config.robocerebra_selector
+    destination = Path(output_dir).expanduser().resolve() if output_dir else b.dataset_dir
+    argv = [
+        "/usr/bin/env",
+        f"PYTHONPATH={config.root / 'src'}",
+        str(config.root / ".venv-a0" / "bin" / "python"),
+        "-m",
+        "unitree_gr00t.b_data",
+        "--source",
+        str(a1.raw_training_dir),
+        "--manifest",
+        str(a1.training_manifest),
+        "--converted-dataset",
+        str(a1.lerobot_training_dir),
+        "--benchmark-dir",
+        str(config.robocerebra.benchmark_dir),
+        "--source-revision",
+        a1.training_dataset_revision,
+        "--expected-manifest-sha256",
+        a1.training_manifest_sha256,
+        "--expected-manifest-rows",
+        str(a1.expected_training_manifest_rows),
+        "--expected-episodes",
+        str(a1.expected_training_episodes),
+        "--destination",
+        str(destination),
+        "--action-horizon",
+        str(b.action_horizon),
+        "--sample-stride",
+        str(b.sample_stride),
+        "--post-boundary-steps",
+        str(b.near_boundary_steps),
+        "--development-fraction",
+        str(b.development_fraction),
+        "--seed",
+        str(b.training_seed),
+    ]
+    if limit is not None:
+        argv.extend(("--limit", str(limit)))
+    return CommandSpec(tuple(argv), config.root, "Prepare B selector boundary index")
+
+
+def build_b_features_command(
+    config: ProjectConfig,
+    *,
+    batch_size: int = 1,
+    limit_episodes: int | None = None,
+    resume: bool = True,
+) -> CommandSpec:
+    """Extract frozen A1 contexts and H16 proposals for B."""
+
+    if batch_size < 1:
+        raise ValueError("B feature batch size must be positive")
+    a1 = config.robocerebra_posttrain
+    b = config.robocerebra_selector
+    python = config.isaac_gr00t_dir / ".venv" / "bin" / "python"
+    argv = [
+        "/usr/bin/env",
+        f"PYTHONPATH={config.root / 'src'}:{config.isaac_gr00t_dir}",
+        str(python),
+        "-m",
+        "unitree_gr00t.b_features",
+        "--index",
+        str(b.dataset_dir),
+        "--checkpoint",
+        str(a1.checkpoint_dir),
+        "--model-revision",
+        a1.training_dataset_revision,
+        "--destination",
+        str(b.dataset_dir),
+        "--device",
+        config.model.device,
+        "--batch-size",
+        str(batch_size),
+        "--seed",
+        str(b.training_seed),
+    ]
+    if limit_episodes is not None:
+        argv.extend(("--limit-episodes", str(limit_episodes)))
+    if resume:
+        argv.append("--resume")
+    return CommandSpec(tuple(argv), config.root, "Extract frozen A1 features for B")
+
+
+def build_b_train_command(
+    config: ProjectConfig, *, steps: int | None = None, batch_size: int | None = None
+) -> CommandSpec:
+    """Train the B selector under its frozen paper-derived contract."""
+
+    b = config.robocerebra_selector
+    selected_steps = steps or b.max_steps
+    selected_batch = batch_size or b.batch_size
+    python = config.isaac_gr00t_dir / ".venv" / "bin" / "python"
+    argv = (
+        "/usr/bin/env",
+        f"PYTHONPATH={config.root / 'src'}:{config.isaac_gr00t_dir}",
+        str(python),
+        "-m",
+        "unitree_gr00t.b_train",
+        "--dataset",
+        str(b.dataset_dir),
+        "--destination",
+        str(b.checkpoint_dir),
+        "--device",
+        config.model.device,
+        "--action-horizon",
+        str(b.action_horizon),
+        "--context-width",
+        str(b.context_width),
+        "--scoring-width",
+        str(b.scoring_width),
+        "--scoring-layers",
+        str(b.scoring_layers),
+        "--scoring-heads",
+        str(b.scoring_heads),
+        "--feedforward-width",
+        str(b.feedforward_width),
+        "--boundary-jitter-steps",
+        str(b.boundary_jitter_steps),
+        "--near-boundary-steps",
+        str(b.near_boundary_steps),
+        "--stop-loss-weight",
+        str(b.stop_loss_weight),
+        "--stop-positive-weight",
+        str(b.stop_positive_weight),
+        "--near-boundary-stop-weight",
+        str(b.near_boundary_stop_weight),
+        "--unsuccessful-rank-weight",
+        str(b.unsuccessful_rank_weight),
+        "--unsuccessful-stop-weight",
+        str(b.unsuccessful_stop_weight),
+        "--stop-confirmation-window",
+        str(b.stop_confirmation_window),
+        "--steps",
+        str(selected_steps),
+        "--batch-size",
+        str(selected_batch),
+        "--learning-rate",
+        str(b.learning_rate),
+        "--weight-decay",
+        str(b.weight_decay),
+        "--warmup-steps",
+        str(min(b.warmup_steps, selected_steps)),
+        "--gradient-clip-norm",
+        str(b.gradient_clip_norm),
+        "--validate-steps",
+        str(min(b.save_steps, selected_steps)),
+        "--seed",
+        str(b.training_seed),
+        "--resume",
+    )
+    return CommandSpec(argv, config.root, "Train and freeze B unified selector")
+
+
+def build_b_server_command(config: ProjectConfig, seed: int = 7) -> CommandSpec:
+    """Serve frozen A1 with the frozen B selector."""
+
+    a1 = config.robocerebra_posttrain
+    b = config.robocerebra_selector
+    return CommandSpec(
+        (
+            "/usr/bin/env",
+            f"PYTHONPATH={config.root / 'src'}:{config.isaac_gr00t_dir}",
+            str(config.isaac_gr00t_dir / ".venv" / "bin" / "python"),
+            "-m",
+            "unitree_gr00t.b_server",
+            "--checkpoint",
+            str(a1.checkpoint_dir),
+            "--selector-checkpoint",
+            str(b.checkpoint_dir),
+            "--model-revision",
+            a1.training_dataset_revision,
+            "--embodiment",
+            config.robocerebra.embodiment,
+            "--device",
+            config.model.device,
+            "--host",
+            config.model.bind_host,
+            "--port",
+            str(config.model.port),
+            "--seed",
+            str(seed),
+        ),
+        config.root,
+        "Start the frozen B GR00T-RC plus selector server",
+    )
+
+
+def build_b_eval_command(
+    config: ProjectConfig,
+    *,
+    task_types: list[str],
+    case_names: list[str],
+    trials: int,
+    execution_horizon: int,
+    seed: int,
+    output_dir: str | Path,
+    trace_images: bool = True,
+    resume: bool = False,
+) -> CommandSpec:
+    """Build B's continuous adaptive selector evaluation command."""
+
+    spec = build_a2_eval_command(
+        config,
+        task_types=task_types,
+        case_names=case_names,
+        trials=trials,
+        execution_horizon=execution_horizon,
+        seed=seed,
+        output_dir=output_dir,
+        trace_images=trace_images,
+        resume=resume,
+    )
+    argv = list(spec.argv)
+    argv[argv.index("unitree_gr00t.a2_eval")] = "unitree_gr00t.b_eval"
+    argv[argv.index("--experiment-id") + 1] = config.robocerebra_selector.experiment_id
+    argv[argv.index("--variant") + 1] = config.robocerebra_selector.variant
+    argv.extend(
+        (
+            "--selector-checkpoint",
+            str(config.robocerebra_selector.checkpoint_dir),
+            "--method",
+            config.robocerebra_selector.method,
+            "--paper",
+            config.robocerebra_selector.paper,
+            "--stop-confirmation-window",
+            str(config.robocerebra_selector.stop_confirmation_window),
+        )
+    )
+    return CommandSpec(tuple(argv), config.root, "Run adaptive B on RoboCerebra")
+
+
 def run_or_preview(spec: CommandSpec, execute: bool) -> int:
     print(f"{spec.description}:\n{spec.display()}")
     if not execute:

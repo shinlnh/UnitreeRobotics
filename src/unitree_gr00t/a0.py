@@ -348,14 +348,25 @@ class RemotePolicyClient:
         self.call("reset", {"options": None})
 
     def get_action(self, observation: dict[str, Any]) -> dict[str, Any]:
-        response = self.call("get_action", {"observation": observation, "options": None})
+        action, _ = self.get_action_with_info(observation)
+        return action
+
+    def get_action_with_info(
+        self,
+        observation: dict[str, Any],
+        options: dict[str, Any] | None = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Return both policy output fields used by adaptive B execution."""
+
+        response = self.call("get_action", {"observation": observation, "options": options})
         if (
             not isinstance(response, list)
             or len(response) != 2
             or not isinstance(response[0], dict)
+            or not isinstance(response[1], dict)
         ):
             raise RuntimeError("GR00T server returned an invalid get_action response")
-        return response[0]
+        return response[0], response[1]
 
     def close(self) -> None:
         self._socket.close(linger=0)

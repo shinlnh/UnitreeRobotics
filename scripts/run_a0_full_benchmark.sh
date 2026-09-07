@@ -8,6 +8,11 @@ CHECKPOINT_PATH="${ROBOCEREBRA_CHECKPOINT:-${PROJECT_ROOT}/checkpoints/robocereb
 MODEL_REVISION="${ROBOCEREBRA_MODEL_REVISION:-2ea293aa20ba7cf5bbf3ba17a5fbcb1a01cbfe21}"
 EVALUATOR_MODULE="${ROBOCEREBRA_EVALUATOR_MODULE:-unitree_gr00t.a0_eval}"
 MERGE_MODULE="${ROBOCEREBRA_MERGE_MODULE:-unitree_gr00t.a0_merge}"
+SERVER_MODULE="${ROBOCEREBRA_SERVER_MODULE:-}"
+SELECTOR_CHECKPOINT="${ROBOCEREBRA_SELECTOR_CHECKPOINT:-}"
+SELECTOR_METHOD="${ROBOCEREBRA_SELECTOR_METHOD:-}"
+SELECTOR_PAPER="${ROBOCEREBRA_SELECTOR_PAPER:-}"
+STOP_CONFIRMATION_WINDOW="${ROBOCEREBRA_STOP_CONFIRMATION_WINDOW:-}"
 BASELINE_ARTIFACT_ROOT="${ROBOCEREBRA_BASELINE_ARTIFACT_ROOT:-}"
 ARTIFACT_ROOT="${ROBOCEREBRA_ARTIFACT_ROOT:-${PROJECT_ROOT}/artifacts/${EXPERIMENT_ID}/full-benchmark}"
 SHARD_ROOT="${ARTIFACT_ROOT}/shards"
@@ -35,15 +40,30 @@ start_server() {
     exit 1
   fi
   (
-    cd "${PROJECT_ROOT}/.upstream/Isaac-GR00T-N1.7"
-    exec setsid uv run --no-sync python gr00t/eval/run_gr00t_server.py \
-      --model-path "${CHECKPOINT_PATH}" \
-      --embodiment-tag LIBERO_PANDA \
-      --device cuda:0 \
-      --host 0.0.0.0 \
-      --port "${POLICY_PORT}" \
-      --seed "${BASE_SEED}" \
-      --use-sim-policy-wrapper
+    if [[ -n "${SERVER_MODULE}" ]]; then
+      cd "${PROJECT_ROOT}"
+      exec setsid /usr/bin/env \
+        "PYTHONPATH=${PROJECT_ROOT}/src:${PROJECT_ROOT}/.upstream/Isaac-GR00T-N1.7" \
+        "${PROJECT_ROOT}/.upstream/Isaac-GR00T-N1.7/.venv/bin/python" -m "${SERVER_MODULE}" \
+        --checkpoint "${CHECKPOINT_PATH}" \
+        --selector-checkpoint "${SELECTOR_CHECKPOINT}" \
+        --model-revision "${MODEL_REVISION}" \
+        --embodiment LIBERO_PANDA \
+        --device cuda:0 \
+        --host 0.0.0.0 \
+        --port "${POLICY_PORT}" \
+        --seed "${BASE_SEED}"
+    else
+      cd "${PROJECT_ROOT}/.upstream/Isaac-GR00T-N1.7"
+      exec setsid uv run --no-sync python gr00t/eval/run_gr00t_server.py \
+        --model-path "${CHECKPOINT_PATH}" \
+        --embodiment-tag LIBERO_PANDA \
+        --device cuda:0 \
+        --host 0.0.0.0 \
+        --port "${POLICY_PORT}" \
+        --seed "${BASE_SEED}" \
+        --use-sim-policy-wrapper
+    fi
   ) >"${server_log}" 2>&1 &
   SERVER_PID=$!
 
@@ -111,6 +131,14 @@ run_shard() {
   )
   if [[ "${#cases[@]}" -gt 0 ]]; then
     command+=(--cases "${cases[@]}")
+  fi
+  if [[ -n "${SELECTOR_CHECKPOINT}" ]]; then
+    command+=(
+      --selector-checkpoint "${SELECTOR_CHECKPOINT}"
+      --method "${SELECTOR_METHOD}"
+      --paper "${SELECTOR_PAPER}"
+      --stop-confirmation-window "${STOP_CONFIRMATION_WINDOW}"
+    )
   fi
   "${command[@]}" >>"${run_dir}/run.log" 2>&1
 }

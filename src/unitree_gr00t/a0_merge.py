@@ -82,11 +82,7 @@ def _create_manifest(target: Path, shard_manifests: list[dict[str, Any]]) -> dic
     if all(isinstance(audit, dict) for audit in hierarchy_audits):
         typed_audits = [audit for audit in hierarchy_audits if isinstance(audit, dict)]
         hashes = sorted(
-            {
-                str(value)
-                for audit in typed_audits
-                for value in audit.get("plan_sha256", [])
-            }
+            {str(value) for audit in typed_audits for value in audit.get("plan_sha256", [])}
         )
         base["hierarchy_audit"] = {
             **typed_audits[0],

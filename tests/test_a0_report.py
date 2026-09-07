@@ -1,4 +1,8 @@
+import json
+from pathlib import Path
+
 from unitree_gr00t.a0_report import (
+    _scan_decisions,
     cluster_bootstrap_mean,
     cluster_bootstrap_ratio,
     metric_block,
@@ -94,3 +98,30 @@ def test_stability_is_conditioned_on_ordered_goal_reach() -> None:
     assert block["strict_full_task_success_rate"]["estimate"] == 1.0
     assert block["ever_reached_full_success_rate"]["estimate"] == 0.0
     assert block["stable_success_given_reached"]["estimate"] is None
+
+
+def test_decision_scan_counts_controller_monitoring_as_steps_not_policy_calls(
+    tmp_path: Path,
+) -> None:
+    rows = [
+        {
+            "policy_latency_seconds": 0.1,
+            "selected_prefix_length": 2,
+            "prefix_selection": "learned_unified_stop_prefix",
+            "active_subgoal_index_before": 0,
+            "transitions": [{}, {}],
+        },
+        {
+            "policy_invoked": False,
+            "policy_latency_seconds": 0.0,
+            "selected_prefix_length": 3,
+            "prefix_selection": "post_success_controller_hold",
+            "transitions": [{}, {}, {}],
+        },
+    ]
+    path = tmp_path / "decisions.jsonl"
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    metrics = _scan_decisions(path)
+    assert metrics["policy_calls"] == 1
+    assert metrics["executed_transitions"] == 5
+    assert metrics["selected_prefix_histogram"] == {2: 1}

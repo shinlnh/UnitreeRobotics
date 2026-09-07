@@ -20,6 +20,7 @@ from typing import Any
 
 PAPER_URL = "https://arxiv.org/html/2506.06677v2"
 AUDIT_URL = "https://arxiv.org/html/2606.04233"
+SPARKVLA_URL = "https://arxiv.org/abs/2608.16172v1"
 EXPECTED_CONDITIONS = (
     "Ideal",
     "Memory_Execution",
@@ -449,15 +450,18 @@ def _scan_decisions(path: Path) -> dict[str, Any]:
             if not line.strip():
                 continue
             row = json.loads(line)
-            calls += 1
             transitions += len(row["transitions"])
-            latencies.append(1000.0 * float(row["policy_latency_seconds"]))
-            prefix_lengths[int(row["selected_prefix_length"])] += 1
-            if row.get("prefix_selection"):
-                prefix_reasons[str(row["prefix_selection"])] += 1
-            planner_decision = row.get("planner_decision")
-            if isinstance(planner_decision, dict) and "subgoal_index" in planner_decision:
-                active_subgoals[int(planner_decision["subgoal_index"])] += 1
+            if row.get("policy_invoked", True):
+                calls += 1
+                latencies.append(1000.0 * float(row["policy_latency_seconds"]))
+                prefix_lengths[int(row["selected_prefix_length"])] += 1
+                if row.get("prefix_selection"):
+                    prefix_reasons[str(row["prefix_selection"])] += 1
+                planner_decision = row.get("planner_decision")
+                if isinstance(planner_decision, dict) and "subgoal_index" in planner_decision:
+                    active_subgoals[int(planner_decision["subgoal_index"])] += 1
+                elif "active_subgoal_index_before" in row:
+                    active_subgoals[int(row["active_subgoal_index_before"])] += 1
     return {
         "policy_calls": calls,
         "executed_transitions": transitions,
@@ -499,9 +503,7 @@ def _paired_delta(
 
     score_deltas = [_episode_score(a) - _episode_score(b) for a, b in pairs]
     return {
-        "delta_definition": (
-            f"{left_name or left['label']} minus {right_name or right['label']}"
-        ),
+        "delta_definition": (f"{left_name or left['label']} minus {right_name or right['label']}"),
         "paired_episodes": len(pairs),
         "pairing_note": (
             "Environment task/trial keys and initial-state seeds are matched. Policy diffusion noise is "
@@ -678,7 +680,7 @@ def _environment_metadata(experiment_id: str = "A0") -> dict[str, Any]:
                 "src/unitree_gr00t/a1_train.py",
             )
         )
-    if experiment_id == "A2":
+    if experiment_id in {"A2", "B"}:
         implementation_paths.extend(
             (
                 "scripts/run_a2_full_benchmark.sh",
@@ -686,6 +688,21 @@ def _environment_metadata(experiment_id: str = "A0") -> dict[str, Any]:
                 "src/unitree_gr00t/a2.py",
                 "src/unitree_gr00t/a2_eval.py",
                 "src/unitree_gr00t/a2_merge.py",
+            )
+        )
+    if experiment_id == "B":
+        implementation_paths.extend(
+            (
+                "docs/SPARKVLA_B_IMPLEMENTATION_PLAN.md",
+                "src/unitree_gr00t/b.py",
+                "src/unitree_gr00t/b_data.py",
+                "src/unitree_gr00t/b_features.py",
+                "src/unitree_gr00t/b_model.py",
+                "src/unitree_gr00t/b_train.py",
+                "src/unitree_gr00t/b_runtime.py",
+                "src/unitree_gr00t/b_server.py",
+                "src/unitree_gr00t/b_eval.py",
+                "src/unitree_gr00t/b_merge.py",
             )
         )
     packages = {}
@@ -873,17 +890,28 @@ def _markdown(metrics: dict[str, Any]) -> str:
             f"{experiment_id} measures the shared post-trained `{variant}` low-level policy's "
             "ability to execute a long-horizon full-task instruction"
         )
-    else:
+    elif experiment_id == "A2":
         scope = (
             f"{experiment_id} measures `{variant}` with the frozen RoboCerebra fixed-anchor "
             "subgoal hierarchy"
         )
-    hierarchy = experiment_id == "A2"
+    else:
+        scope = (
+            f"{experiment_id} measures `{variant}` with the frozen canonical hierarchy and "
+            "a learned unified STOP/action-prefix selector"
+        )
+    hierarchy = experiment_id in {"A2", "B"}
+    adaptive = experiment_id == "B"
     isolation = (
-        "with canonical step instructions switched at fixed 150-step anchors, but without "
-        "outcome-aware switching, re-planning, stop/adaptive selection, retry, or recovery"
-        if hierarchy
-        else "without a hierarchy, stop/adaptive chunk selector, retry, or recovery"
+        "with observation-conditioned prefix lengths and confirmed STOP advancement, but without "
+        "goal predicates at inference, re-planning, retry, or recovery"
+        if adaptive
+        else (
+            "with canonical step instructions switched at fixed 150-step anchors, but without "
+            "outcome-aware switching, re-planning, stop/adaptive selection, retry, or recovery"
+            if hierarchy
+            else "without a hierarchy, stop/adaptive chunk selector, retry, or recovery"
+        )
     )
     lines = [
         f"# {experiment_id} full RoboCerebra benchmark — reviewer report",
@@ -894,6 +922,14 @@ def _markdown(metrics: dict[str, Any]) -> str:
         "",
         f"The official [RoboCerebra paper]({PAPER_URL}) defines 60 tasks and 10 rollouts per task, and reports predicate/subtask success as its SR. This report additionally retains terminal goal-state success, ordered-goal reach, confidence intervals, action efficiency, post-reach stability, latency, and per-episode artifacts. The statistical reporting follows the artifact-level caution recommended by the [2026 manipulation benchmark audit]({AUDIT_URL}).",
         "",
+        *(
+            [
+                f"B is a GR00T-RC adaptation of the unified STOP/action-prefix selector specified by [SparkVLA]({SPARKVLA_URL}). The pinned SparkVLA repository supplied no code or checkpoint, and the local successful-demonstration corpus supplied no authoritative failed-rollout labels; results are therefore not presented as an official SparkVLA reproduction.",
+                "",
+            ]
+            if adaptive
+            else []
+        ),
         "## Benchmark coverage",
         "",
         f"| Condition | Capability stressed | {experiment_id} continuous-track realization |",
@@ -984,9 +1020,9 @@ def _markdown(metrics: dict[str, Any]) -> str:
     if baseline:
         lines.extend(
             [
-                "## Paired fixed-hierarchy ablation against A1",
+                f"## Paired {experiment_id} ablation against {baseline['experiment_id']}",
                 "",
-                f"A2 is paired against `{baseline['experiment_id']}` / `{baseline['variant']}` by identical task, case, trial, initial-state seed, and execution horizon. Policy diffusion noise is not paired because concurrent clients share one server RNG stream.",
+                f"{experiment_id} is paired against `{baseline['experiment_id']}` / `{baseline['variant']}` by identical task, case, trial, initial-state seed, and execution horizon. Policy diffusion noise is not paired because concurrent clients share one server RNG stream.",
                 "",
                 "| Run | Paper SR delta | Pooled SR delta | Terminal SR delta | Step delta | Wins/ties/losses |",
                 "| --- | ---: | ---: | ---: | ---: | ---: |",
@@ -1011,7 +1047,7 @@ def _markdown(metrics: dict[str, Any]) -> str:
             "- Terminal goal-state SR (machine-readable legacy key `strict_full_task_success_rate`): every object's terminal goal predicate must hold in the final frame. It can be true even when the ordered evaluator never observed the full transition sequence.",
             "- Ordered-goal reached SR: the public evaluator's sequential `_check_success` became true at least once. Stability/reactivation metrics are conditioned only on these reached episodes.",
             (
-                "- Plan Match Accuracy: 100% by construction because A2 consumes the benchmark's canonical annotated plan; this is a structural contract check, not a learned-planner result. Plan Efficiency is reported per run as paper SR divided by mean declared plan length."
+                f"- Plan Match Accuracy: 100% by construction because {experiment_id} consumes the benchmark's canonical annotated plan; this is a structural contract check, not a learned-planner result. Plan Efficiency is reported per run as paper SR divided by mean declared plan length."
                 if hierarchy
                 else f"- Plan Match Accuracy and symbolic Plan Efficiency: N/A for {experiment_id} because it emits no symbolic high-level plan."
             ),
@@ -1052,7 +1088,7 @@ def build_report(
         raise ValueError("Run labels must be unique")
 
     runs = [_load_run(label, path) for label, path in parsed]
-    hierarchy = experiment_id == "A2"
+    hierarchy = experiment_id in {"A2", "B"}
     payload: dict[str, Any] = {
         "schema_version": 1,
         "benchmark": "RoboCerebra",
@@ -1089,14 +1125,14 @@ def build_report(
             ),
             "average_plan_match_accuracy": 1.0 if hierarchy else None,
             "average_plan_match_accuracy_note": (
-                "By construction: A2 consumes canonical benchmark annotations; not a learned-planner estimate."
+                f"By construction: {experiment_id} consumes canonical benchmark annotations; not a learned-planner estimate."
                 if hierarchy
                 else None
             ),
             "plan_efficiency": {} if hierarchy else None,
             "videoqa_action_completion_accuracy": None,
             "reason": (
-                "A2 has a frozen symbolic plan trace but no learned planner or VideoQA reflection head"
+                f"{experiment_id} has a frozen symbolic plan trace but no learned planner or VideoQA reflection head"
                 if hierarchy
                 else f"{experiment_id} has no high-level planner, symbolic action trace, or VideoQA reflection head"
             ),
@@ -1143,7 +1179,9 @@ def build_report(
         }
         if hierarchy:
             if not run["manifest"].get("hierarchy") or run["manifest"].get("recovery"):
-                raise ValueError(f"Run {run['label']} does not satisfy the frozen A2 contract")
+                raise ValueError(
+                    f"Run {run['label']} does not satisfy the frozen {experiment_id} hierarchy contract"
+                )
             mean_plan_length = overall["declared_plan_length"]["mean"]
             paper_sr = overall["paper_subtask_success_rate"]["estimate"]
             payload["paper_metric_applicability"]["plan_efficiency"][run["label"]] = (

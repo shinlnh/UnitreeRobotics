@@ -75,6 +75,40 @@ planner = "RoboCerebra-HPE-fixed-anchor-reimplementation"
 plan_source = "canonical task_description.txt step annotations"
 subgoal_horizon_steps = 150
 
+[robocerebra_selector]
+experiment_id = "B"
+variant = "GR00T-RC-SparkVLA-style-execution"
+method = "SparkVLA-unified-stop-prefix-GR00T-reimplementation"
+paper = "arXiv:2608.16172v1"
+checkpoint_dir = "checkpoints/robocerebra/GR00T-RC-SparkVLA-selector"
+dataset_dir = "outputs/robocerebra/sparkvla-selector-v1"
+action_horizon = 16
+context_width = 2048
+scoring_width = 1024
+scoring_layers = 2
+scoring_heads = 8
+feedforward_width = 4096
+boundary_jitter_steps = 2
+stop_loss_weight = 1.0
+unsuccessful_rank_weight = 0.1
+stop_positive_weight = 3.0
+near_boundary_steps = 80
+near_boundary_stop_weight = 3.0
+unsuccessful_stop_weight = 1.5
+# The paper only says "short confirmation window". Two is the smallest
+# non-trivial window and is frozen before held-out evaluation.
+stop_confirmation_window = 2
+sample_stride = 8
+development_fraction = 0.1
+training_seed = 7
+max_steps = 20000
+batch_size = 128
+learning_rate = 3e-4
+weight_decay = 0.01
+warmup_steps = 1000
+gradient_clip_norm = 1.0
+save_steps = 1000
+
 [model]
 base_model = "nvidia/GR00T-N1.7-3B"
 embodiment = "UNITREE_G1_SONIC"
