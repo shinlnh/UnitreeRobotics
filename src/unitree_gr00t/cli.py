@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .a0 import discover_cases, inspect_checkpoint
 from .a1 import audit_training_source, inspect_a1_checkpoint, validate_converted_dataset
+from .a2 import audit_fixed_hierarchy, hierarchy_audit_payload
 from .commands import (
     build_a0_eval_command,
     build_a0_server_command,
@@ -17,6 +18,8 @@ from .commands import (
     build_a1_prepare_command,
     build_a1_server_command,
     build_a1_train_command,
+    build_a2_eval_command,
+    build_a2_server_command,
     build_collect_command,
     build_deploy_command,
     build_open_loop_command,
@@ -162,6 +165,31 @@ def _parser() -> argparse.ArgumentParser:
     a1_eval.add_argument("--no-trace-images", action="store_true")
     a1_eval.add_argument("--resume", action="store_true")
     a1_eval.add_argument("--execute", action="store_true")
+
+    a2_check = subparsers.add_parser(
+        "a2-check", help="Validate the frozen A1 checkpoint and A2 hierarchy plans"
+    )
+    a2_check.add_argument("--task-types", nargs="+", default=["Ideal"])
+    a2_check.add_argument("--cases", nargs="*", default=[])
+
+    a2_server = subparsers.add_parser(
+        "a2-server", help="Preview or start the frozen A2 low-level policy server"
+    )
+    a2_server.add_argument("--seed", type=int, default=7)
+    a2_server.add_argument("--execute", action="store_true")
+
+    a2_eval = subparsers.add_parser(
+        "a2-eval", help="Preview or run the fixed-anchor hierarchical A2 evaluation"
+    )
+    a2_eval.add_argument("--task-types", nargs="+", default=["Ideal"])
+    a2_eval.add_argument("--cases", nargs="*", default=[])
+    a2_eval.add_argument("--trials", type=int, default=1)
+    a2_eval.add_argument("--execution-horizon", type=int, default=16, choices=(8, 16))
+    a2_eval.add_argument("--seed", type=int, default=7)
+    a2_eval.add_argument("--output")
+    a2_eval.add_argument("--no-trace-images", action="store_true")
+    a2_eval.add_argument("--resume", action="store_true")
+    a2_eval.add_argument("--execute", action="store_true")
 
     subparsers.add_parser("show-config", help="Print resolved runtime configuration")
     return parser
@@ -370,6 +398,56 @@ def _run(args: argparse.Namespace) -> int:
             else config.artifact_dir / "A1" / f"H{args.execution_horizon}-seed{args.seed}"
         )
         spec = build_a1_eval_command(
+            config,
+            task_types=args.task_types,
+            case_names=args.cases,
+            trials=args.trials,
+            execution_horizon=args.execution_horizon,
+            seed=args.seed,
+            output_dir=output,
+            trace_images=not args.no_trace_images,
+            resume=args.resume,
+        )
+        return run_or_preview(spec, args.execute)
+
+    if args.command == "a2-check":
+        a1 = config.robocerebra_posttrain
+        a2 = config.robocerebra_hierarchy
+        contract, checkpoint_provenance = inspect_a1_checkpoint(
+            a1.checkpoint_dir,
+            expected_training_revision=a1.training_dataset_revision,
+        )
+        cases = discover_cases(config.robocerebra.benchmark_dir, args.task_types, args.cases)
+        audit = audit_fixed_hierarchy(cases, a2.subgoal_horizon_steps)
+        payload = {
+            "experiment_id": a2.experiment_id,
+            "variant": a2.variant,
+            "checkpoint": str(contract.checkpoint_dir),
+            "checkpoint_source_experiment": checkpoint_provenance["experiment_id"],
+            "checkpoint_training_revision": checkpoint_provenance["training_dataset_revision"],
+            "hierarchy": hierarchy_audit_payload(audit),
+        }
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0 if audit.valid else 2
+
+    if args.command == "a2-server":
+        inspect_a1_checkpoint(
+            config.robocerebra_posttrain.checkpoint_dir,
+            expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
+        )
+        return run_or_preview(build_a2_server_command(config, args.seed), args.execute)
+
+    if args.command == "a2-eval":
+        inspect_a1_checkpoint(
+            config.robocerebra_posttrain.checkpoint_dir,
+            expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
+        )
+        output = (
+            Path(args.output).expanduser()
+            if args.output
+            else config.artifact_dir / "A2" / f"H{args.execution_horizon}-seed{args.seed}"
+        )
+        spec = build_a2_eval_command(
             config,
             task_types=args.task_types,
             case_names=args.cases,

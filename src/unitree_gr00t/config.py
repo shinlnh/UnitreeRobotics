@@ -72,6 +72,15 @@ class RoboCerebraPosttrainConfig:
 
 
 @dataclass(frozen=True)
+class RoboCerebraHierarchyConfig:
+    experiment_id: str
+    variant: str
+    planner: str
+    plan_source: str
+    subgoal_horizon_steps: int
+
+
+@dataclass(frozen=True)
 class ModelConfig:
     base_model: str
     embodiment: str
@@ -117,6 +126,7 @@ class ProjectConfig:
     upstream: UpstreamConfig
     robocerebra: RoboCerebraConfig
     robocerebra_posttrain: RoboCerebraPosttrainConfig
+    robocerebra_hierarchy: RoboCerebraHierarchyConfig
     model: ModelConfig
     sonic: SonicConfig
     training: TrainingConfig
@@ -161,6 +171,7 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
     upstream = raw["upstream"]
     robocerebra = raw["robocerebra"]
     robocerebra_posttrain = raw["robocerebra_posttrain"]
+    robocerebra_hierarchy = raw["robocerebra_hierarchy"]
     model = raw["model"]
     sonic = raw["sonic"]
     training = raw["training"]
@@ -250,6 +261,13 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
             learning_rate=float(robocerebra_posttrain["learning_rate"]),
             state_dropout_probability=float(robocerebra_posttrain["state_dropout_probability"]),
             save_steps=int(robocerebra_posttrain["save_steps"]),
+        ),
+        robocerebra_hierarchy=RoboCerebraHierarchyConfig(
+            experiment_id=str(robocerebra_hierarchy["experiment_id"]),
+            variant=str(robocerebra_hierarchy["variant"]),
+            planner=str(robocerebra_hierarchy["planner"]),
+            plan_source=str(robocerebra_hierarchy["plan_source"]),
+            subgoal_horizon_steps=int(robocerebra_hierarchy["subgoal_horizon_steps"]),
         ),
         model=ModelConfig(
             base_model=str(model["base_model"]),

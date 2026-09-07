@@ -1,4 +1,4 @@
-"""Reviewer-oriented metrics and artifact report for no-hierarchy baselines."""
+"""Reviewer-oriented metrics and artifact report for RoboCerebra baselines."""
 
 from __future__ import annotations
 
@@ -324,6 +324,16 @@ def metric_block(rows: list[dict[str, Any]], *, samples: int, seed: int) -> dict
     elapsed_seconds = sum(float(row["elapsed_seconds"]) for row in rows)
     simulator_steps = sum(int(row["total_simulator_steps"]) for row in rows)
     control_frequency = int(rows[0].get("control_frequency_hz", 20)) if rows else 20
+    declared_plan_lengths = [
+        len(row["plan"]["subgoals"])
+        for row in rows
+        if isinstance(row.get("plan"), dict) and isinstance(row["plan"].get("subgoals"), list)
+    ]
+    visited_plan_lengths = [
+        int(row["planner_subgoals_visited"])
+        for row in rows
+        if row.get("planner_subgoals_visited") is not None
+    ]
     paper_sr = stratified_bootstrap_mean(
         rows,
         _episode_score,
@@ -387,6 +397,11 @@ def metric_block(rows: list[dict[str, Any]], *, samples: int, seed: int) -> dict
             for row in rows
             if row["first_success_step"] is not None
         ),
+        "declared_plan_length": _descriptive(float(value) for value in declared_plan_lengths),
+        "visited_plan_length": _descriptive(float(value) for value in visited_plan_lengths),
+        "fixed_anchor_truncations": sum(
+            int(row.get("fixed_anchor_truncations", 0)) for row in rows
+        ),
     }
 
 
@@ -420,6 +435,8 @@ def _scan_decisions(path: Path) -> dict[str, Any]:
     transitions = 0
     latencies: list[float] = []
     prefix_lengths: Counter[int] = Counter()
+    prefix_reasons: Counter[str] = Counter()
+    active_subgoals: Counter[int] = Counter()
     with path.open(encoding="utf-8") as handle:
         for line in handle:
             if not line.strip():
@@ -429,6 +446,11 @@ def _scan_decisions(path: Path) -> dict[str, Any]:
             transitions += len(row["transitions"])
             latencies.append(1000.0 * float(row["policy_latency_seconds"]))
             prefix_lengths[int(row["selected_prefix_length"])] += 1
+            if row.get("prefix_selection"):
+                prefix_reasons[str(row["prefix_selection"])] += 1
+            planner_decision = row.get("planner_decision")
+            if isinstance(planner_decision, dict) and "subgoal_index" in planner_decision:
+                active_subgoals[int(planner_decision["subgoal_index"])] += 1
     return {
         "policy_calls": calls,
         "executed_transitions": transitions,
@@ -436,6 +458,8 @@ def _scan_decisions(path: Path) -> dict[str, Any]:
         "policy_latency_p95_ms": _quantile(latencies, 0.95),
         "policy_latency_p99_ms": _quantile(latencies, 0.99),
         "selected_prefix_histogram": dict(sorted(prefix_lengths.items())),
+        "prefix_selection_reasons": dict(sorted(prefix_reasons.items())),
+        "active_subgoal_call_histogram": dict(sorted(active_subgoals.items())),
     }
 
 
@@ -639,6 +663,16 @@ def _environment_metadata(experiment_id: str = "A0") -> dict[str, Any]:
                 "src/unitree_gr00t/a1_train.py",
             )
         )
+    if experiment_id == "A2":
+        implementation_paths.extend(
+            (
+                "scripts/run_a2_full_benchmark.sh",
+                "scripts/run_a2_pipeline.sh",
+                "src/unitree_gr00t/a2.py",
+                "src/unitree_gr00t/a2_eval.py",
+                "src/unitree_gr00t/a2_merge.py",
+            )
+        )
     packages = {}
     for name in ("numpy", "mujoco", "robosuite", "pyzmq", "msgpack", "torch"):
         try:
@@ -819,17 +853,29 @@ def _markdown(metrics: dict[str, Any]) -> str:
             "A0 measures how far the unmodified `GR00T-N1.7-LIBERO/libero_10` "
             "low-level policy can execute a long-horizon full-task instruction"
         )
-    else:
+    elif experiment_id == "A1":
         scope = (
             f"{experiment_id} measures the shared post-trained `{variant}` low-level policy's "
             "ability to execute a long-horizon full-task instruction"
         )
+    else:
+        scope = (
+            f"{experiment_id} measures `{variant}` with the frozen RoboCerebra fixed-anchor "
+            "subgoal hierarchy"
+        )
+    hierarchy = experiment_id == "A2"
+    isolation = (
+        "with canonical step instructions switched at fixed 150-step anchors, but without "
+        "outcome-aware switching, re-planning, stop/adaptive selection, retry, or recovery"
+        if hierarchy
+        else "without a hierarchy, stop/adaptive chunk selector, retry, or recovery"
+    )
     lines = [
         f"# {experiment_id} full RoboCerebra benchmark — reviewer report",
         "",
         "## Scope and research question",
         "",
-        f"{scope} without a hierarchy, stop/adaptive chunk selector, retry, or recovery. The benchmark covers static, memory, partial-observation, disturbance, and mixed conditions on one continuous simulator timeline.",
+        f"{scope} {isolation}. The benchmark covers static, memory, partial-observation, disturbance, and mixed conditions on one continuous simulator timeline.",
         "",
         f"The official [RoboCerebra paper]({PAPER_URL}) defines 60 tasks and 10 rollouts per task, and reports predicate/subtask success as its SR. This report additionally retains terminal goal-state success, ordered-goal reach, confidence intervals, action efficiency, post-reach stability, latency, and per-episode artifacts. The statistical reporting follows the artifact-level caution recommended by the [2026 manipulation benchmark audit]({AUDIT_URL}).",
         "",
@@ -844,7 +890,11 @@ def _markdown(metrics: dict[str, Any]) -> str:
         "| Random_Disturbance | Unexpected environment changes | Seeded 0.15 m object-y displacements during one uninterrupted rollout |",
         "| Mix | Memory plus dynamic change and partial observation | Official Mix scene with shifted start and the same seeded displacement rule |",
         "",
-        f"Each policy sees the unchanged full-task language instruction and live agent/wrist RGB plus proprioception. {experiment_id} supplies no subgoal, symbolic memory, failure detector, retry, or state restoration.",
+        (
+            f"The low-level policy sees the active canonical subgoal plus live agent/wrist RGB and proprioception. {experiment_id}'s planner is outcome-blind and supplies no symbolic memory, failure detector, retry, or state restoration."
+            if hierarchy
+            else f"Each policy sees the unchanged full-task language instruction and live agent/wrist RGB plus proprioception. {experiment_id} supplies no subgoal, symbolic memory, failure detector, retry, or state restoration."
+        ),
         "",
         "## Headline results",
         "",
@@ -923,7 +973,11 @@ def _markdown(metrics: dict[str, Any]) -> str:
             "- Reference-evaluator pooled SR: all completed state transitions divided by all possible transitions, matching the public evaluator's aggregate logger. It is reported separately because unequal task lengths make it differ from task-macro SR.",
             "- Terminal goal-state SR (machine-readable legacy key `strict_full_task_success_rate`): every object's terminal goal predicate must hold in the final frame. It can be true even when the ordered evaluator never observed the full transition sequence.",
             "- Ordered-goal reached SR: the public evaluator's sequential `_check_success` became true at least once. Stability/reactivation metrics are conditioned only on these reached episodes.",
-            f"- Plan Match Accuracy and symbolic Plan Efficiency: N/A for {experiment_id} because it emits no symbolic high-level plan.",
+            (
+                "- Plan Match Accuracy: 100% by construction because A2 consumes the benchmark's canonical annotated plan; this is a structural contract check, not a learned-planner result. Plan Efficiency is reported per run as paper SR divided by mean declared plan length."
+                if hierarchy
+                else f"- Plan Match Accuracy and symbolic Plan Efficiency: N/A for {experiment_id} because it emits no symbolic high-level plan."
+            ),
             f"- VideoQA Action Completion Accuracy: N/A because {experiment_id} has no reflection/VideoQA head.",
             f"- Failure-detection precision/recall/latency and recovery success: N/A because {experiment_id} intentionally has neither detector nor recovery policy. Injection exposure and conditional outcomes remain in the raw episodes/traces.",
             "",
@@ -960,6 +1014,7 @@ def build_report(
         raise ValueError("Run labels must be unique")
 
     runs = [_load_run(label, path) for label, path in parsed]
+    hierarchy = experiment_id == "A2"
     payload: dict[str, Any] = {
         "schema_version": 1,
         "benchmark": "RoboCerebra",
@@ -994,10 +1049,19 @@ def build_report(
             "strict_full_task_success_rate": (
                 "legacy key: terminal goal-state success, reported as an additional reviewer metric"
             ),
-            "average_plan_match_accuracy": None,
-            "plan_efficiency": None,
+            "average_plan_match_accuracy": 1.0 if hierarchy else None,
+            "average_plan_match_accuracy_note": (
+                "By construction: A2 consumes canonical benchmark annotations; not a learned-planner estimate."
+                if hierarchy
+                else None
+            ),
+            "plan_efficiency": {} if hierarchy else None,
             "videoqa_action_completion_accuracy": None,
-            "reason": f"{experiment_id} has no high-level planner, symbolic action trace, or VideoQA reflection head",
+            "reason": (
+                "A2 has a frozen symbolic plan trace but no learned planner or VideoQA reflection head"
+                if hierarchy
+                else f"{experiment_id} has no high-level planner, symbolic action trace, or VideoQA reflection head"
+            ),
         },
         "runs": {},
     }
@@ -1039,6 +1103,14 @@ def build_report(
                 run, samples=samples, seed=20262905 + run_index * 100
             ),
         }
+        if hierarchy:
+            if not run["manifest"].get("hierarchy") or run["manifest"].get("recovery"):
+                raise ValueError(f"Run {run['label']} does not satisfy the frozen A2 contract")
+            mean_plan_length = overall["declared_plan_length"]["mean"]
+            paper_sr = overall["paper_subtask_success_rate"]["estimate"]
+            payload["paper_metric_applicability"]["plan_efficiency"][run["label"]] = (
+                paper_sr / mean_plan_length if mean_plan_length else None
+            )
         for condition, block in by_condition.items():
             condition_csv.append(_flat_metric_row(run["label"], condition, block))
 
