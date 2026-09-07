@@ -84,8 +84,10 @@ def build_selector_sim_policy(
             if not isinstance(selector_options, dict):
                 raise BContractError("B policy request is missing b_selector options")
             action, info = super()._get_action(observation, options)
-            context = self.capture.pop_context()
-            chunk = flat_action_chunk(action, np)
+            # Match the frozen offline cache exactly: float16 storage followed
+            # by float32 selector compute for both contexts and proposed actions.
+            context = self.capture.pop_context().to(torch.float16).float()
+            chunk = flat_action_chunk(action, np).astype(np.float16).astype(np.float32)
             batch = chunk.shape[0]
             if batch != 1:
                 raise BContractError("B closed-loop server currently requires batch size one")

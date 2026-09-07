@@ -60,6 +60,8 @@ B instead keeps the frozen GR00T-RC executor and adapts the selector interface:
 - the canonical A2 subgoal replaces autoregressive subgoal generation;
 - the frozen GR00T N1.7 `backbone_features` (width 2,048) provide current visual,
   language, and proprioceptive context;
+- cached contexts and H16 proposals use float16 storage; online values take the
+  same float16 round-trip before the float32 selector computation;
 - the subgoal-onset context and ordered completed-subgoal history form the cached
   history-aware anchor;
 - each action-prefix candidate is represented by its terminal action plus a
