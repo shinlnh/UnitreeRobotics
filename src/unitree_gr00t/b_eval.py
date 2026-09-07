@@ -502,6 +502,7 @@ def _run_manifest(
         "planner_observes_task_outcomes": False,
         "planner_replans": False,
         "episode_seeded_policy": True,
+        "decision_seed_derivation": "sha256(B-decision-v1:episode_seed:decision_index)[:31-bit]",
         "stop_or_adaptive_chunk": True,
         "retry": False,
         "recovery": False,
