@@ -90,6 +90,15 @@ def test_metric_block_keeps_task_macro_and_pooled_rates_separate() -> None:
     assert block["reference_pooled_subtask_success_rate"]["estimate"] == 5 / 6
 
 
+def test_b_chunk_utilization_excludes_post_success_controller_holds() -> None:
+    row = _row("case1", 4, True)
+    row["selector_executed_actions"] = 8
+    block = metric_block([row], samples=1000, seed=7)
+    assert block["total_executed_steps"] == 16
+    assert block["total_selector_executed_actions"] == 8
+    assert block["action_chunk_utilization"] == 0.25
+
+
 def test_stability_is_conditioned_on_ordered_goal_reach() -> None:
     terminal_only = _row("case1", 1, True)
     terminal_only["reached_success"] = False

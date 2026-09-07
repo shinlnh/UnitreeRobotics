@@ -327,6 +327,7 @@ def metric_block(rows: list[dict[str, Any]], *, samples: int, seed: int) -> dict
     reactivated = sum(bool(row["post_success_reactivation"]) for row in rows)
     calls = sum(int(row["policy_calls"]) for row in rows)
     executed = sum(int(row["steps"]) for row in rows)
+    selector_executed = sum(int(row.get("selector_executed_actions", row["steps"])) for row in rows)
     predicted = sum(int(row["predicted_actions"]) for row in rows)
     policy_seconds = sum(float(row["policy_inference_seconds"]) for row in rows)
     elapsed_seconds = sum(float(row["elapsed_seconds"]) for row in rows)
@@ -382,7 +383,8 @@ def metric_block(rows: list[dict[str, Any]], *, samples: int, seed: int) -> dict
         "total_executed_steps": executed,
         "total_policy_calls": calls,
         "total_predicted_actions": predicted,
-        "action_chunk_utilization": executed / predicted if predicted else 0.0,
+        "total_selector_executed_actions": selector_executed,
+        "action_chunk_utilization": selector_executed / predicted if predicted else 0.0,
         "actions_per_completed_subtask": executed / completed if completed else None,
         "completed_subtasks_per_1000_actions": 1000.0 * completed / executed if executed else 0.0,
         "total_policy_inference_seconds": policy_seconds,
