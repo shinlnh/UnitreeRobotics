@@ -106,7 +106,9 @@ the exclusion applies only to B boundary supervision.
 The paper mentions a short STOP confirmation window but does not publish its
 length. B conservatively freezes it a priori at two consecutive decisions—the
 smallest non-trivial window—records that choice as an adaptation, and never
-tunes it on the 60 held-out cases.
+tunes it on the 60 held-out cases. A pending first STOP re-infers from the same
+observation with the next request-local diffusion seed and consumes no simulator
+step; this keeps the confirmation guard from becoming an unreported hold action.
 
 ## B0–B10 delivery sequence and gates
 
