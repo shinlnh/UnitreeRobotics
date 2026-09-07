@@ -13,6 +13,7 @@ from typing import Any
 
 from .a1 import sha256_file
 from .b import B_CHECKPOINT_PROVENANCE, B_ID, B_METHOD, B_PAPER, B_VARIANT, build_ordinal_targets
+from .b_features import FEATURE_RUN_CONTRACT
 from .b_model import SelectorModelConfig, build_selector, selector_loss
 
 
@@ -248,6 +249,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise FileExistsError(f"refusing to overwrite selector checkpoint: {destination}")
     manifest_path = dataset / "manifest.json"
     feature_manifest_path = dataset / "feature_manifest.json"
+    feature_run_contract_path = dataset / FEATURE_RUN_CONTRACT
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     feature_manifest = json.loads(feature_manifest_path.read_text(encoding="utf-8"))
     if not feature_manifest.get("complete") or feature_manifest.get("limited"):
@@ -257,6 +259,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     parent_weight_hashes = feature_manifest.get("checkpoint_weight_shards_sha256")
     if not isinstance(parent_weight_hashes, dict) or not parent_weight_hashes:
         raise ValueError("B feature manifest is missing frozen A1 weight hashes")
+    if not feature_run_contract_path.is_file() or feature_manifest.get(
+        "feature_run_contract_sha256"
+    ) != sha256_file(feature_run_contract_path):
+        raise ValueError("B feature manifest is not bound to its immutable run contract")
+    feature_run_contract_payload = json.loads(feature_run_contract_path.read_text(encoding="utf-8"))
+    if feature_run_contract_payload.get(
+        "checkpoint_weight_shards_sha256"
+    ) != parent_weight_hashes or feature_run_contract_payload.get("samples_sha256") != manifest.get(
+        "samples_sha256"
+    ):
+        raise ValueError("B feature run contract differs from the frozen cache manifest")
 
     import numpy as np
     import torch

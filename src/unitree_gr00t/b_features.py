@@ -16,6 +16,8 @@ from .a1 import inspect_a1_checkpoint, sha256_file
 from .b import a1_weight_hashes
 from .b_runtime import BackboneCapture, flat_action_chunk
 
+FEATURE_RUN_CONTRACT = "feature_run_contract.json"
+
 
 def episode_feature_seed(base_seed: int, episode_index: int) -> int:
     """Derive an order-independent seed so resumed diffusion chunks replay."""
@@ -48,6 +50,42 @@ def _write_json(path: Path, value: Any) -> None:
     temporary = path.with_suffix(f"{path.suffix}.tmp-{os.getpid()}")
     temporary.write_text(json.dumps(value, indent=2, ensure_ascii=False), encoding="utf-8")
     temporary.replace(path)
+
+
+def feature_run_contract(
+    *,
+    index: Path,
+    index_manifest: dict[str, Any],
+    checkpoint_contract: Any,
+    checkpoint_provenance: dict[str, Any],
+    checkpoint_weight_hashes: dict[str, str],
+    device: str,
+    batch_size: int,
+    seed: int,
+) -> dict[str, Any]:
+    """Bind every resumable episode file to one immutable extraction contract."""
+
+    return {
+        "schema_version": 1,
+        "experiment_id": "B",
+        "feature_contract": "frozen GR00T-RC last-valid backbone token plus proposed H16 chunk",
+        "selector_index_manifest_sha256": sha256_file(index / "manifest.json"),
+        "episodes_sha256": index_manifest["episodes_sha256"],
+        "samples_sha256": index_manifest["samples_sha256"],
+        "checkpoint": str(checkpoint_contract.checkpoint_dir),
+        "checkpoint_training_revision": checkpoint_provenance["training_dataset_revision"],
+        "checkpoint_provenance_sha256": sha256_file(
+            checkpoint_contract.checkpoint_dir / "a1_training_provenance.json"
+        ),
+        "checkpoint_weight_shards_sha256": checkpoint_weight_hashes,
+        "action_horizon": checkpoint_contract.action_horizon,
+        "context_width": 2048,
+        "dtype": "float16",
+        "device": device,
+        "batch_size": batch_size,
+        "seed": seed,
+        "seed_derivation": "sha256(B-feature-v1:base_seed:episode_index)[:31-bit]",
+    }
 
 
 def _observation(image: Any, wrist: Any, state: Any, instruction: str, np: Any) -> dict[str, Any]:
@@ -166,24 +204,33 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     if contract.action_horizon != int(index_manifest["action_horizon"]):
         raise ValueError("A1 action horizon does not match B selector index")
+    checkpoint_weight_hashes = a1_weight_hashes(contract)
+    destination = args.destination.expanduser().resolve()
+    features_dir = destination / "features"
+    features_dir.mkdir(parents=True, exist_ok=True)
+    run_contract = feature_run_contract(
+        index=index,
+        index_manifest=index_manifest,
+        checkpoint_contract=contract,
+        checkpoint_provenance=checkpoint_provenance,
+        checkpoint_weight_hashes=checkpoint_weight_hashes,
+        device=args.device,
+        batch_size=args.batch_size,
+        seed=args.seed,
+    )
+    run_contract_path = destination / FEATURE_RUN_CONTRACT
+    if run_contract_path.is_file():
+        if json.loads(run_contract_path.read_text(encoding="utf-8")) != run_contract:
+            raise ValueError("B feature resume contract does not match this run")
+    elif any(features_dir.glob("episode_*.npz")):
+        raise ValueError("B feature cache exists without an immutable run contract")
+    else:
+        _write_json(run_contract_path, run_contract)
+    for temporary in features_dir.glob("episode_*.tmp-*.npz"):
+        temporary.unlink(missing_ok=True)
 
     import numpy as np
-    import torch
-    from gr00t.data.embodiment_tags import EmbodimentTag
-    from gr00t.policy.gr00t_policy import Gr00tPolicy, Gr00tSimPolicyWrapper
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-    base = Gr00tPolicy(
-        EmbodimentTag.LIBERO_PANDA,
-        str(args.checkpoint.expanduser().resolve()),
-        device=args.device,
-        strict=True,
-    )
-    policy = Gr00tSimPolicyWrapper(base)
-    capture = BackboneCapture(base.model.backbone)
     episodes = _read_jsonl(index / "episodes.jsonl")
     samples = _read_jsonl(index / "samples.jsonl")
     if args.limit_episodes is not None:
@@ -197,11 +244,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if episode_index in selected_ids:
             samples_by_episode[episode_index].append(sample)
 
-    destination = args.destination.expanduser().resolve()
-    features_dir = destination / "features"
-    features_dir.mkdir(parents=True, exist_ok=True)
     completed: list[int] = []
     extracted_samples = 0
+    policy: Any | None = None
+    capture: BackboneCapture | None = None
+    torch: Any | None = None
     try:
         for position, episode in enumerate(episodes, start=1):
             episode_index = int(episode["episode_index"])
@@ -229,8 +276,29 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 completed.append(episode_index)
                 extracted_samples += len(expected_ids)
                 continue
+            if output.is_file():
+                raise FileExistsError(f"refusing to overwrite B episode feature: {output}")
+            if policy is None:
+                import torch as torch_module
+                from gr00t.data.embodiment_tags import EmbodimentTag
+                from gr00t.policy.gr00t_policy import Gr00tPolicy, Gr00tSimPolicyWrapper
+
+                torch = torch_module
+                random.seed(args.seed)
+                np.random.seed(args.seed)
+                torch.manual_seed(args.seed)
+                torch.cuda.manual_seed_all(args.seed)
+                base = Gr00tPolicy(
+                    EmbodimentTag.LIBERO_PANDA,
+                    str(args.checkpoint.expanduser().resolve()),
+                    device=args.device,
+                    strict=True,
+                )
+                policy = Gr00tSimPolicyWrapper(base)
+                capture = BackboneCapture(base.model.backbone)
             random.seed(extraction_seed)
             np.random.seed(extraction_seed)
+            assert torch is not None and capture is not None
             torch.manual_seed(extraction_seed)
             torch.cuda.manual_seed_all(extraction_seed)
             value = _episode_features(
@@ -256,7 +324,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             _write_json(destination / "progress.json", progress)
             print(json.dumps(progress), flush=True)
     finally:
-        capture.close()
+        if capture is not None:
+            capture.close()
 
     manifest = {
         "schema_version": 1,
@@ -269,7 +338,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "checkpoint_provenance_sha256": sha256_file(
             contract.checkpoint_dir / "a1_training_provenance.json"
         ),
-        "checkpoint_weight_shards_sha256": a1_weight_hashes(contract),
+        "checkpoint_weight_shards_sha256": checkpoint_weight_hashes,
+        "feature_run_contract_sha256": sha256_file(run_contract_path),
         "context_width": 2048,
         "action_horizon": contract.action_horizon,
         "action_dim": 7,

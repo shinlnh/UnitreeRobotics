@@ -17,6 +17,7 @@ from .a1 import (
 )
 from .a2 import audit_fixed_hierarchy, hierarchy_audit_payload
 from .b import inspect_selector_checkpoint, verify_a1_weight_hashes
+from .b_features import FEATURE_RUN_CONTRACT
 from .commands import (
     build_a0_eval_command,
     build_a0_server_command,
@@ -555,11 +556,28 @@ def _run(args: argparse.Namespace) -> int:
                 config.robocerebra_posttrain.checkpoint_dir,
                 expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
             )
+            index_manifest_path = b.dataset_dir / "manifest.json"
+            index_manifest = json.loads(index_manifest_path.read_text(encoding="utf-8"))
+            run_contract_path = b.dataset_dir / FEATURE_RUN_CONTRACT
+            if (
+                payload.get("experiment_id") != "B"
+                or payload.get("selector_index_manifest_sha256") != sha256_file(index_manifest_path)
+                or int(payload.get("samples", -1)) != int(index_manifest["samples"])
+                or payload.get("feature_run_contract_sha256") != sha256_file(run_contract_path)
+            ):
+                raise ValueError("B feature manifest identity or parent contract is invalid")
             verify_a1_weight_hashes(contract, payload.get("checkpoint_weight_shards_sha256"))
             hashes = payload.get("feature_files_sha256")
             if not isinstance(hashes, dict) or len(hashes) != int(payload.get("feature_files", -1)):
                 raise ValueError("B feature manifest is missing its complete hash inventory")
+            actual_feature_files = {
+                path.name for path in (b.dataset_dir / "features").glob("episode_*.npz")
+            }
+            if actual_feature_files != set(hashes):
+                raise ValueError("B feature cache file inventory differs from its manifest")
             for filename, expected_hash in hashes.items():
+                if Path(filename).name != filename:
+                    raise ValueError(f"B feature manifest contains an unsafe filename: {filename}")
                 path = b.dataset_dir / "features" / filename
                 if not path.is_file() or sha256_file(path) != expected_hash:
                     raise ValueError(f"B feature cache hash mismatch: {filename}")
