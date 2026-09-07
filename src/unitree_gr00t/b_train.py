@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import pickle
 import random
 from collections import defaultdict
 from pathlib import Path
@@ -236,10 +237,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     dataset = args.dataset.expanduser().resolve()
     destination = args.destination.expanduser().resolve()
     resume = bool(getattr(args, "resume", False))
-    if (destination / "model.safetensors").exists() or (
-        destination / B_CHECKPOINT_PROVENANCE
-    ).exists():
+    final_weights_path = destination / "model.safetensors"
+    final_provenance_path = destination / B_CHECKPOINT_PROVENANCE
+    final_parts = (final_weights_path.is_file(), final_provenance_path.is_file())
+    if all(final_parts):
         raise FileExistsError(f"selector checkpoint is already complete: {destination}")
+    if final_parts[1] or (final_parts[0] and not resume):
+        raise ValueError(f"selector checkpoint has an incomplete final export: {destination}")
     if destination.exists() and any(destination.iterdir()) and not resume:
         raise FileExistsError(f"refusing to overwrite selector checkpoint: {destination}")
     manifest_path = dataset / "manifest.json"
@@ -317,67 +321,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
     )
     destination.mkdir(parents=True, exist_ok=True)
-    resume_model_path = destination / "resume_model.safetensors"
-    resume_state_path = destination / "training_state.pt"
-    history: list[dict[str, Any]] = []
-    start_step = 0
-    if resume:
-        existing_resume = (resume_model_path.is_file(), resume_state_path.is_file())
-        if any(existing_resume) and not all(existing_resume):
-            raise ValueError("B resume checkpoint is incomplete")
-        if not any(existing_resume) and any(destination.iterdir()):
-            raise ValueError("B checkpoint directory is non-empty but has no resumable state")
-        if all(existing_resume):
-            state = torch.load(resume_state_path, map_location="cpu", weights_only=False)
-            expected_contract = {
-                "dataset_manifest_sha256": sha256_file(manifest_path),
-                "feature_manifest_sha256": sha256_file(feature_manifest_path),
-                "a1_checkpoint_weight_shards_sha256": parent_weight_hashes,
-                "model_config": model_config.payload(),
-                "seed": args.seed,
-                "batch_size": args.batch_size,
-                "learning_rate": args.learning_rate,
-                "weight_decay": args.weight_decay,
-                "warmup_steps": args.warmup_steps,
-                "gradient_clip_norm": args.gradient_clip_norm,
-                "steps": args.steps,
-                "validate_steps": args.validate_steps,
-                "validation_samples": args.validation_samples,
-                "boundary_jitter_steps": args.boundary_jitter_steps,
-                "near_boundary_steps": args.near_boundary_steps,
-                "stop_loss_weight": args.stop_loss_weight,
-                "stop_positive_weight": args.stop_positive_weight,
-                "near_boundary_stop_weight": args.near_boundary_stop_weight,
-                "unsuccessful_rank_weight": args.unsuccessful_rank_weight,
-                "unsuccessful_stop_weight": args.unsuccessful_stop_weight,
-            }
-            if state.get("contract") != expected_contract:
-                raise ValueError("B resume checkpoint contract does not match this run")
-            start_step = int(state["step"])
-            if start_step >= args.steps:
-                raise ValueError("B resume step must be smaller than requested training steps")
-            model.load_state_dict(load_file(str(resume_model_path)))
-            optimizer.load_state_dict(state["optimizer"])
-            train_rng.setstate(state["train_rng_state"])
-            if "torch_rng_state" not in state or "cuda_rng_state_all" not in state:
-                raise ValueError("B resume checkpoint is missing PyTorch RNG state")
-            torch.set_rng_state(state["torch_rng_state"])
-            if torch.cuda.is_available():
-                cuda_rng_state_all = state["cuda_rng_state_all"]
-                if len(cuda_rng_state_all) != torch.cuda.device_count():
-                    raise ValueError("B resume checkpoint CUDA device count does not match")
-                torch.cuda.set_rng_state_all(cuda_rng_state_all)
-            history = list(state["history"])
-
-    def learning_rate(step: int) -> float:
-        if step <= args.warmup_steps:
-            return args.learning_rate * step / max(1, args.warmup_steps)
-        remaining = (args.steps - step) / max(1, args.steps - args.warmup_steps)
-        return args.learning_rate * max(0.0, remaining)
-
-    fixed_development = development_indices[:]
-    development_rng.shuffle(fixed_development)
-    fixed_development = fixed_development[: args.validation_samples]
+    resume_slots = tuple(
+        (
+            destination / f"resume_model_{slot}.safetensors",
+            destination / f"training_state_{slot}.pt",
+        )
+        for slot in range(2)
+    )
     resume_contract = {
         "dataset_manifest_sha256": sha256_file(manifest_path),
         "feature_manifest_sha256": sha256_file(feature_manifest_path),
@@ -400,6 +350,82 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "unsuccessful_rank_weight": args.unsuccessful_rank_weight,
         "unsuccessful_stop_weight": args.unsuccessful_stop_weight,
     }
+    history: list[dict[str, Any]] = []
+    start_step = 0
+    if resume:
+        resume_artifacts = [path for pair in resume_slots for path in pair if path.exists()]
+        allowed_artifacts = set(resume_artifacts)
+        if final_weights_path.exists():
+            allowed_artifacts.add(final_weights_path)
+        temporary_patterns = (
+            "resume_model_[01].tmp-*.safetensors",
+            "training_state_[01].tmp-*.pt",
+            "model.tmp-*.safetensors",
+        )
+        temporary_artifacts = {
+            path
+            for pattern in temporary_patterns
+            for path in destination.glob(pattern)
+            if path.is_file()
+        }
+        allowed_artifacts.update(temporary_artifacts)
+        unrelated = [path for path in destination.iterdir() if path not in allowed_artifacts]
+        if unrelated:
+            raise ValueError("B checkpoint directory is non-empty but has no resumable state")
+        valid_slots: list[tuple[int, Path, dict[str, Any]]] = []
+        for resume_model_path, resume_state_path in resume_slots:
+            if not (resume_model_path.is_file() and resume_state_path.is_file()):
+                continue
+            try:
+                state = torch.load(resume_state_path, map_location="cpu", weights_only=False)
+                required_state = {
+                    "step",
+                    "optimizer",
+                    "train_rng_state",
+                    "torch_rng_state",
+                    "cuda_rng_state_all",
+                    "history",
+                    "contract",
+                    "resume_weights_sha256",
+                }
+                if not required_state.issubset(state):
+                    continue
+                if state["contract"] != resume_contract:
+                    continue
+                if state["resume_weights_sha256"] != sha256_file(resume_model_path):
+                    continue
+                valid_slots.append((int(state["step"]), resume_model_path, state))
+            except (EOFError, KeyError, OSError, RuntimeError, ValueError, pickle.UnpicklingError):
+                continue
+        if resume_artifacts and not valid_slots:
+            raise ValueError("B resume checkpoint has no complete hash-matched slot")
+        if valid_slots:
+            start_step, resume_model_path, state = max(valid_slots, key=lambda value: value[0])
+            start_step = int(state["step"])
+            if start_step >= args.steps:
+                raise ValueError("B resume step must be smaller than requested training steps")
+            model.load_state_dict(load_file(str(resume_model_path)))
+            optimizer.load_state_dict(state["optimizer"])
+            train_rng.setstate(state["train_rng_state"])
+            torch.set_rng_state(state["torch_rng_state"])
+            if torch.cuda.is_available():
+                cuda_rng_state_all = state["cuda_rng_state_all"]
+                if len(cuda_rng_state_all) != torch.cuda.device_count():
+                    raise ValueError("B resume checkpoint CUDA device count does not match")
+                torch.cuda.set_rng_state_all(cuda_rng_state_all)
+            history = list(state["history"])
+        for path in temporary_artifacts:
+            path.unlink(missing_ok=True)
+
+    def learning_rate(step: int) -> float:
+        if step <= args.warmup_steps:
+            return args.learning_rate * step / max(1, args.warmup_steps)
+        remaining = (args.steps - step) / max(1, args.steps - args.warmup_steps)
+        return args.learning_rate * max(0.0, remaining)
+
+    fixed_development = development_indices[:]
+    development_rng.shuffle(fixed_development)
+    fixed_development = fixed_development[: args.validation_samples]
     for step in range(start_step + 1, args.steps + 1):
         model.train()
         selected = [train_rng.choice(train_indices) for _ in range(args.batch_size)]
@@ -444,6 +470,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             resume_weights = {
                 key: value.detach().cpu().contiguous() for key, value in model.state_dict().items()
             }
+            slot = (len(history) - 1) % len(resume_slots)
+            resume_model_path, resume_state_path = resume_slots[slot]
             temporary_model = resume_model_path.with_suffix(f".tmp-{os.getpid()}.safetensors")
             save_file(resume_weights, temporary_model)
             temporary_model.replace(resume_model_path)
@@ -459,14 +487,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     ),
                     "history": history,
                     "contract": resume_contract,
+                    "resume_weights_sha256": sha256_file(resume_model_path),
                 },
                 temporary_state,
             )
             temporary_state.replace(resume_state_path)
 
-    weights_path = destination / "model.safetensors"
+    weights_path = final_weights_path
     state = {key: value.detach().cpu().contiguous() for key, value in model.state_dict().items()}
-    save_file(state, weights_path)
+    temporary_weights = weights_path.with_suffix(f".tmp-{os.getpid()}.safetensors")
+    save_file(state, temporary_weights)
+    temporary_weights.replace(weights_path)
     provenance = {
         "schema_version": 1,
         "experiment_id": B_ID,
@@ -509,9 +540,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         },
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
     }
-    _write_json(destination / B_CHECKPOINT_PROVENANCE, provenance)
-    resume_model_path.unlink(missing_ok=True)
-    resume_state_path.unlink(missing_ok=True)
+    _write_json(final_provenance_path, provenance)
+    for resume_model_path, resume_state_path in resume_slots:
+        resume_model_path.unlink(missing_ok=True)
+        resume_state_path.unlink(missing_ok=True)
+    for pattern in ("resume_model_[01].tmp-*.safetensors", "training_state_[01].tmp-*.pt"):
+        for path in destination.glob(pattern):
+            path.unlink(missing_ok=True)
     return provenance
 
 
