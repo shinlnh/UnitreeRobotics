@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from unitree_gr00t.a0_report import (
+    _paired_delta,
     _scan_decisions,
     cluster_bootstrap_mean,
     cluster_bootstrap_ratio,
@@ -134,3 +135,20 @@ def test_decision_scan_counts_controller_monitoring_as_steps_not_policy_calls(
     assert metrics["policy_calls"] == 1
     assert metrics["executed_transitions"] == 5
     assert metrics["selected_prefix_histogram"] == {2: 1}
+
+
+def test_paired_delta_recognizes_request_local_diffusion_seeds() -> None:
+    row = _row("case1", 2, False) | {"trial": 0}
+    derivation = "sha256(B-decision-v1:episode_seed:decision_index)[:31-bit]"
+    left = {
+        "label": "H16",
+        "manifest": {"decision_seed_derivation": derivation},
+        "episodes": [row],
+    }
+    right = {
+        "label": "H8",
+        "manifest": {"decision_seed_derivation": derivation},
+        "episodes": [dict(row)],
+    }
+    comparison = _paired_delta(left, right, samples=1000, seed=7)
+    assert "request-local policy diffusion seeds" in comparison["pairing_note"]

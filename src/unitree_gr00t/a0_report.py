@@ -493,6 +493,11 @@ def _paired_delta(
     if left_rows.keys() != right_rows.keys():
         raise ValueError("Paired runs do not contain identical episode keys")
     pairs = [(left_rows[key], right_rows[key]) for key in sorted(left_rows)]
+    left_seed_derivation = left["manifest"].get("decision_seed_derivation")
+    right_seed_derivation = right["manifest"].get("decision_seed_derivation")
+    diffusion_paired = bool(left_seed_derivation) and (
+        left_seed_derivation == right_seed_derivation
+    )
 
     def paired_metric(function: Callable[[dict[str, Any]], float], offset: int) -> dict[str, Any]:
         return stratified_bootstrap_mean(
@@ -508,8 +513,11 @@ def _paired_delta(
         "delta_definition": (f"{left_name or left['label']} minus {right_name or right['label']}"),
         "paired_episodes": len(pairs),
         "pairing_note": (
-            "Environment task/trial keys and initial-state seeds are matched. Policy diffusion noise is "
-            "not paired because concurrent clients share one stochastic policy-server RNG stream."
+            "Environment task/trial keys, initial-state seeds, and request-local policy diffusion seeds "
+            "are matched by decision index."
+            if diffusion_paired
+            else "Environment task/trial keys and initial-state seeds are matched. Policy diffusion "
+            "noise is not paired because the runs do not share one request-local seed contract."
         ),
         "paper_subtask_success_rate_delta": paired_metric(_episode_score, 0),
         "reference_pooled_subtask_success_rate_delta": (
