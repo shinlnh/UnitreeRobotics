@@ -58,6 +58,7 @@ from .b import (
     select_unified_candidate,
     selector_decision_seed,
 )
+from .b_runtime import context_sha256
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -209,12 +210,17 @@ def _run_episode(
         replayed_candidate = select_unified_candidate(scores.tolist(), valid.tolist())
         if candidate != replayed_candidate:
             raise RuntimeError("B selector decision does not replay from scores and mask")
+        new_anchor = None
         if subgoal_start:
             raw_anchor = np.asarray(selector_info.get("raw_anchor"), dtype=np.float32)
             if raw_anchor.shape != (2048,):
                 raise RuntimeError("B server returned an invalid subgoal anchor")
             anchors.append(raw_anchor)
+            new_anchor = raw_anchor.tolist()
             subgoal_start = False
+        expected_anchor_hashes = [context_sha256(anchor) for anchor in anchors]
+        if selector_info.get("anchor_history_sha256") != expected_anchor_hashes:
+            raise RuntimeError("B server anchor history does not match evaluator state")
 
         selection = confirm_stop(
             candidate,
@@ -319,6 +325,8 @@ def _run_episode(
                 "selector_valid": valid.tolist(),
                 "selector_candidate": candidate,
                 "selector_context_sha256": selector_info["current_context_sha256"],
+                "selector_anchor_history_sha256": expected_anchor_hashes,
+                "new_subgoal_anchor": new_anchor,
                 "stop_pending": selection.stop_pending,
                 "stop_committed": selection.stop_committed,
                 "stop_confirmation_streak_after": selection.state.streak,

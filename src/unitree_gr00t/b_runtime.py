@@ -145,6 +145,7 @@ def build_selector_sim_policy(
                 "scores": score_values,
                 "valid": np.asarray(valid, dtype=np.bool_),
                 "current_context_sha256": context_sha256(context.cpu().numpy()),
+                "anchor_history_sha256": [context_sha256(anchor) for anchor in anchors],
                 "episode_seed": episode_seed,
                 "decision_index": decision_index,
                 "decision_seed": decision_seed,

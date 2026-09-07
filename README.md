@@ -466,6 +466,7 @@ scripts/run_b_pipeline.sh
 ```
 
 Mỗi decision B lưu toàn bộ 17 score, validity mask, candidate, context hash,
-STOP streak/commit, predicted H16 chunk, prefix thật sự thực thi và transition vật
-lý. Reviewer report so khớp B với A2 theo task/case/trial/horizon để cô lập tác động
-của learned execution selector.
+anchor-history hash (kèm vector anchor mới một lần), STOP streak/commit, predicted
+H16 chunk, prefix thật sự thực thi và transition vật lý. Reviewer report so khớp B
+với A2 theo task/case/trial/horizon để cô lập tác động của learned execution
+selector.
