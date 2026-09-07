@@ -123,10 +123,11 @@ def build_selector_sim_policy(
                 raise BContractError("B selector requires a subgoal-onset anchor")
             max_prefix = int(selector_options.get("max_prefix", model_config.action_horizon))
             remaining_steps = int(selector_options.get("remaining_steps", max_prefix))
-            trajectory_steps = max(1, remaining_steps)
+            if remaining_steps < 1:
+                raise BContractError("B selector requires at least one remaining control step")
             valid = candidate_validity(
                 decision_step=0,
-                trajectory_steps=trajectory_steps,
+                trajectory_steps=remaining_steps,
                 horizon=model_config.action_horizon,
                 max_prefix=max_prefix,
             )
