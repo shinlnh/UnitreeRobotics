@@ -344,8 +344,8 @@ class RemotePolicyClient:
     def ping(self) -> bool:
         return self.call("ping") == {"status": "ok", "message": "Server is running"}
 
-    def reset(self) -> None:
-        self.call("reset", {"options": None})
+    def reset(self, options: dict[str, Any] | None = None) -> None:
+        self.call("reset", {"options": options})
 
     def get_action(self, observation: dict[str, Any]) -> dict[str, Any]:
         action, _ = self.get_action_with_info(observation)

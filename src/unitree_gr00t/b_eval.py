@@ -128,7 +128,7 @@ def _run_episode(
         start_event["planner_clock_reset"] = True
         initial_state_source = "annotated_demo_shift_state"
     dynamic_state = _dynamic_injection_state(env, case, task, steps_per_subtask, episode_seed)
-    client.reset()
+    client.reset({"episode_seed": episode_seed})
 
     hold_action = np.asarray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
     if start_event is None:
@@ -192,6 +192,8 @@ def _run_episode(
         }
         if selector_info.get("runtime_provenance") != expected_runtime:
             raise RuntimeError("B server runtime provenance does not match evaluator artifacts")
+        if selector_info.get("episode_seed") != episode_seed:
+            raise RuntimeError("B server did not retain the evaluator's episode seed")
         scores = np.asarray(selector_info["scores"], dtype=np.float32)
         valid = np.asarray(selector_info["valid"], dtype=np.bool_)
         candidate = int(selector_info["candidate"])
@@ -489,6 +491,7 @@ def _run_manifest(
         "plan_source": A2_PLAN_SOURCE,
         "planner_observes_task_outcomes": False,
         "planner_replans": False,
+        "episode_seeded_policy": True,
         "stop_or_adaptive_chunk": True,
         "retry": False,
         "recovery": False,

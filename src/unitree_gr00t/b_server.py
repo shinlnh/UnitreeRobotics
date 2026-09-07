@@ -62,9 +62,8 @@ def run(args: argparse.Namespace) -> None:
     )
     if model_config.context_width != 2048:
         raise ValueError("B server only supports the frozen GR00T context width")
-    selector = build_selector(model_config).to(args.device)
-    selector.load_state_dict(load_file(str(audit.checkpoint_dir / "model.safetensors")))
-    selector.eval()
+    # Load the large frozen backbone first so selector allocation cannot raise
+    # the transient peak during GR00T checkpoint materialization on 16 GB GPUs.
     embodiment = EmbodimentTag.resolve(args.embodiment)
     base = Gr00tPolicy(
         embodiment,
@@ -72,6 +71,9 @@ def run(args: argparse.Namespace) -> None:
         device=args.device,
         strict=True,
     )
+    selector = build_selector(model_config).to(args.device)
+    selector.load_state_dict(load_file(str(audit.checkpoint_dir / "model.safetensors")))
+    selector.eval()
     policy = build_selector_sim_policy(
         base,
         selector,

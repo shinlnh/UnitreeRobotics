@@ -75,11 +75,14 @@ def build_selector_sim_policy(
             self.capture = BackboneCapture(base_policy.model.backbone)
             self.selector = selector
             self.selector.eval()
+            self.episode_seed: int | None = None
 
         def _get_action(
             self, observation: dict[str, Any], options: dict[str, Any] | None = None
         ) -> tuple[dict[str, Any], dict[str, Any]]:
             options = options or {}
+            if self.episode_seed is None:
+                raise BContractError("B policy must be reset with an episode seed before inference")
             selector_options = options.get("b_selector")
             if not isinstance(selector_options, dict):
                 raise BContractError("B policy request is missing b_selector options")
@@ -127,6 +130,7 @@ def build_selector_sim_policy(
                 "scores": score_values,
                 "valid": np.asarray(valid, dtype=np.bool_),
                 "current_context_sha256": context_sha256(context.cpu().numpy()),
+                "episode_seed": self.episode_seed,
                 "runtime_provenance": dict(runtime_provenance or {}),
             }
             if subgoal_start:
@@ -134,6 +138,17 @@ def build_selector_sim_policy(
             return action, dict(info) | {"b_selector": selector_info}
 
         def reset(self, options: dict[str, Any] | None = None) -> dict[str, Any]:
-            return super().reset(options)
+            options = options or {}
+            episode_seed = options.get("episode_seed")
+            if not isinstance(episode_seed, int) or not 0 <= episode_seed < 2**31:
+                raise BContractError("B reset requires an integer episode_seed inside [0, 2^31)")
+            import random
+
+            random.seed(episode_seed)
+            np.random.seed(episode_seed)
+            torch.manual_seed(episode_seed)
+            torch.cuda.manual_seed_all(episode_seed)
+            self.episode_seed = episode_seed
+            return dict(super().reset(None)) | {"episode_seed": episode_seed}
 
     return BSelectorSimPolicy()

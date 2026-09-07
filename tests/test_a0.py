@@ -168,3 +168,6 @@ def test_remote_policy_client_preserves_adaptive_options_and_info() -> None:
     assert info["b_selector"]["candidate"] == 3
     assert captured["endpoint"] == "get_action"
     assert captured["data"]["options"]["b_selector"]["max_prefix"] == 8
+    client.reset({"episode_seed": 9})
+    assert captured["endpoint"] == "reset"
+    assert captured["data"] == {"options": {"episode_seed": 9}}

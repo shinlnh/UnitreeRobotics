@@ -125,11 +125,13 @@ tunes it on the 60 held-out cases.
 6. **B5 — unified scorer:** implement anchor history, terminal-action plus length
    candidates, joint STOP/prefix attention, pairwise ranking loss, and STOP loss.
 7. **B6 — frozen-A1 feature cache:** capture the exact last-valid 2,048-wide
-   backbone token and proposed H16 chunk with per-episode atomic, resumable files.
+   backbone token and proposed H16 chunk with per-episode atomic, resumable files
+   bound to immutable index, A1-weight, seed, device, and batch-size hashes.
 8. **B7 — selector training/freeze:** train only the selector, validate on the
    frozen development split, and write safetensors plus byte-level provenance.
 9. **B8 — inference service:** combine byte-validated A1 and selector checkpoints
-   behind the official GR00T wire protocol, returning auditable decisions.
+   behind the official GR00T wire protocol, seed diffusion independently for
+   every episode, and return auditable decisions.
 10. **B9 — continuous evaluator:** replace time anchors with confirmed STOP and
     learned prefixes; retain complete traces, resume/merge, and explicit
     `retry=false`, `recovery=false`.
