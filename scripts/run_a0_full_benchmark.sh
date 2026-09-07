@@ -113,9 +113,11 @@ run_shard() {
 }
 
 run_parallel_h16() {
-  echo "Starting five H16 simulator workers for the 407 remaining unique episodes"
-  run_shard 16 memory-execution-tail Memory_Execution case10 &
+  echo "Starting seven H16 simulator workers for all 600 episodes (completed shards resume in place)"
+  run_shard 16 ideal Ideal &
   local pids=("$!")
+  run_shard 16 memory-execution-head Memory_Execution case1,case2,case3,case4,case5,case6,case7,case8,case9 & pids+=("$!")
+  run_shard 16 memory-execution-tail Memory_Execution case10 & pids+=("$!")
   run_shard 16 memory-exploration Memory_Exploration & pids+=("$!")
   run_shard 16 mix Mix & pids+=("$!")
   run_shard 16 observation-mismatching Observation_Mismatching & pids+=("$!")
@@ -145,6 +147,24 @@ run_parallel_h8() {
   [[ "${failed}" == 0 ]] || { echo "At least one H8 shard failed" >&2; return 1; }
 }
 
+merge_shards() {
+  local target="$1"
+  shift
+  local command=(
+    /usr/bin/env "PYTHONPATH=${PROJECT_ROOT}/src"
+    python3 -m unitree_gr00t.a0_merge
+    --target "${target}"
+  )
+  if [[ ! -f "${target}/run_manifest.json" ]]; then
+    command+=(--create-target)
+  fi
+  local shard
+  for shard in "$@"; do
+    command+=(--shard "${shard}")
+  done
+  "${command[@]}"
+}
+
 if [[ "${ROBOCEREBRA_FUNCTIONS_ONLY:-${A0_FUNCTIONS_ONLY:-false}}" == true ]]; then
   return 0 2>/dev/null || exit 0
 fi
@@ -155,13 +175,14 @@ if ! jq -e '.complete == true and .episodes == 600' \
   run_parallel_h16
   stop_server
 
-  PYTHONPATH="${PROJECT_ROOT}/src" python3 -m unitree_gr00t.a0_merge \
-    --target "${ARTIFACT_ROOT}/H16" \
-    --shard "${SHARD_ROOT}/H16/memory-execution-tail" \
-    --shard "${SHARD_ROOT}/H16/memory-exploration" \
-    --shard "${SHARD_ROOT}/H16/mix" \
-    --shard "${SHARD_ROOT}/H16/observation-mismatching" \
-    --shard "${SHARD_ROOT}/H16/random-disturbance"
+  merge_shards "${ARTIFACT_ROOT}/H16" \
+    "${SHARD_ROOT}/H16/ideal" \
+    "${SHARD_ROOT}/H16/memory-execution-head" \
+    "${SHARD_ROOT}/H16/memory-execution-tail" \
+    "${SHARD_ROOT}/H16/memory-exploration" \
+    "${SHARD_ROOT}/H16/mix" \
+    "${SHARD_ROOT}/H16/observation-mismatching" \
+    "${SHARD_ROOT}/H16/random-disturbance"
 else
   echo "H16 target already has 600 validated episodes; skipping it"
 fi
@@ -172,17 +193,15 @@ if ! jq -e '.complete == true and .episodes == 600' \
   run_parallel_h8
   stop_server
 
-  PYTHONPATH="${PROJECT_ROOT}/src" python3 -m unitree_gr00t.a0_merge \
-    --create-target \
-    --target "${ARTIFACT_ROOT}/H8" \
-    --shard "${SHARD_ROOT}/H8/memory-execution-head" \
-    --shard "${SHARD_ROOT}/H8/memory-execution-tail" \
-    --shard "${SHARD_ROOT}/H8/memory-exploration-head" \
-    --shard "${SHARD_ROOT}/H8/mix-head" \
-    --shard "${SHARD_ROOT}/H8/memory-exploration-ideal-tail" \
-    --shard "${SHARD_ROOT}/H8/mix-observation-tail" \
-    --shard "${SHARD_ROOT}/H8/ideal-observation-head" \
-    --shard "${SHARD_ROOT}/H8/random-disturbance"
+  merge_shards "${ARTIFACT_ROOT}/H8" \
+    "${SHARD_ROOT}/H8/memory-execution-head" \
+    "${SHARD_ROOT}/H8/memory-execution-tail" \
+    "${SHARD_ROOT}/H8/memory-exploration-head" \
+    "${SHARD_ROOT}/H8/mix-head" \
+    "${SHARD_ROOT}/H8/memory-exploration-ideal-tail" \
+    "${SHARD_ROOT}/H8/mix-observation-tail" \
+    "${SHARD_ROOT}/H8/ideal-observation-head" \
+    "${SHARD_ROOT}/H8/random-disturbance"
 else
   echo "H8 target already has 600 validated episodes; skipping it"
 fi
