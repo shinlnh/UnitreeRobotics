@@ -15,7 +15,8 @@ The frozen experiment matrix is incremental:
 2. **A1 — GR00T-RC:** one shared post-trained RoboCerebra checkpoint, with no
    hierarchy, stop selector, or recovery.
 3. **A2 — GR00T-RC + fixed hierarchy:** the shared A1 checkpoint plus the fixed
-   HPE planner, evaluated with fixed H8 and native H16 execution.
+   HPE anchor schedule from RoboCerebra's public evaluator, evaluated with fixed
+   H8 and native H16 execution.
 4. **B — GR00T-RC + SparkVLA-style execution:** A2 plus a faithful
    reimplementation of unified `STOP` versus action-prefix selection.
 5. **B-retry — naive retry control:** B plus a non-learned subtask retry.
@@ -85,6 +86,22 @@ The `libero_sim` processor contract predicts 16-step chunks. A0 is reported with
 B may choose `STOP` or a prefix from the same 16 actions. Reporting H8 prevents
 an apparent SparkVLA-style gain from being attributed merely to executing fewer steps.
 No execution horizon may be selected using test results.
+
+### Frozen A2 hierarchy
+
+RoboCerebra's paper describes a dynamic VLM planner with visual monitoring and
+memory, but its pinned public evaluator directly consumes the canonical `Step:`
+annotations and switches them at fixed 150-step anchors. A2 faithfully freezes the
+released mechanism as `RoboCerebra-HPE-fixed-anchor-reimplementation`. It must not
+be labelled as the complete paper HPE runtime.
+
+The active subgoal is a pure function of the rollout control-step counter. A2 does
+not inspect images, predicates, completion, or failures to select or advance a
+subgoal. A chunk that crosses a fixed anchor is truncated exactly at the anchor so
+the next policy call receives the next instruction; this deterministic truncation
+is not an adaptive selector. A2 never restores state, retries a subtask, re-plans,
+or carries recovery state. Canonical plan text, plan SHA-256, active subgoal, fixed
+anchor bounds, and every executed prefix are retained in the trace.
 
 ## Required measurements
 

@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "experiment_id": "A2",
+  "variant": "GR00T-RC-fixed-hierarchy",
+  "complete": false,
+  "phase": "preflight_complete_full_benchmark_pending",
+  "checkpoint": "checkpoints/robocerebra/GR00T-RC",
+  "checkpoint_source_experiment": "A1",
+  "checkpoint_training_revision": "5d2e1e361bf65aabbe4d18179515f5a10936cc96",
+  "planner": "RoboCerebra-HPE-fixed-anchor-reimplementation",
+  "planner_mode": "fixed_anchor_outcome_blind",
+  "plan_source": "canonical task_description.txt step annotations",
+  "subgoal_horizon_steps": 150,
+  "fixed_execution_horizons": [
+    8,
+    16
+  ],
+  "cases": 60,
+  "plans": 60,
+  "subgoals": 563,
+  "unique_plans": 31,
+  "hierarchy": true,
+  "planner_observes_images": false,
+  "planner_observes_task_outcomes": false,
+  "planner_replans": false,
+  "stop_or_adaptive_chunk": false,
+  "retry": false,
+  "state_restoration": false,
+  "recovery": false,
+  "valid": true,
+  "issues": [],
+  "pilot": {
+    "condition": "Ideal",
+    "case": "case1",
+    "trial": 0,
+    "seed": 7,
+    "execution_horizon": 16,
+    "scheduled_steps": 900,
+    "executed_steps": 900,
+    "policy_calls": 60,
+    "frame_bundles": 60,
+    "subgoals": 6,
+    "subgoals_visited": 6,
+    "fixed_anchor_truncations": 5,
+    "trace_contract_valid": true
+  },
+  "verification": {
+    "ruff": "passed",
+    "pytest": "39 passed",
+    "shell_syntax": "passed",
+    "long_running_processes_left_active": 0
+  }
+}

@@ -21,6 +21,9 @@ def test_project_config_resolves_paths() -> None:
     assert config.robocerebra_posttrain.expected_training_episodes == 995
     assert config.robocerebra_posttrain.micro_batch_size == 2
     assert config.robocerebra_posttrain.gradient_accumulation_steps == 16
+    assert config.robocerebra_hierarchy.experiment_id == "A2"
+    assert config.robocerebra_hierarchy.variant == "GR00T-RC-fixed-hierarchy"
+    assert config.robocerebra_hierarchy.subgoal_horizon_steps == 150
 
 
 def test_task_catalog_and_selection() -> None:

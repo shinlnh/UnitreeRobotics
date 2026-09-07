@@ -8,6 +8,8 @@ from unitree_gr00t.commands import (
     build_a1_eval_command,
     build_a1_prepare_command,
     build_a1_train_command,
+    build_a2_eval_command,
+    build_a2_server_command,
     build_deploy_command,
     build_server_command,
     build_train_command,
@@ -107,3 +109,26 @@ def test_a1_commands_pin_shared_posttraining_contract(tmp_path: Path) -> None:
     assert str(config.robocerebra_posttrain.checkpoint_dir) in evaluate.argv
     assert "A1" in evaluate.argv
     assert "GR00T-RC" in evaluate.argv
+
+
+def test_a2_commands_reuse_a1_checkpoint_with_separate_hierarchy(tmp_path: Path) -> None:
+    config = load_config(ROOT / "configs" / "project.toml")
+    server = build_a2_server_command(config, seed=13)
+    evaluate = build_a2_eval_command(
+        config,
+        task_types=["Ideal"],
+        case_names=["case1"],
+        trials=1,
+        execution_horizon=16,
+        seed=7,
+        output_dir=tmp_path / "a2",
+        resume=True,
+    )
+
+    assert str(config.robocerebra_posttrain.checkpoint_dir) in server.argv
+    assert "unitree_gr00t.a2_eval" in evaluate.argv
+    assert "unitree_gr00t.a0_eval" not in evaluate.argv
+    assert "A2" in evaluate.argv
+    assert "GR00T-RC-fixed-hierarchy" in evaluate.argv
+    assert "RoboCerebra-HPE-fixed-anchor-reimplementation" in evaluate.argv
+    assert "--resume" in evaluate.argv

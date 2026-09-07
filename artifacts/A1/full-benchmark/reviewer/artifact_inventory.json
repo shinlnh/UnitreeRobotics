@@ -1,0 +1,56 @@
+{
+  "H16": {
+    "root": "/HELIOS/Robotics/UnitreeRobotic/artifacts/A1/full-benchmark/H16",
+    "frame_bundles": 53060,
+    "frame_bytes": 8473053190,
+    "frame_tree_sha256": "22dd63ef5f6c063d2b30da57aabfd5a341de896136d8e7b046792b2a30292a22",
+    "frame_first_mtime_utc": "2026-09-06T22:05:50.408786+00:00",
+    "frame_last_mtime_utc": "2026-09-07T00:39:31.710831+00:00",
+    "trace_collection_span_seconds": 9221.302045345306,
+    "core_files": {
+      "run_manifest.json": {
+        "bytes": 2752,
+        "sha256": "b1c4558a940925748d2887e6ea4db20befaa3bab0ba31cd477c0b71c73162d4e"
+      },
+      "summary.json": {
+        "bytes": 3959,
+        "sha256": "3d836a6d16235237137d1a253db2b75e60a6d84c6dde5a33d566b52735faefc3"
+      },
+      "episodes.jsonl": {
+        "bytes": 705833,
+        "sha256": "f6eb8005d84495b493f9330805140d2001ee5597d0b9b2364d97e86e9ec519e3"
+      },
+      "decisions.jsonl": {
+        "bytes": 2249275991,
+        "sha256": "e649b283adb667236a763755203631ee63b79f2754fdeb6eae49731ddb547fbb"
+      }
+    }
+  },
+  "H8": {
+    "root": "/HELIOS/Robotics/UnitreeRobotic/artifacts/A1/full-benchmark/H8",
+    "frame_bundles": 105800,
+    "frame_bytes": 16921108469,
+    "frame_tree_sha256": "441dd1c68e79a0050090d6187e2b31c2bf81e057a5ae766aec49072027408e5e",
+    "frame_first_mtime_utc": "2026-09-07T00:40:27.274151+00:00",
+    "frame_last_mtime_utc": "2026-09-07T02:29:53.675714+00:00",
+    "trace_collection_span_seconds": 6566.401562929153,
+    "core_files": {
+      "run_manifest.json": {
+        "bytes": 2750,
+        "sha256": "8dde89790fd470a1822675789049559a2e7e156d56a8576570ab3adcce85927f"
+      },
+      "summary.json": {
+        "bytes": 3958,
+        "sha256": "892f78e8a20ca29be82c571182f19ffe6939b3bba656d10e95b03f0d23d6368a"
+      },
+      "episodes.jsonl": {
+        "bytes": 704147,
+        "sha256": "1f4fbd66765cdbc2c50e2a618d8223362c15e0f64829de2d9f9d3ca4dab51a6b"
+      },
+      "decisions.jsonl": {
+        "bytes": 2412126194,
+        "sha256": "b14886a2260220bd3f4a606f07d1272abbf7439b33657caef64a025b60b06835"
+      }
+    }
+  }
+}

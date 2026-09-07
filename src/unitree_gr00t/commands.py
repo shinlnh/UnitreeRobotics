@@ -511,6 +511,49 @@ def build_a1_eval_command(
     return CommandSpec(tuple(argv), config.root, "Run A1 on RoboCerebra")
 
 
+def build_a2_server_command(config: ProjectConfig, seed: int = 7) -> CommandSpec:
+    """A2 uses the exact frozen A1 checkpoint and policy-server contract."""
+
+    spec = build_a1_server_command(config, seed)
+    return CommandSpec(spec.argv, spec.cwd, "Start the frozen A2 low-level policy server")
+
+
+def build_a2_eval_command(
+    config: ProjectConfig,
+    *,
+    task_types: list[str],
+    case_names: list[str],
+    trials: int,
+    execution_horizon: int,
+    seed: int,
+    output_dir: str | Path,
+    trace_images: bool = True,
+    resume: bool = False,
+) -> CommandSpec:
+    """Build the fixed-anchor hierarchical A2 evaluation command."""
+
+    a2 = config.robocerebra_hierarchy
+    spec = build_a1_eval_command(
+        config,
+        task_types=task_types,
+        case_names=case_names,
+        trials=trials,
+        execution_horizon=execution_horizon,
+        seed=seed,
+        output_dir=output_dir,
+        trace_images=trace_images,
+        resume=resume,
+    )
+    argv = list(spec.argv)
+    module_index = argv.index("unitree_gr00t.a0_eval")
+    argv[module_index] = "unitree_gr00t.a2_eval"
+    argv[argv.index("--experiment-id") + 1] = a2.experiment_id
+    argv[argv.index("--variant") + 1] = a2.variant
+    argv[argv.index("--steps-per-subtask") + 1] = str(a2.subgoal_horizon_steps)
+    argv.extend(("--planner", a2.planner, "--plan-source", a2.plan_source))
+    return CommandSpec(tuple(argv), config.root, "Run A2 fixed hierarchy on RoboCerebra")
+
+
 def run_or_preview(spec: CommandSpec, execute: bool) -> int:
     print(f"{spec.description}:\n{spec.display()}")
     if not execute:

@@ -68,6 +68,13 @@ learning_rate = 1e-4
 state_dropout_probability = 0.2
 save_steps = 1000
 
+[robocerebra_hierarchy]
+experiment_id = "A2"
+variant = "GR00T-RC-fixed-hierarchy"
+planner = "RoboCerebra-HPE-fixed-anchor-reimplementation"
+plan_source = "canonical task_description.txt step annotations"
+subgoal_horizon_steps = 150
+
 [model]
 base_model = "nvidia/GR00T-N1.7-3B"
 embodiment = "UNITREE_G1_SONIC"

@@ -56,7 +56,7 @@ def _load_manifest(root: Path) -> dict[str, Any]:
 
 
 def _compatible(left: dict[str, Any], right: dict[str, Any]) -> bool:
-    ignored = {"task_types", "cases", "expected_episodes", "output_dir"}
+    ignored = {"task_types", "cases", "expected_episodes", "output_dir", "hierarchy_audit"}
     return {key: value for key, value in left.items() if key not in ignored} == {
         key: value for key, value in right.items() if key not in ignored
     }
@@ -78,10 +78,36 @@ def _create_manifest(target: Path, shard_manifests: list[dict[str, Any]]) -> dic
     base["cases"] = ordered_cases
     base["expected_episodes"] = len(ordered_cases) * int(base["trials_per_case"])
     base["output_dir"] = str(target)
+    hierarchy_audits = [manifest.get("hierarchy_audit") for manifest in shard_manifests]
+    if all(isinstance(audit, dict) for audit in hierarchy_audits):
+        typed_audits = [audit for audit in hierarchy_audits if isinstance(audit, dict)]
+        hashes = sorted(
+            {
+                str(value)
+                for audit in typed_audits
+                for value in audit.get("plan_sha256", [])
+            }
+        )
+        base["hierarchy_audit"] = {
+            **typed_audits[0],
+            "cases": sum(int(audit["cases"]) for audit in typed_audits),
+            "plans": sum(int(audit["plans"]) for audit in typed_audits),
+            "subgoals": sum(int(audit["subgoals"]) for audit in typed_audits),
+            "unique_plans": len(hashes),
+            "plan_sha256": hashes,
+            "valid": all(bool(audit["valid"]) for audit in typed_audits),
+            "issues": [issue for audit in typed_audits for issue in audit.get("issues", [])],
+        }
     return base
 
 
-def merge(target: Path, shards: list[Path], create_target: bool) -> dict[str, Any]:
+def merge(
+    target: Path,
+    shards: list[Path],
+    create_target: bool,
+    *,
+    summary_builder: Any = _build_summary,
+) -> dict[str, Any]:
     target = target.expanduser().resolve()
     shard_roots = [path.expanduser().resolve() for path in shards]
     shard_manifests = [_load_manifest(root) for root in shard_roots]
@@ -160,7 +186,7 @@ def merge(target: Path, shards: list[Path], create_target: bool) -> dict[str, An
         )
 
     contract = inspect_checkpoint(manifest["checkpoint"])
-    summary = _build_summary(manifest, contract, episodes)
+    summary = summary_builder(manifest, contract, episodes)
     _write_json(target / "progress.json", summary)
     _write_json(target / "summary.json", summary)
     return {

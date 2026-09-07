@@ -30,6 +30,7 @@ Project end-to-end để chạy một policy vision-language-action generalist t
 | Isaac Sim + GR00T loco-manipulation | Có, đã chạy thật | `scripts/run_arena_loco_box.sh start` |
 | A0: GR00T-N1.7-LIBERO original | Có | `gr00t-g1 a0-check` |
 | A1: shared GR00T-RC post-training | Có | `gr00t-g1 a1-check` |
+| A2: GR00T-RC + fixed hierarchy | Có | `gr00t-g1 a2-check` |
 | G1 real deployment interlock | Có | `gr00t-g1 deploy --mode real` |
 
 ## Ba demo Isaac Sim đã chạy thật
@@ -376,3 +377,51 @@ Output lớn (checkpoint, raw decisions, frame trace và shard) được giữ l
 reviewer-safe được force-add lên nhánh A1 gồm manifest, summary, CSV/JSON report,
 chart, environment, inventory và SHA-256 của artifact raw để GitHub không nhận file
 vượt giới hạn 100 MiB.
+
+## Experiment A2: GR00T-RC + fixed hierarchy
+
+A2 dùng nguyên checkpoint A1 đã freeze và chỉ thêm hierarchy cố định từ evaluator
+công khai của RoboCerebra. Mỗi `task_description.txt` chuẩn cung cấp chuỗi `Step:`;
+low-level GR00T-RC nhận đúng một step trong 150 control step rồi chuyển sang step kế
+tiếp theo tại anchor đã định trước. Planner không đọc success predicate, không xem
+ảnh, không re-plan, không retry, không restore simulator state và không chứa recovery.
+Vì public evaluator không phát hành System-2/VLM runtime đầy đủ như mô tả trong paper,
+implementation được ghi chính xác là `HPE-fixed-anchor-reimplementation`, không giả
+danh HPE động chính thức.
+
+Kiểm tra checkpoint dùng chung, toàn bộ 60 plan và 563 subgoal:
+
+```bash
+PYTHONPATH=src python3 -m unitree_gr00t.cli a2-check \
+  --task-types Ideal Memory_Execution Memory_Exploration Mix \
+  Observation_Mismatching Random_Disturbance
+```
+
+Chạy pilot với server A1 trong terminal thứ nhất:
+
+```bash
+PYTHONPATH=src python3 -m unitree_gr00t.cli a2-server --seed 7 --execute
+```
+
+```bash
+PYTHONPATH=src python3 -m unitree_gr00t.cli a2-eval \
+  --task-types Ideal --cases case1 --trials 1 \
+  --execution-horizon 16 --seed 7 \
+  --output artifacts/A2/pilot-ideal-case1-h16-seed7 --execute
+```
+
+Mỗi decision lưu full-task instruction, active subgoal, index và giới hạn anchor,
+hash plan, predicted H16 chunk, fixed prefix đã thực thi và toàn bộ transition vật
+lý. Nếu H8/H16 đi qua anchor 150 bước, prefix chỉ bị cắt đúng tại anchor; đây là lịch
+cố định theo clock, không phải stop/adaptive selection theo observation hay outcome.
+
+Chạy full benchmark 600 episode cho từng H16 và H8:
+
+```bash
+scripts/run_a2_full_benchmark.sh
+```
+
+Reviewer report ghép từng rollout A2 với A1 theo đúng task/case/trial và horizon,
+nhờ đó delta chính là tác động của fixed hierarchy trên checkpoint dùng chung;
+report vẫn ghi riêng cảnh báo rằng diffusion-noise stream không được pair khi các
+simulator worker gọi chung một policy server.
