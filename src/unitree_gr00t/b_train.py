@@ -344,6 +344,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     resume_contract = {
         "dataset_manifest_sha256": sha256_file(manifest_path),
         "feature_manifest_sha256": sha256_file(feature_manifest_path),
+        "feature_run_contract_sha256": sha256_file(feature_run_contract_path),
         "a1_checkpoint_weight_shards_sha256": parent_weight_hashes,
         "model_config": model_config.payload(),
         "seed": args.seed,
@@ -521,6 +522,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "weights_sha256": sha256_file(weights_path),
         "dataset_manifest_sha256": sha256_file(manifest_path),
         "feature_manifest_sha256": sha256_file(feature_manifest_path),
+        "feature_run_contract_sha256": sha256_file(feature_run_contract_path),
         "a1_checkpoint_weight_shards_sha256": parent_weight_hashes,
         "samples_sha256": manifest["samples_sha256"],
         "training": {
