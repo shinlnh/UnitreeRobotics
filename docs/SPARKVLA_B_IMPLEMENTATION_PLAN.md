@@ -104,8 +104,9 @@ manifest. They remain part of the already-frozen A1 low-level training history;
 the exclusion applies only to B boundary supervision.
 
 The paper mentions a short STOP confirmation window but does not publish its
-length. B must choose and freeze that value using only the development split,
-record it as an adaptation, and never tune it on the 60 held-out cases.
+length. B conservatively freezes it a priori at two consecutive decisions—the
+smallest non-trivial window—records that choice as an adaptation, and never
+tunes it on the 60 held-out cases.
 
 ## B0–B10 delivery sequence and gates
 
