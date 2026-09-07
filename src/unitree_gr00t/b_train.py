@@ -359,6 +359,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             model.load_state_dict(load_file(str(resume_model_path)))
             optimizer.load_state_dict(state["optimizer"])
             train_rng.setstate(state["train_rng_state"])
+            if "torch_rng_state" not in state or "cuda_rng_state_all" not in state:
+                raise ValueError("B resume checkpoint is missing PyTorch RNG state")
+            torch.set_rng_state(state["torch_rng_state"])
+            if torch.cuda.is_available():
+                cuda_rng_state_all = state["cuda_rng_state_all"]
+                if len(cuda_rng_state_all) != torch.cuda.device_count():
+                    raise ValueError("B resume checkpoint CUDA device count does not match")
+                torch.cuda.set_rng_state_all(cuda_rng_state_all)
             history = list(state["history"])
 
     def learning_rate(step: int) -> float:
@@ -445,6 +453,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     "step": step,
                     "optimizer": optimizer.state_dict(),
                     "train_rng_state": train_rng.getstate(),
+                    "torch_rng_state": torch.get_rng_state(),
+                    "cuda_rng_state_all": (
+                        torch.cuda.get_rng_state_all() if torch.cuda.is_available() else []
+                    ),
                     "history": history,
                     "contract": resume_contract,
                 },
