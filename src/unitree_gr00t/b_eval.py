@@ -153,6 +153,7 @@ def _run_episode(
     selector_stop_proposals = 0
     selector_stop_commits = 0
     selector_prefix_histogram = [0] * (execution_horizon + 1)
+    injection_count = 0
     zero_progress_decisions = 0
     policy_latencies: list[float] = []
     started = time.perf_counter()
@@ -170,7 +171,9 @@ def _run_episode(
                 "anchor_history": anchors,
                 "subgoal_start": subgoal_start,
                 "max_prefix": execution_horizon,
-                "remaining_steps": min(max_steps, stop_after) - step,
+                # Use only the frozen global budget. The shorter evaluator-only
+                # post-success window must not leak success into selector masks.
+                "remaining_steps": max_steps - step,
             }
         }
         policy_started = time.perf_counter()
@@ -238,9 +241,11 @@ def _run_episode(
             zero_progress_decisions = 0
             selected = min(selection.executed_prefix_length, min(max_steps, stop_after) - step)
             for action in chunk[:selected]:
-                injection = _maybe_inject_dynamic(env, dynamic_state, step, active_subgoal)
+                injection_segment = min(step // steps_per_subtask, len(task.steps) - 1)
+                injection = _maybe_inject_dynamic(env, dynamic_state, step, injection_segment)
                 if injection is not None:
                     injections.append(injection)
+                    injection_count += 1
                 libero_action = to_libero_action(action, np)
                 hold_action[-1] = libero_action[-1]
                 success_before_action = current_success
@@ -306,6 +311,7 @@ def _run_episode(
                 "stop_committed": selection.stop_committed,
                 "stop_confirmation_streak_after": selection.state.streak,
                 "selected_prefix_length": len(transitions),
+                "external_termination_truncated": (candidate > 0 and len(transitions) < candidate),
                 "prefix_selection": "learned_unified_stop_prefix",
                 "transitions": transitions,
                 "completed_subtasks_before": completed_at_start,
@@ -328,7 +334,10 @@ def _run_episode(
     monitoring_transitions: list[dict[str, Any]] = []
     monitoring_predicates_before = _predicate_snapshot(env, goal)
     while first_success_step is not None and step < min(max_steps, stop_after):
-        injection = _maybe_inject_dynamic(env, dynamic_state, step, max(0, active_subgoal - 1))
+        injection_segment = min(step // steps_per_subtask, len(task.steps) - 1)
+        injection = _maybe_inject_dynamic(env, dynamic_state, step, injection_segment)
+        if injection is not None:
+            injection_count += 1
         success_before_action = current_success
         completed_before_action = completed_before
         observation, _, _, _ = env.step(hold_action)
@@ -436,9 +445,7 @@ def _run_episode(
             1000.0 * sum(policy_latencies) / len(policy_latencies) if policy_latencies else 0.0
         ),
         "p95_policy_inference_ms": 1000.0 * _percentile(policy_latencies, 0.95),
-        "injection_count": (
-            0 if dynamic_state is None else len(dynamic_state["schedule"] & set(range(step + 1)))
-        ),
+        "injection_count": injection_count,
         "elapsed_seconds": time.perf_counter() - started,
         "retry": False,
         "recovery": False,

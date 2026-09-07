@@ -44,6 +44,14 @@ re-observes. H8 masks candidates 9 through 16; H16 exposes all 16 prefixes. The
 global A2 step budget remains the hard termination bound, but its 150-step
 anchors no longer advance the active subgoal.
 
+A confirmed STOP on the final subgoal terminates an unsuccessful rollout. If the
+ordered goal has already been reached, the evaluator preserves the frozen
+80-step reactivation window using zero-Cartesian controller holds with the last
+gripper command. Those holds are traced separately, are not selector actions or
+policy calls, and never feed success information back into selector masks. The
+Random Disturbance/Mix injection schedule and related-object segment remain a
+function of the original fixed control-step clock, not adaptive subgoal state.
+
 ## GR00T-RC adaptation
 
 The paper uses separately parameterized pi-0.5 planner and executor branches.
