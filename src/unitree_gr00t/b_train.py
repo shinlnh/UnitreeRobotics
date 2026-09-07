@@ -250,6 +250,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("B feature extraction must be complete and unlimited")
     if int(feature_manifest["samples"]) != int(manifest["samples"]):
         raise ValueError("B feature/sample counts do not match")
+    parent_weight_hashes = feature_manifest.get("checkpoint_weight_shards_sha256")
+    if not isinstance(parent_weight_hashes, dict) or not parent_weight_hashes:
+        raise ValueError("B feature manifest is missing frozen A1 weight hashes")
 
     import numpy as np
     import torch
@@ -329,12 +332,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             expected_contract = {
                 "dataset_manifest_sha256": sha256_file(manifest_path),
                 "feature_manifest_sha256": sha256_file(feature_manifest_path),
+                "a1_checkpoint_weight_shards_sha256": parent_weight_hashes,
                 "model_config": model_config.payload(),
                 "seed": args.seed,
                 "batch_size": args.batch_size,
                 "learning_rate": args.learning_rate,
                 "weight_decay": args.weight_decay,
                 "warmup_steps": args.warmup_steps,
+                "gradient_clip_norm": args.gradient_clip_norm,
                 "steps": args.steps,
                 "validate_steps": args.validate_steps,
                 "validation_samples": args.validation_samples,
@@ -368,12 +373,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     resume_contract = {
         "dataset_manifest_sha256": sha256_file(manifest_path),
         "feature_manifest_sha256": sha256_file(feature_manifest_path),
+        "a1_checkpoint_weight_shards_sha256": parent_weight_hashes,
         "model_config": model_config.payload(),
         "seed": args.seed,
         "batch_size": args.batch_size,
         "learning_rate": args.learning_rate,
         "weight_decay": args.weight_decay,
         "warmup_steps": args.warmup_steps,
+        "gradient_clip_norm": args.gradient_clip_norm,
         "steps": args.steps,
         "validate_steps": args.validate_steps,
         "validation_samples": args.validation_samples,
@@ -458,6 +465,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "weights_sha256": sha256_file(weights_path),
         "dataset_manifest_sha256": sha256_file(manifest_path),
         "feature_manifest_sha256": sha256_file(feature_manifest_path),
+        "a1_checkpoint_weight_shards_sha256": parent_weight_hashes,
         "samples_sha256": manifest["samples_sha256"],
         "training": {
             "successful_demonstrations_only": True,

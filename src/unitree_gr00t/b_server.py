@@ -8,7 +8,7 @@ import random
 from pathlib import Path
 
 from .a1 import inspect_a1_checkpoint
-from .b import inspect_selector_checkpoint
+from .b import inspect_selector_checkpoint, verify_a1_weight_hashes
 from .b_model import SelectorModelConfig, build_selector
 from .b_runtime import build_selector_sim_policy
 
@@ -34,6 +34,9 @@ def run(args: argparse.Namespace) -> None:
         args.selector_checkpoint,
         expected_action_horizon=contract.action_horizon,
         expected_context_width=2048,
+    )
+    parent_weight_hashes = verify_a1_weight_hashes(
+        contract, provenance.get("a1_checkpoint_weight_shards_sha256")
     )
 
     import numpy as np
@@ -69,7 +72,15 @@ def run(args: argparse.Namespace) -> None:
         device=args.device,
         strict=True,
     )
-    policy = build_selector_sim_policy(base, selector, model_config)
+    policy = build_selector_sim_policy(
+        base,
+        selector,
+        model_config,
+        runtime_provenance={
+            "selector_weights_sha256": audit.weights_sha256,
+            "a1_checkpoint_weight_shards_sha256": parent_weight_hashes,
+        },
+    )
     print(
         json.dumps(
             {
@@ -77,6 +88,7 @@ def run(args: argparse.Namespace) -> None:
                 "checkpoint": str(contract.checkpoint_dir),
                 "selector_checkpoint": str(audit.checkpoint_dir),
                 "selector_weights_sha256": audit.weights_sha256,
+                "a1_checkpoint_weight_shards_sha256": parent_weight_hashes,
                 "host": args.host,
                 "port": args.port,
                 "seed": args.seed,

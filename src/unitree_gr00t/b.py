@@ -56,6 +56,25 @@ class SelectorCheckpointAudit:
     valid: bool
 
 
+def a1_weight_hashes(contract: object) -> dict[str, str]:
+    """Hash every frozen A1 weight shard named by its inspected contract."""
+
+    root = Path(contract.checkpoint_dir)
+    shards = tuple(contract.weight_shards)
+    return {name: sha256_file(root / name) for name in shards}
+
+
+def verify_a1_weight_hashes(contract: object, expected: object) -> dict[str, str]:
+    """Fail closed if the live A1 weights differ from B's training parent."""
+
+    if not isinstance(expected, dict) or not expected:
+        raise BContractError("B provenance is missing frozen A1 weight hashes")
+    actual = a1_weight_hashes(contract)
+    if actual != expected:
+        raise BContractError("live A1 weight shards differ from B training provenance")
+    return actual
+
+
 def candidate_validity(
     *, decision_step: int, trajectory_steps: int, horizon: int, max_prefix: int | None = None
 ) -> tuple[bool, ...]:

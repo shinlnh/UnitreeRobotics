@@ -13,6 +13,7 @@ from typing import Any
 
 from .a0 import LANGUAGE_KEY
 from .a1 import inspect_a1_checkpoint, sha256_file
+from .b import a1_weight_hashes
 from .b_runtime import BackboneCapture, flat_action_chunk
 
 
@@ -268,6 +269,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "checkpoint_provenance_sha256": sha256_file(
             contract.checkpoint_dir / "a1_training_provenance.json"
         ),
+        "checkpoint_weight_shards_sha256": a1_weight_hashes(contract),
         "context_width": 2048,
         "action_horizon": contract.action_horizon,
         "action_dim": 7,

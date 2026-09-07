@@ -183,6 +183,12 @@ def _run_episode(
         selector_info = info.get("b_selector")
         if not isinstance(selector_info, dict):
             raise RuntimeError("B server response is missing selector metadata")
+        expected_runtime = {
+            "selector_weights_sha256": provenance["selector_weights_sha256"],
+            "a1_checkpoint_weight_shards_sha256": provenance["a1_checkpoint_weight_shards_sha256"],
+        }
+        if selector_info.get("runtime_provenance") != expected_runtime:
+            raise RuntimeError("B server runtime provenance does not match evaluator artifacts")
         scores = np.asarray(selector_info["scores"], dtype=np.float32)
         valid = np.asarray(selector_info["valid"], dtype=np.bool_)
         candidate = int(selector_info["candidate"])
@@ -461,6 +467,9 @@ def _run_manifest(
         "selector_checkpoint": str(selector_audit.checkpoint_dir),
         "selector_weights_sha256": selector_audit.weights_sha256,
         "selector_provenance_sha256": selector_audit.provenance_sha256,
+        "a1_checkpoint_weight_shards_sha256": selector_provenance[
+            "a1_checkpoint_weight_shards_sha256"
+        ],
         "selector_training": selector_provenance["training"],
         "benchmark_dir": str(args.benchmark_dir.expanduser().resolve()),
         "robocerebra_source": str(args.robocerebra_source.expanduser().resolve()),
@@ -611,6 +620,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "model_revision": args.model_revision,
         "dataset_revision": args.dataset_revision,
         "selector_weights_sha256": selector_audit.weights_sha256,
+        "a1_checkpoint_weight_shards_sha256": selector_provenance[
+            "a1_checkpoint_weight_shards_sha256"
+        ],
     }
     with RemotePolicyClient(args.policy_host, args.policy_port) as client:
         if not client.ping():

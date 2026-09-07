@@ -17,6 +17,7 @@ from unitree_gr00t.b import (
     confirm_stop,
     inspect_selector_checkpoint,
     select_unified_candidate,
+    verify_a1_weight_hashes,
 )
 
 
@@ -106,3 +107,18 @@ def test_selector_checkpoint_fails_closed_on_weight_drift(tmp_path: Path) -> Non
         inspect_selector_checkpoint(
             tmp_path, expected_action_horizon=16, expected_context_width=2048
         )
+
+
+def test_b_parent_weight_hashes_fail_closed_on_drift(tmp_path: Path) -> None:
+    shard = tmp_path / "model.safetensors"
+    shard.write_bytes(b"a1")
+    contract = type(
+        "Contract",
+        (),
+        {"checkpoint_dir": tmp_path, "weight_shards": (shard.name,)},
+    )()
+    expected = {shard.name: sha256_file(shard)}
+    assert verify_a1_weight_hashes(contract, expected) == expected
+    shard.write_bytes(b"drift")
+    with pytest.raises(BContractError, match="differ"):
+        verify_a1_weight_hashes(contract, expected)

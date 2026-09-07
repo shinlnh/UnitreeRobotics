@@ -57,7 +57,12 @@ def context_sha256(context: Any) -> str:
     return hashlib.sha256(value.tobytes()).hexdigest()
 
 
-def build_selector_sim_policy(base_policy: Any, selector: Any, model_config: Any) -> Any:
+def build_selector_sim_policy(
+    base_policy: Any,
+    selector: Any,
+    model_config: Any,
+    runtime_provenance: dict[str, Any] | None = None,
+) -> Any:
     """Wrap the official sim policy and return action plus a unified B decision."""
 
     import numpy as np
@@ -120,6 +125,7 @@ def build_selector_sim_policy(base_policy: Any, selector: Any, model_config: Any
                 "scores": score_values,
                 "valid": np.asarray(valid, dtype=np.bool_),
                 "current_context_sha256": context_sha256(context.cpu().numpy()),
+                "runtime_provenance": dict(runtime_provenance or {}),
             }
             if subgoal_start:
                 selector_info["raw_anchor"] = context[0].cpu().numpy()

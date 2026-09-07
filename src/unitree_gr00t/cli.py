@@ -16,7 +16,7 @@ from .a1 import (
     validate_converted_dataset,
 )
 from .a2 import audit_fixed_hierarchy, hierarchy_audit_payload
-from .b import inspect_selector_checkpoint
+from .b import inspect_selector_checkpoint, verify_a1_weight_hashes
 from .commands import (
     build_a0_eval_command,
     build_a0_server_command,
@@ -519,7 +519,7 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "b-check":
         b = config.robocerebra_selector
         if args.stage == "checkpoint":
-            inspect_a1_checkpoint(
+            contract, _ = inspect_a1_checkpoint(
                 config.robocerebra_posttrain.checkpoint_dir,
                 expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
             )
@@ -528,6 +528,7 @@ def _run(args: argparse.Namespace) -> int:
                 expected_action_horizon=b.action_horizon,
                 expected_context_width=b.context_width,
             )
+            verify_a1_weight_hashes(contract, provenance.get("a1_checkpoint_weight_shards_sha256"))
             payload = asdict(audit) | {
                 "checkpoint_dir": str(audit.checkpoint_dir),
                 "provenance": provenance,
