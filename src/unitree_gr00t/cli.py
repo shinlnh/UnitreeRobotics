@@ -18,6 +18,7 @@ from .a1 import (
 from .a2 import audit_fixed_hierarchy, hierarchy_audit_payload
 from .b import inspect_selector_checkpoint, verify_a1_weight_hashes
 from .b_features import FEATURE_RUN_CONTRACT
+from .b_retry import retry_contract_payload
 from .commands import (
     build_a0_eval_command,
     build_a0_server_command,
@@ -30,6 +31,8 @@ from .commands import (
     build_b_eval_command,
     build_b_features_command,
     build_b_prepare_command,
+    build_b_retry_eval_command,
+    build_b_retry_server_command,
     build_b_server_command,
     build_b_train_command,
     build_collect_command,
@@ -247,6 +250,27 @@ def _parser() -> argparse.ArgumentParser:
     b_eval.add_argument("--no-trace-images", action="store_true")
     b_eval.add_argument("--resume", action="store_true")
     b_eval.add_argument("--execute", action="store_true")
+
+    subparsers.add_parser("b-retry-check", help="Validate frozen B assets and naive retry contract")
+
+    b_retry_server = subparsers.add_parser(
+        "b-retry-server", help="Preview or serve the unchanged frozen B assets"
+    )
+    b_retry_server.add_argument("--seed", type=int, default=7)
+    b_retry_server.add_argument("--execute", action="store_true")
+
+    b_retry_eval = subparsers.add_parser(
+        "b-retry-eval", help="Preview or run the outcome-blind naive retry control"
+    )
+    b_retry_eval.add_argument("--task-types", nargs="+", default=["Ideal"])
+    b_retry_eval.add_argument("--cases", nargs="*", default=[])
+    b_retry_eval.add_argument("--trials", type=int, default=1)
+    b_retry_eval.add_argument("--execution-horizon", type=int, default=16, choices=(8, 16))
+    b_retry_eval.add_argument("--seed", type=int, default=7)
+    b_retry_eval.add_argument("--output")
+    b_retry_eval.add_argument("--no-trace-images", action="store_true")
+    b_retry_eval.add_argument("--resume", action="store_true")
+    b_retry_eval.add_argument("--execute", action="store_true")
 
     subparsers.add_parser("show-config", help="Print resolved runtime configuration")
     return parser
@@ -635,6 +659,54 @@ def _run(args: argparse.Namespace) -> int:
         )
         return run_or_preview(
             build_b_eval_command(
+                config,
+                task_types=args.task_types,
+                case_names=args.cases,
+                trials=args.trials,
+                execution_horizon=args.execution_horizon,
+                seed=args.seed,
+                output_dir=output,
+                trace_images=not args.no_trace_images,
+                resume=args.resume,
+            ),
+            args.execute,
+        )
+
+    if args.command in {"b-retry-check", "b-retry-server", "b-retry-eval"}:
+        retry_contract = retry_contract_payload(config.robocerebra_retry)
+        contract, _ = inspect_a1_checkpoint(
+            config.robocerebra_posttrain.checkpoint_dir,
+            expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
+        )
+        selector_audit, selector_provenance = inspect_selector_checkpoint(
+            config.robocerebra_selector.checkpoint_dir,
+            expected_action_horizon=config.robocerebra_selector.action_horizon,
+            expected_context_width=config.robocerebra_selector.context_width,
+        )
+        verify_a1_weight_hashes(
+            contract, selector_provenance.get("a1_checkpoint_weight_shards_sha256")
+        )
+        if args.command == "b-retry-check":
+            payload = {
+                "retry_contract": retry_contract,
+                "parent_experiment": config.robocerebra_selector.experiment_id,
+                "checkpoint": str(contract.checkpoint_dir),
+                "selector_checkpoint": str(selector_audit.checkpoint_dir),
+                "selector_weights_sha256": selector_audit.weights_sha256,
+                "valid": True,
+            }
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+            return 0
+        if args.command == "b-retry-server":
+            return run_or_preview(build_b_retry_server_command(config, args.seed), args.execute)
+
+        output = (
+            Path(args.output).expanduser()
+            if args.output
+            else config.artifact_dir / "B-retry" / f"H{args.execution_horizon}-seed{args.seed}"
+        )
+        return run_or_preview(
+            build_b_retry_eval_command(
                 config,
                 task_types=args.task_types,
                 case_names=args.cases,

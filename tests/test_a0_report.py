@@ -100,6 +100,16 @@ def test_b_chunk_utilization_excludes_post_success_controller_holds() -> None:
     assert block["action_chunk_utilization"] == 0.25
 
 
+def test_metric_block_counts_fixed_retry_exposure() -> None:
+    retried = _row("case1", 1, False)
+    retried["retry_attempts"] = 3
+    untouched = _row("case2", 0, False)
+    block = metric_block([retried, untouched], samples=1000, seed=7)
+
+    assert block["total_retry_attempts"] == 3
+    assert block["episodes_with_retry"] == 1
+
+
 def test_stability_is_conditioned_on_ordered_goal_reach() -> None:
     terminal_only = _row("case1", 1, True)
     terminal_only["reached_success"] = False

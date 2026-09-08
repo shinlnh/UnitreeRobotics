@@ -412,6 +412,8 @@ def metric_block(rows: list[dict[str, Any]], *, samples: int, seed: int) -> dict
         "fixed_anchor_truncations": sum(
             int(row.get("fixed_anchor_truncations", 0)) for row in rows
         ),
+        "total_retry_attempts": sum(int(row.get("retry_attempts", 0)) for row in rows),
+        "episodes_with_retry": sum(int(row.get("retry_attempts", 0) > 0) for row in rows),
     }
 
 
@@ -495,8 +497,12 @@ def _paired_delta(
     pairs = [(left_rows[key], right_rows[key]) for key in sorted(left_rows)]
     left_seed_derivation = left["manifest"].get("decision_seed_derivation")
     right_seed_derivation = right["manifest"].get("decision_seed_derivation")
-    diffusion_paired = bool(left_seed_derivation) and (
-        left_seed_derivation == right_seed_derivation
+    left_schedule = left["manifest"].get("decision_schedule", "B-confirmed-stop-advance-v1")
+    right_schedule = right["manifest"].get("decision_schedule", "B-confirmed-stop-advance-v1")
+    diffusion_paired = (
+        bool(left_seed_derivation)
+        and left_seed_derivation == right_seed_derivation
+        and left_schedule == right_schedule
     )
 
     def paired_metric(function: Callable[[dict[str, Any]], float], offset: int) -> dict[str, Any]:
@@ -690,7 +696,7 @@ def _environment_metadata(experiment_id: str = "A0") -> dict[str, Any]:
                 "src/unitree_gr00t/a1_train.py",
             )
         )
-    if experiment_id in {"A2", "B"}:
+    if experiment_id in {"A2", "B", "B-retry"}:
         implementation_paths.extend(
             (
                 "scripts/run_a2_full_benchmark.sh",
@@ -700,7 +706,7 @@ def _environment_metadata(experiment_id: str = "A0") -> dict[str, Any]:
                 "src/unitree_gr00t/a2_merge.py",
             )
         )
-    if experiment_id == "B":
+    if experiment_id in {"B", "B-retry"}:
         implementation_paths.extend(
             (
                 "docs/SPARKVLA_B_IMPLEMENTATION_PLAN.md",
@@ -715,6 +721,17 @@ def _environment_metadata(experiment_id: str = "A0") -> dict[str, Any]:
                 "src/unitree_gr00t/b_server.py",
                 "src/unitree_gr00t/b_eval.py",
                 "src/unitree_gr00t/b_merge.py",
+            )
+        )
+    if experiment_id == "B-retry":
+        implementation_paths.extend(
+            (
+                "docs/B_RETRY_IMPLEMENTATION_PLAN.md",
+                "scripts/run_b_retry_full_benchmark.sh",
+                "scripts/run_b_retry_pipeline.sh",
+                "src/unitree_gr00t/b_retry.py",
+                "src/unitree_gr00t/b_retry_eval.py",
+                "src/unitree_gr00t/b_retry_merge.py",
             )
         )
     packages = {}
@@ -907,16 +924,26 @@ def _markdown(metrics: dict[str, Any]) -> str:
             f"{experiment_id} measures `{variant}` with the frozen RoboCerebra fixed-anchor "
             "subgoal hierarchy"
         )
-    else:
+    elif experiment_id == "B":
         scope = (
             f"{experiment_id} measures `{variant}` with the frozen canonical hierarchy and "
             "a learned unified STOP/action-prefix selector"
         )
-    hierarchy = experiment_id in {"A2", "B"}
-    adaptive = experiment_id == "B"
+    else:
+        scope = (
+            f"{experiment_id} measures the frozen B policy with one fixed unconditional "
+            "subtask retry"
+        )
+    hierarchy = experiment_id in {"A2", "B", "B-retry"}
+    adaptive = experiment_id in {"B", "B-retry"}
+    naive_retry = experiment_id == "B-retry"
     isolation = (
-        "with observation-conditioned prefix lengths and confirmed STOP advancement, but without "
-        "goal predicates at inference, re-planning, retry, or recovery"
+        "with observation-conditioned prefix lengths and a fixed outcome-blind retry after the "
+        "first confirmed STOP, but without failure detection, recovery memory, recovery policy, "
+        "state restoration, or oracle signals"
+        if naive_retry
+        else "with observation-conditioned prefix lengths and confirmed STOP advancement, but "
+        "without goal predicates at inference, re-planning, retry, or recovery"
         if adaptive
         else (
             "with canonical step instructions switched at fixed 150-step anchors, but without "
@@ -936,7 +963,7 @@ def _markdown(metrics: dict[str, Any]) -> str:
         "",
         *(
             [
-                f"B is a GR00T-RC adaptation of the unified STOP/action-prefix selector specified by [SparkVLA]({SPARKVLA_URL}). The pinned SparkVLA repository supplied no code or checkpoint, and the local successful-demonstration corpus supplied no authoritative failed-rollout labels; results are therefore not presented as an official SparkVLA reproduction.",
+                f"The inherited B selector is a GR00T-RC adaptation of the unified STOP/action-prefix selector specified by [SparkVLA]({SPARKVLA_URL}). The pinned SparkVLA repository supplied no code or checkpoint, and the local successful-demonstration corpus supplied no authoritative failed-rollout labels; results are therefore not presented as an official SparkVLA reproduction.",
                 "",
             ]
             if adaptive
@@ -954,7 +981,11 @@ def _markdown(metrics: dict[str, Any]) -> str:
         "| Mix | Memory plus dynamic change and partial observation | Official Mix scene with shifted start and the same seeded displacement rule |",
         "",
         (
-            f"The low-level policy sees the active canonical subgoal plus live agent/wrist RGB and proprioception. {experiment_id}'s planner is outcome-blind and supplies no symbolic memory, failure detector, retry, or state restoration."
+            (
+                f"The low-level policy sees the active canonical subgoal plus live agent/wrist RGB and proprioception. {experiment_id}'s controller retries every subtask once without inspecting predicates or failures; it supplies no failure detector, recovery memory, recovery policy, or state restoration."
+                if naive_retry
+                else f"The low-level policy sees the active canonical subgoal plus live agent/wrist RGB and proprioception. {experiment_id}'s planner is outcome-blind and supplies no symbolic memory, failure detector, retry, or state restoration."
+            )
             if hierarchy
             else f"Each policy sees the unchanged full-task language instruction and live agent/wrist RGB plus proprioception. {experiment_id} supplies no subgoal, symbolic memory, failure detector, retry, or state restoration."
         ),
@@ -975,6 +1006,23 @@ def _markdown(metrics: dict[str, Any]) -> str:
         )
 
     lines.extend(["", f"![{experiment_id} benchmark metric summary](summary_metrics.png)"])
+
+    if naive_retry:
+        lines.extend(
+            [
+                "",
+                "## Naive retry exposure",
+                "",
+                "| Run | Fixed retry attempts | Episodes with retry |",
+                "| --- | ---: | ---: |",
+            ]
+        )
+        for label, run in metrics["runs"].items():
+            overall = run["overall"]
+            lines.append(
+                f"| {label} | {overall['total_retry_attempts']} | "
+                f"{overall['episodes_with_retry']} / {overall['episodes']} |"
+            )
 
     lines.extend(
         [
@@ -1034,7 +1082,7 @@ def _markdown(metrics: dict[str, Any]) -> str:
             [
                 f"## Paired {experiment_id} ablation against {baseline['experiment_id']}",
                 "",
-                f"{experiment_id} is paired against `{baseline['experiment_id']}` / `{baseline['variant']}` by identical task, case, trial, initial-state seed, and execution horizon. Policy diffusion noise is not paired because concurrent clients share one server RNG stream.",
+                f"{experiment_id} is paired against `{baseline['experiment_id']}` / `{baseline['variant']}` by identical task, case, trial, initial-state seed, and execution horizon. The per-run pairing note records whether the decision schedule also permits request-local diffusion seeds to be treated as paired.",
                 "",
                 "| Run | Paper SR delta | Pooled SR delta | Terminal SR delta | Step delta | Wins/ties/losses |",
                 "| --- | ---: | ---: | ---: | ---: | ---: |",
@@ -1064,7 +1112,11 @@ def _markdown(metrics: dict[str, Any]) -> str:
                 else f"- Plan Match Accuracy and symbolic Plan Efficiency: N/A for {experiment_id} because it emits no symbolic high-level plan."
             ),
             f"- VideoQA Action Completion Accuracy: N/A because {experiment_id} has no reflection/VideoQA head.",
-            f"- Failure-detection precision/recall/latency and recovery success: N/A because {experiment_id} intentionally has neither detector nor recovery policy. Injection exposure and conditional outcomes remain in the raw episodes/traces.",
+            (
+                f"- Failure-detection precision/recall/latency and learned recovery success: N/A because {experiment_id} intentionally has neither detector nor recovery policy. Fixed retry attempts are reported separately; injection exposure and conditional outcomes remain in the raw episodes/traces."
+                if naive_retry
+                else f"- Failure-detection precision/recall/latency and recovery success: N/A because {experiment_id} intentionally has neither detector nor recovery policy. Injection exposure and conditional outcomes remain in the raw episodes/traces."
+            ),
             "",
             "## Reproducibility and limitations",
             "",
@@ -1106,7 +1158,7 @@ def build_report(
         raise ValueError("Run labels must be unique")
 
     runs = [_load_run(label, path) for label, path in parsed]
-    hierarchy = experiment_id in {"A2", "B"}
+    hierarchy = experiment_id in {"A2", "B", "B-retry"}
     payload: dict[str, Any] = {
         "schema_version": 1,
         "benchmark": "RoboCerebra",
@@ -1200,6 +1252,8 @@ def build_report(
                 raise ValueError(
                     f"Run {run['label']} does not satisfy the frozen {experiment_id} hierarchy contract"
                 )
+            if experiment_id == "B-retry" and not run["manifest"].get("retry"):
+                raise ValueError(f"Run {run['label']} is missing the frozen naive retry control")
             mean_plan_length = overall["declared_plan_length"]["mean"]
             paper_sr = overall["paper_subtask_success_rate"]["estimate"]
             payload["paper_metric_applicability"]["plan_efficiency"][run["label"]] = (

@@ -12,6 +12,8 @@ from unitree_gr00t.commands import (
     build_a2_server_command,
     build_b_eval_command,
     build_b_features_command,
+    build_b_retry_eval_command,
+    build_b_retry_server_command,
     build_b_server_command,
     build_b_train_command,
     build_deploy_command,
@@ -166,3 +168,28 @@ def test_b_commands_freeze_selector_training_and_adaptive_eval(tmp_path: Path) -
     assert config.robocerebra_selector.method in evaluate.argv
     assert "--stop-confirmation-window" in evaluate.argv
     assert "--resume" in evaluate.argv
+
+
+def test_b_retry_commands_reuse_b_assets_and_add_only_fixed_control(tmp_path: Path) -> None:
+    config = load_config(ROOT / "configs" / "project.toml")
+    b_server = build_b_server_command(config, seed=7)
+    retry_server = build_b_retry_server_command(config, seed=7)
+    evaluate = build_b_retry_eval_command(
+        config,
+        task_types=["Ideal"],
+        case_names=["case1"],
+        trials=1,
+        execution_horizon=16,
+        seed=7,
+        output_dir=tmp_path / "b-retry",
+        resume=True,
+    )
+
+    assert retry_server.argv == b_server.argv
+    assert "unitree_gr00t.b_retry_eval" in evaluate.argv
+    assert "B-retry" in evaluate.argv
+    assert config.robocerebra_retry.variant in evaluate.argv
+    assert config.robocerebra_retry.method in evaluate.argv
+    assert evaluate.argv[evaluate.argv.index("--max-retries-per-subtask") + 1] == "1"
+    assert str(config.robocerebra_posttrain.checkpoint_dir) in evaluate.argv
+    assert str(config.robocerebra_selector.checkpoint_dir) in evaluate.argv
