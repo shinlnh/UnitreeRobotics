@@ -32,7 +32,7 @@ from .a1 import sha256_file
 from .b import select_unified_candidate
 from .ours import OURS_ID, RECOVERY_OPTIONS, OursContractError, RecoveryOption
 from .ours_counterfactual import branch_payload, evaluate_counterfactual_rollouts
-from .ours_counterfactual_prepare import _selected_stop_positions, _set_trace_state
+from .ours_counterfactual_prepare import _set_trace_state
 from .ours_data import OURS_CORPUS_MANIFEST, audit_recovery_corpus
 from .ours_rollout_prepare import _episode_key, _read_jsonl, _save_episode, _write_json
 
@@ -48,6 +48,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--policy-port", type=int, default=5551)
     parser.add_argument("--stop-stride", type=int, default=128)
     parser.add_argument("--max-states-per-episode", type=int, default=1)
+    parser.add_argument("--min-source-elapsed-steps", type=int, default=75)
     parser.add_argument("--rollout-steps", type=int, default=75)
     parser.add_argument("--max-policy-calls", type=int, default=24)
     parser.add_argument("--consensus-hypotheses", type=int, choices=(4, 8), default=4)
@@ -83,6 +84,26 @@ def _valid_options(active_subgoal: int, subgoal_count: int) -> tuple[RecoveryOpt
         options.append(RecoveryOption.BACKTRACK_ONE)
     options.extend((RecoveryOption.ADVANCE, RecoveryOption.CONSENSUS_PREFIX))
     return tuple(options)
+
+
+def _selected_rollout_positions(
+    rows: list[dict[str, Any]],
+    *,
+    stride: int,
+    maximum: int,
+    min_elapsed_steps: int,
+) -> set[int]:
+    if min(stride, maximum) < 1 or min_elapsed_steps < 0:
+        raise OursContractError("counterfactual rollout sampling is invalid")
+    segment_start: int | None = None
+    candidates: list[int] = []
+    for index, row in enumerate(rows):
+        if row.get("new_subgoal_anchor") is not None or segment_start is None:
+            segment_start = int(row["step_before"])
+        elapsed = int(row["step_before"]) - segment_start
+        if int(row["selector_candidate_before_recovery"]) == 0 and elapsed >= min_elapsed_steps:
+            candidates.append(index)
+    return set(candidates[::stride][:maximum])
 
 
 def _query_b(
@@ -227,6 +248,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             args.max_policy_calls,
         )
         < 1
+        or args.min_source_elapsed_steps < 0
         or not 0.0 <= args.max_replay_mismatch_rate <= 0.05
     ):
         raise ValueError("counterfactual roll-forward settings are invalid")
@@ -299,10 +321,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 raise OursContractError("counterfactual trace and feature rows differ")
             option_values = np.zeros((len(rows), len(RECOVERY_OPTIONS)), dtype=np.float32)
             option_valid = np.zeros((len(rows), len(RECOVERY_OPTIONS)), dtype=np.bool_)
-            selected_positions = _selected_stop_positions(
+            selected_positions = _selected_rollout_positions(
                 rows,
-                args.stop_stride,
-                args.max_states_per_episode,
+                stride=args.stop_stride,
+                maximum=args.max_states_per_episode,
+                min_elapsed_steps=args.min_source_elapsed_steps,
             )
 
             task = parse_task_description(case.path / "task_description.txt")
@@ -436,6 +459,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "candidate_states": "B STOP proposals",
                 "stop_stride": args.stop_stride,
                 "max_states_per_episode": args.max_states_per_episode,
+                "min_source_elapsed_steps": args.min_source_elapsed_steps,
                 "state_count": state_count,
                 "branch_count": branch_count,
                 "options": option_counts,

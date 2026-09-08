@@ -11,6 +11,7 @@ DESTINATION="${DESTINATION:-outputs/robocerebra/ctr-counterfactual-rollout-v2-pi
 ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/counterfactual/R0-rollforward-pilot}"
 STOP_STRIDE="${STOP_STRIDE:-128}"
 MAX_STATES_PER_EPISODE="${MAX_STATES_PER_EPISODE:-1}"
+MIN_SOURCE_ELAPSED_STEPS="${MIN_SOURCE_ELAPSED_STEPS:-75}"
 ROLLOUT_STEPS="${ROLLOUT_STEPS:-75}"
 MAX_POLICY_CALLS="${MAX_POLICY_CALLS:-24}"
 CONSENSUS_HYPOTHESES="${CONSENSUS_HYPOTHESES:-4}"
@@ -69,6 +70,7 @@ PYTHONPATH=src "${EVAL_PYTHON}" -m unitree_gr00t.ours_counterfactual_rollout_pre
   --policy-port "${PORT}" \
   --stop-stride "${STOP_STRIDE}" \
   --max-states-per-episode "${MAX_STATES_PER_EPISODE}" \
+  --min-source-elapsed-steps "${MIN_SOURCE_ELAPSED_STEPS}" \
   --rollout-steps "${ROLLOUT_STEPS}" \
   --max-policy-calls "${MAX_POLICY_CALLS}" \
   --consensus-hypotheses "${CONSENSUS_HYPOTHESES}" \

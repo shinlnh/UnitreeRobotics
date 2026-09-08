@@ -5,6 +5,7 @@ from unitree_gr00t.ours import OursContractError
 from unitree_gr00t.ours_counterfactual_rollout_prepare import (
     _best_nonstop,
     _medoid_index,
+    _selected_rollout_positions,
     _valid_options,
 )
 
@@ -26,3 +27,20 @@ def test_rollout_consensus_and_nonstop_selection_are_deterministic() -> None:
     scores = np.asarray([5.0, 1.0, 4.0], dtype=np.float32)
     valid = np.asarray([True, True, True])
     assert _best_nonstop(scores, valid, np) == 2
+
+
+def test_rollout_sampling_uses_subgoal_relative_failure_onset() -> None:
+    rows = [
+        {
+            "step_before": step,
+            "new_subgoal_anchor": [0.0] if step in {0, 100} else None,
+            "selector_candidate_before_recovery": 0,
+        }
+        for step in (0, 50, 75, 100, 174, 175)
+    ]
+    assert _selected_rollout_positions(
+        rows,
+        stride=1,
+        maximum=8,
+        min_elapsed_steps=75,
+    ) == {2, 5}
