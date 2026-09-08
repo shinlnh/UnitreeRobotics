@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "corpus": "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-counterfactual-rollout-v8-confirmed-seed10007",
+  "corpus_files": 60,
+  "corpus_samples": 3404,
+  "thresholds": {
+    "min_labeled_states": 32,
+    "min_winning_options": 2,
+    "min_strict_preference_rate": 0.1
+  },
+  "option_targets": {
+    "labeled_states": 62,
+    "valid_option_targets": 303,
+    "strict_preferences": 27,
+    "strict_preference_rate": 0.43548387096774194,
+    "ties": 35,
+    "winning_options": {
+      "BACKTRACK_ONE": 10,
+      "CONSENSUS_PREFIX": 8,
+      "REOBSERVE": 5,
+      "RETRY_CURRENT": 4
+    },
+    "distinct_winning_options": 4,
+    "mean_best_margin": 0.04448386978718542,
+    "per_option": {
+      "ACCEPT_B": {
+        "count": 0,
+        "mean": null,
+        "standard_deviation": null,
+        "minimum": null,
+        "maximum": null
+      },
+      "REOBSERVE": {
+        "count": 62,
+        "mean": -0.7030968070030212,
+        "standard_deviation": 2.8361356258392334,
+        "minimum": -16.354000091552734,
+        "maximum": 0.6980000138282776
+      },
+      "RETRY_CURRENT": {
+        "count": 62,
+        "mean": -0.6723548173904419,
+        "standard_deviation": 2.846135139465332,
+        "minimum": -16.354000091552734,
+        "maximum": 0.7379999756813049
+      },
+      "BACKTRACK_ONE": {
+        "count": 55,
+        "mean": -0.6189454793930054,
+        "standard_deviation": 3.2141268253326416,
+        "minimum": -16.239999771118164,
+        "maximum": 7.760000228881836
+      },
+      "ADVANCE": {
+        "count": 62,
+        "mean": -8.703741073608398,
+        "standard_deviation": 2.8349835872650146,
+        "minimum": -24.354000091552734,
+        "maximum": -7.302000045776367
+      },
+      "CONSENSUS_PREFIX": {
+        "count": 62,
+        "mean": -0.6015161275863647,
+        "standard_deviation": 3.0225088596343994,
+        "minimum": -16.243999481201172,
+        "maximum": 7.75600004196167
+      }
+    }
+  },
+  "residual_branch_mechanisms": {
+    "states": 62,
+    "physical_beneficial_override_states": 3,
+    "physical_beneficial_override_rate": 0.04838709677419355,
+    "return_beneficial_override_states": 24,
+    "efficiency_only_return_override_states": 21,
+    "return_override_with_physical_regression_states": 0,
+    "physical_winning_options": {
+      "BACKTRACK_ONE": 3,
+      "CONSENSUS_PREFIX": 2
+    }
+  },
+  "checks": {
+    "minimum_labeled_states": true,
+    "multiple_winning_options": true,
+    "strict_preference_rate": true,
+    "residual_source_is_abstaining_b_retry": true,
+    "residual_confirmed_stop_sources": true,
+    "residual_b_retry_continuation": true,
+    "residual_branch_hash": true,
+    "residual_branch_inventory": true,
+    "residual_distinct_actions": true,
+    "residual_common_random_numbers": true
+  },
+  "valid": true
+}
