@@ -855,7 +855,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "method": OURS_METHOD,
         "parent_experiment": OURS_PARENT,
         "stage": (
-            "R0-live-adapted-temporal-gate"
+            "R0-counterfactual-option-distillation"
+            if additional_manifest is not None
+            and bool(additional_manifest.get("contains_counterfactuals"))
+            else "R0-live-adapted-temporal-gate"
             if additional_dataset is not None
             else "R0-successful-demonstration-temporal-gate"
         ),
@@ -870,6 +873,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             sha256_file(additional_manifest_path) if additional_manifest_path is not None else None
         ),
         "live_training_samples": int(len(corpus.live_ids)),
+        "counterfactual_training_states": int(
+            (corpus.target_option_valid[corpus.live_ids].sum(axis=1) >= 2).sum()
+        ),
         "live_batch_fraction": args.live_batch_fraction if additional_dataset else 0.0,
         "option_batch_fraction": (
             args.option_batch_fraction if additional_dataset is not None else 0.0
