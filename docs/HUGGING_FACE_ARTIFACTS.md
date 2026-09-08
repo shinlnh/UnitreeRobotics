@@ -21,6 +21,7 @@ in the Hugging Face commit messages.
 | Ours R0 | `b69ec837d088709f59015f46ee7742475b429022` | `ab8f52158020041eb36d4cf91924ea2c5c1232ce` | `dd29f40bfe20c13e107ed4fe3e4557d22e3431d3` | 86,859,304 B |
 | Ours R0 v3 | `476473b829bd6b43e4772a3dbd19877860120f22` | `b1b41802ae4f53783a031cbe2bafbe3f5145db4d` | `94fb8a3f0531afd896736ac8bc4953fc89411e17` | 86,699,045 B |
 | Ours R0 v5 multi-seed | `d17214eaba93495cc4575b13315fd1e7e213c619` | `49c5e7344f7ede5bf16a24f23a1acb6c532a86a0` | `c1626968d98544dd8d8ffca74862b3a7fb3e9e6c` | 26,562,361 B |
+| Ours residual v8 ablation | `842946a152fc07819fe9e1fee6649feb9f646a51` | `444a566c0ada1b8d2e09c182c536d54912b66e08` | `06200221d226787e5fda8e78792e85e0207547be` | 27,380,825 B |
 
 The Ours entry is an intermediate, train-only R0 mirror. That R0 corpus and its
 checkpoints were subsequently retired after a counterfactual continuation
@@ -32,6 +33,9 @@ train seeds, uses episode-held-out calibration and balanced seed/option
 sampling, and advances only the preregistered top four models to R1. It is an
 intermediate candidate, not a paper winner. Development and final rollout
 artifacts are added only after their respective protocol gates.
+Residual v8 is the frozen 75-step/24-call efficiency-shaped ablation. Its
+train-only audit showed that 72/80 apparent override gains were cost-only, so
+neither its nominal model winner nor any development result is promoted.
 
 ## Branches
 
@@ -88,6 +92,12 @@ Model LFS objects:
 | Ours R0 v5 MLP H8 W64 | `bbd316a50c2f0d58a911cd2d9f48da46f42ef103f72cd313795fcd4012f950ed` |
 | Ours R0 v5 GRU H8 W64 | `0d2b52846750291c99791bd8b7cfcd7f4582d2a1950cca1b7dc326c6354d1459` |
 | Ours R0 v5 Transformer H8 W64 | `bfc18fa09d0c5ea4b079e539992dc6348778e98be705ce95fae47efaa19095ef` |
+| Ours residual v8 linear H4 W32 | `821fb9f18ceea32c075b26b9881c7dd7b46d203427e03aa3eb3f0d160033b502` |
+| Ours residual v8 linear H8 W64 | `bccd6f603f4924c3f81e65477e98ceff66332a05df5f15a9ae631abc8b02f632` |
+| Ours residual v8 MLP H4 W32 | `5077eedc3874de32737c44256d270265c82fdc8bb455cf1e97a140a2c2277f6f` |
+| Ours residual v8 MLP H8 W64 | `9e8eff752efa5420d97c8f336983fe5a604f24dcbf56ed1802e41e417cfef79a` |
+| Ours residual v8 GRU H8 W64 | `01a7c428553a515859c9f1cb396f09c47469c10c5ade55723ff82e94f2a8a362` |
+| Ours residual v8 Transformer H8 W64 | `caaf4c9fc4586b6ae62b1504bd76e5a05a86bfbb09fc88f5e29b931d4fa84d16` |
 
 Decision logs and auxiliary archives:
 
