@@ -30,8 +30,13 @@ def test_counterfactual_stop_confirmation_continues_into_next_subgoal() -> None:
 
 
 def test_rollout_options_respect_backtrack_boundary() -> None:
-    assert "BACKTRACK_ONE" not in {value.value for value in _valid_options(0, 3)}
-    assert "BACKTRACK_ONE" in {value.value for value in _valid_options(1, 3)}
+    first = {value.value for value in _valid_options(0, 3)}
+    later = {value.value for value in _valid_options(1, 3)}
+    pending = {value.value for value in _valid_options(1, 3, stop_pending=True)}
+    assert "BACKTRACK_ONE" not in first
+    assert "BACKTRACK_ONE" in later
+    assert "ADVANCE" not in later
+    assert "ADVANCE" in pending
     with pytest.raises(OursContractError, match="active subgoal"):
         _valid_options(3, 3)
 

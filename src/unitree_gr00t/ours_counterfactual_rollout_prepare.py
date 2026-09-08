@@ -72,7 +72,9 @@ def _medoid_index(chunks: list[Any], np: Any) -> int:
     return int(distances.sum(axis=1).argmin())
 
 
-def _valid_options(active_subgoal: int, subgoal_count: int) -> tuple[RecoveryOption, ...]:
+def _valid_options(
+    active_subgoal: int, subgoal_count: int, *, stop_pending: bool = False
+) -> tuple[RecoveryOption, ...]:
     if not 0 <= active_subgoal < subgoal_count:
         raise OursContractError("counterfactual active subgoal is invalid")
     options = [
@@ -82,7 +84,9 @@ def _valid_options(active_subgoal: int, subgoal_count: int) -> tuple[RecoveryOpt
     ]
     if active_subgoal > 0:
         options.append(RecoveryOption.BACKTRACK_ONE)
-    options.extend((RecoveryOption.ADVANCE, RecoveryOption.CONSENSUS_PREFIX))
+    if stop_pending:
+        options.append(RecoveryOption.ADVANCE)
+    options.append(RecoveryOption.CONSENSUS_PREFIX)
     return tuple(options)
 
 
@@ -168,6 +172,7 @@ def _roll_option(
     branch_seed: int,
     *,
     option: RecoveryOption,
+    stop_pending: bool,
     subgoals: tuple[str, ...],
     active_subgoal: int,
     source_anchors: list[Any],
@@ -184,7 +189,11 @@ def _roll_option(
     subgoal_start = False
     stop_streak = 0
     if option is RecoveryOption.ACCEPT_B:
-        stop_streak = 1
+        if stop_pending:
+            target_subgoal += 1
+            subgoal_start = True
+        else:
+            stop_streak = 1
     elif option is RecoveryOption.RETRY_CURRENT:
         subgoal_start = True
     elif option is RecoveryOption.BACKTRACK_ONE:
@@ -397,12 +406,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         complete = completed_before > active_subgoal + int(
                             episodes[key]["excluded_subtasks"]
                         )
+                        previous = rows[position - 1] if position else None
+                        stop_pending_before = bool(
+                            previous is not None
+                            and int(previous["stop_confirmation_streak_after"]) > 0
+                            and int(previous["active_subgoal_index_after"]) == active_subgoal
+                        )
                         rollouts = {}
-                        for option in _valid_options(active_subgoal, len(task.steps)):
+                        for option in _valid_options(
+                            active_subgoal,
+                            len(task.steps),
+                            stop_pending=stop_pending_before,
+                        ):
                             rollouts[option] = partial(
                                 _roll_option,
                                 env,
                                 option=option,
+                                stop_pending=stop_pending_before,
                                 subgoals=task.steps,
                                 active_subgoal=active_subgoal,
                                 source_anchors=[anchor.copy() for anchor in anchors],
@@ -501,6 +521,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "training_only_restore": True,
                 "runtime_restore": False,
                 "restore_absolute_tolerance": 1e-12,
+                "advance_requires_pending_stop": True,
+                "confirmed_stop_continues_remaining_horizon": True,
             },
             "counterfactual_branches_sha256": sha256_file(branch_path),
             "files_sha256": files_sha256,
