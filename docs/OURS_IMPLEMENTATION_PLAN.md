@@ -131,6 +131,16 @@ evaluate each valid option from that same state, and use predicates or future
 return to label reachability, progress, time-to-recovery, and option preference.
 Snapshotting is a training-data operation only. The saved simulator state is
 never a model input and the final evaluator has no branch/restore code path.
+Every option is evaluated for the same simulator-step and policy-call horizon;
+confirmed STOP transitions continue into the next subtask rather than ending a
+branch early. `ADVANCE` labels require a causally pending STOP, matching the
+runtime option mask.
+
+Counterfactual option generalization is audited on a deterministic episode
+holdout drawn only from training base seeds. With 60-case corpora, episode
+indices congruent to 4 modulo 5 form a 12-episode option-validation split and
+the other 48 episodes remain eligible for option-head fitting. This split is
+distinct from the rollout development seeds used in R1--R4.
 
 Seed partitions are immutable:
 
