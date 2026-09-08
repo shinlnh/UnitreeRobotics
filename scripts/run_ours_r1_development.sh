@@ -110,13 +110,14 @@ run_variant() {
     >>"${OUTPUT_ROOT}/${variant_id}.log" 2>&1
 }
 
-# The first two registered runs preserve the unbounded-controller failure that
-# motivated the bounded-attempt fix. The remaining ten are the corrected R1
-# search matrix and never use an elapsed-time forced boundary.
+# The first registered run preserves the unbounded-controller failure that
+# motivated the bounded-attempt fix. The remaining eleven are the corrected R1
+# search matrix and never use an elapsed-time forced boundary. An interrupted
+# second unbounded run is retained outside R1 as a failed ablation.
 # id checkpoint gate hypotheses failure-threshold cooldown max-attempts boundary
 variants=(
   "r1-00-mlp025-comp-c1-b150 v01-mlp-h16-live0250 completion 1 0.90 16 1 150"
-  "r1-01-mlp025-comp-c4-f090-c16-b150 v01-mlp-h16-live0250 completion 4 0.90 16 1 150"
+  "r1-01-mlp025-comp-c4-f090-a1 v01-mlp-h16-live0250 completion 4 0.90 16 1 none"
   "r1-02-mlp025-comp-c1-a1 v01-mlp-h16-live0250 completion 1 0.90 16 1 none"
   "r1-03-mlp025-comp-c1-a2 v01-mlp-h16-live0250 completion 1 0.90 16 2 none"
   "r1-04-mlp025-comp-c4-f095-a1 v01-mlp-h16-live0250 completion 4 0.95 16 1 none"
