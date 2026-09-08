@@ -20,7 +20,10 @@ def test_training_sampler_reserves_live_quota_without_losing_demo_balance() -> N
     corpus = SimpleNamespace(
         train_ids=np.arange(12, dtype=np.int64),
         live_ids=np.arange(8, 12, dtype=np.int64),
-        target_complete=np.asarray([True] * 4 + [False] * 8, dtype=np.bool_),
+        target_complete=np.asarray(
+            [True] * 4 + [False] * 4 + [True] + [False] * 3,
+            dtype=np.bool_,
+        ),
     )
     ids = sample_training_ids(
         corpus,
@@ -31,6 +34,7 @@ def test_training_sampler_reserves_live_quota_without_losing_demo_balance() -> N
     )
     assert len(ids) == 8
     assert int((ids >= 8).sum()) == 2
+    assert int(corpus.target_complete[ids[ids >= 8]].sum()) == 1
     demo = ids[ids < 8]
     assert int(corpus.target_complete[demo].sum()) == 3
 

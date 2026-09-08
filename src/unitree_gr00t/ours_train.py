@@ -323,12 +323,26 @@ def sample_training_ids(
     negative_count = demo_count - positive_count
     if not len(demo_positive) or not len(demo_negative):
         raise ValueError("primary Ours training split requires both completion classes")
-    parts = (
+    parts: tuple[Any, ...] = (
         generator.choice(demo_positive, size=positive_count, replace=True),
         generator.choice(demo_negative, size=negative_count, replace=True),
     )
     if live_count:
-        parts += (generator.choice(corpus.live_ids, size=live_count, replace=True),)
+        live_positive = corpus.live_ids[corpus.target_complete[corpus.live_ids]]
+        live_negative = corpus.live_ids[~corpus.target_complete[corpus.live_ids]]
+        if len(live_positive) and len(live_negative):
+            live_positive_count = live_count // 2
+            live_parts = (
+                generator.choice(live_positive, size=live_positive_count, replace=True),
+                generator.choice(
+                    live_negative,
+                    size=live_count - live_positive_count,
+                    replace=True,
+                ),
+            )
+            parts += live_parts
+        else:
+            parts += (generator.choice(corpus.live_ids, size=live_count, replace=True),)
     ids = np.concatenate(parts)
     generator.shuffle(ids)
     return ids
