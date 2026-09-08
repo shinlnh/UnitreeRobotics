@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "corpus": "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-counterfactual-v1-pilot",
+  "corpus_files": 60,
+  "corpus_samples": 25369,
+  "thresholds": {
+    "min_labeled_states": 32,
+    "min_winning_options": 2,
+    "min_strict_preference_rate": 0.1
+  },
+  "option_targets": {
+    "labeled_states": 60,
+    "valid_option_targets": 180,
+    "strict_preferences": 60,
+    "strict_preference_rate": 1.0,
+    "ties": 0,
+    "winning_options": {
+      "CONSENSUS_PREFIX": 60
+    },
+    "distinct_winning_options": 1,
+    "mean_best_margin": 8.146500007311504,
+    "per_option": {
+      "ACCEPT_B": {
+        "count": 60,
+        "mean": -8.0,
+        "standard_deviation": 0.0,
+        "minimum": -8.0,
+        "maximum": -8.0
+      },
+      "REOBSERVE": {
+        "count": 0,
+        "mean": null,
+        "standard_deviation": null,
+        "minimum": null,
+        "maximum": null
+      },
+      "RETRY_CURRENT": {
+        "count": 0,
+        "mean": null,
+        "standard_deviation": null,
+        "minimum": null,
+        "maximum": null
+      },
+      "BACKTRACK_ONE": {
+        "count": 0,
+        "mean": null,
+        "standard_deviation": null,
+        "minimum": null,
+        "maximum": null
+      },
+      "ADVANCE": {
+        "count": 60,
+        "mean": -8.0,
+        "standard_deviation": 0.0,
+        "minimum": -8.0,
+        "maximum": -8.0
+      },
+      "CONSENSUS_PREFIX": {
+        "count": 60,
+        "mean": 0.14650003612041473,
+        "standard_deviation": 1.1576007604599,
+        "minimum": -0.03200000151991844,
+        "maximum": 8.984000205993652
+      }
+    }
+  },
+  "checks": {
+    "minimum_labeled_states": true,
+    "multiple_winning_options": false,
+    "strict_preference_rate": true
+  },
+  "valid": false
+}
