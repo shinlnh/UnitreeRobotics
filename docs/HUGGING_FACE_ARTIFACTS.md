@@ -22,6 +22,7 @@ in the Hugging Face commit messages.
 | Ours R0 v3 | `476473b829bd6b43e4772a3dbd19877860120f22` | `b1b41802ae4f53783a031cbe2bafbe3f5145db4d` | `94fb8a3f0531afd896736ac8bc4953fc89411e17` | 86,699,045 B |
 | Ours R0 v5 multi-seed | `d17214eaba93495cc4575b13315fd1e7e213c619` | `49c5e7344f7ede5bf16a24f23a1acb6c532a86a0` | `c1626968d98544dd8d8ffca74862b3a7fb3e9e6c` | 26,562,361 B |
 | Ours residual v8 ablation | `842946a152fc07819fe9e1fee6649feb9f646a51` | `444a566c0ada1b8d2e09c182c536d54912b66e08` | `06200221d226787e5fda8e78792e85e0207547be` | 27,380,825 B |
+| Ours exact B-retry sources | `735aa382d62158f8ec7710dc89ac31efa5b1f41f` | — | `5169ebf097b27f3ce68e1c3ac50ae0fe2fcfa1e7` | 543,396,820 B |
 
 The Ours entry is an intermediate, train-only R0 mirror. That R0 corpus and its
 checkpoints were subsequently retired after a counterfactual continuation
@@ -36,6 +37,9 @@ artifacts are added only after their respective protocol gates.
 Residual v8 is the frozen 75-step/24-call efficiency-shaped ablation. Its
 train-only audit showed that 72/80 apparent override gains were cost-only, so
 neither its nominal model winner nor any development result is promoted.
+The exact B-retry source row mirrors all three raw registered train-seed rollout
+traces and their prepared causal feature corpora. These are the immutable input
+to residual counterfactual branching; they contain zero learned interventions.
 
 ## Branches
 
