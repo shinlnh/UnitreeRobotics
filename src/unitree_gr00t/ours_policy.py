@@ -1,0 +1,163 @@
+"""Outcome-blind selective recovery decisions for Ours."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from .ours import OursContractError, RecoveryOption
+
+
+@dataclass(frozen=True)
+class RecoveryDirective:
+    candidate: int
+    action_chunk: Any
+    suppress_stop_confirmation: bool
+    option: str
+    recovery_triggered: bool
+    hypothesis_count: int
+    completion_probability: float
+    progress_probability: float
+
+
+class SelectiveConsensusRecovery:
+    """Reject premature STOP and execute a medoid proposal from live observations."""
+
+    def __init__(
+        self,
+        *,
+        gate_signal: str = "completion",
+        gate_threshold: float | None = None,
+        completion_threshold: float | None = None,
+        consensus_hypotheses: int,
+        force_boundary_steps: int | None = None,
+    ):
+        # completion_threshold remains an explicit compatibility alias for the
+        # first recorded smoke artifact.
+        selected_threshold = gate_threshold if gate_threshold is not None else completion_threshold
+        if gate_signal not in {"completion", "progress", "maximum"}:
+            raise OursContractError("unsupported Ours gate signal")
+        if selected_threshold is None or not 0.0 <= selected_threshold <= 1.0:
+            raise OursContractError("gate threshold must be inside [0, 1]")
+        if consensus_hypotheses < 1:
+            raise OursContractError("consensus hypotheses must be positive")
+        if force_boundary_steps is not None and force_boundary_steps < 1:
+            raise OursContractError("forced collection boundary must be positive")
+        self.gate_signal = gate_signal
+        self.gate_threshold = selected_threshold
+        self.consensus_hypotheses = consensus_hypotheses
+        self.force_boundary_steps = force_boundary_steps
+        self._proposals: list[tuple[Any, Any, Any]] = []
+
+    def reset(self) -> None:
+        self._proposals.clear()
+
+    @staticmethod
+    def _best_nonstop(scores: Any, valid: Any, np: Any) -> int:
+        if len(scores) != len(valid) or len(scores) < 2:
+            raise OursContractError("invalid selector proposal for recovery consensus")
+        masked = np.where(valid[1:], scores[1:], -np.inf)
+        if not np.isfinite(masked).any():
+            raise OursContractError("recovery proposal has no valid non-STOP prefix")
+        return int(masked.argmax()) + 1
+
+    @staticmethod
+    def _medoid(proposals: list[tuple[Any, Any, Any]], np: Any) -> int:
+        chunks = np.stack([proposal[0] for proposal in proposals]).astype(np.float32)
+        flattened = chunks.reshape(len(chunks), -1)
+        scale = np.linalg.norm(flattened, axis=1, keepdims=True).clip(min=1e-6)
+        normalized = flattened / scale
+        distances = np.square(normalized[:, None] - normalized[None, :]).mean(axis=2)
+        # NumPy argmin preserves the earliest registered hypothesis on ties.
+        return int(distances.sum(axis=1).argmin())
+
+    def decide(
+        self,
+        *,
+        candidate: int,
+        action_chunk: Any,
+        scores: Any,
+        valid: Any,
+        completion_probability: float,
+        progress_probability: float,
+        subgoal_elapsed_steps: int = 0,
+        np: Any,
+    ) -> RecoveryDirective:
+        if not 0.0 <= completion_probability <= 1.0 or not 0.0 <= progress_probability <= 1.0:
+            raise OursContractError("Ours runtime probabilities must be inside [0, 1]")
+        if candidate < 0 or candidate >= len(valid) or not bool(valid[candidate]):
+            raise OursContractError("B proposed an invalid candidate to Ours")
+        if subgoal_elapsed_steps < 0:
+            raise OursContractError("subgoal elapsed steps cannot be negative")
+        if (
+            self.force_boundary_steps is not None
+            and subgoal_elapsed_steps >= self.force_boundary_steps
+        ):
+            self.reset()
+            return RecoveryDirective(
+                candidate=0,
+                action_chunk=action_chunk,
+                suppress_stop_confirmation=False,
+                option=RecoveryOption.ADVANCE.value,
+                recovery_triggered=False,
+                hypothesis_count=1,
+                completion_probability=completion_probability,
+                progress_probability=progress_probability,
+            )
+        if candidate > 0:
+            self.reset()
+            return RecoveryDirective(
+                candidate=candidate,
+                action_chunk=action_chunk,
+                suppress_stop_confirmation=False,
+                option=RecoveryOption.ACCEPT_B.value,
+                recovery_triggered=False,
+                hypothesis_count=1,
+                completion_probability=completion_probability,
+                progress_probability=progress_probability,
+            )
+        gate_probability = {
+            "completion": completion_probability,
+            "progress": progress_probability,
+            "maximum": max(completion_probability, progress_probability),
+        }[self.gate_signal]
+        if gate_probability >= self.gate_threshold:
+            self.reset()
+            return RecoveryDirective(
+                candidate=0,
+                action_chunk=action_chunk,
+                suppress_stop_confirmation=False,
+                option=RecoveryOption.ADVANCE.value,
+                recovery_triggered=False,
+                hypothesis_count=1,
+                completion_probability=completion_probability,
+                progress_probability=progress_probability,
+            )
+
+        self._proposals.append((action_chunk.copy(), scores.copy(), valid.copy()))
+        if len(self._proposals) < self.consensus_hypotheses:
+            return RecoveryDirective(
+                candidate=0,
+                action_chunk=action_chunk,
+                suppress_stop_confirmation=True,
+                option=RecoveryOption.REOBSERVE.value,
+                recovery_triggered=True,
+                hypothesis_count=len(self._proposals),
+                completion_probability=completion_probability,
+                progress_probability=progress_probability,
+            )
+        chosen = self._medoid(self._proposals, np)
+        chosen_chunk, chosen_scores, chosen_valid = self._proposals[chosen]
+        chosen_candidate = self._best_nonstop(chosen_scores, chosen_valid, np)
+        count = len(self._proposals)
+        self.reset()
+        return RecoveryDirective(
+            candidate=chosen_candidate,
+            action_chunk=chosen_chunk,
+            suppress_stop_confirmation=False,
+            option=RecoveryOption.CONSENSUS_PREFIX.value,
+            recovery_triggered=True,
+            hypothesis_count=count,
+            completion_probability=completion_probability,
+            progress_probability=progress_probability,
+        )

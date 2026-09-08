@@ -53,6 +53,7 @@ from .b import (
     B_METHOD,
     B_PAPER,
     B_VARIANT,
+    ConfirmedSelection,
     StopConfirmationState,
     confirm_stop,
     inspect_selector_checkpoint,
@@ -72,6 +73,7 @@ class EvaluationIdentity:
     retry_trigger: str | None = None
     max_retries_per_subtask: int = 0
     decision_schedule: str = "B-confirmed-stop-advance-v1"
+    recovery: bool = False
 
 
 B_EVALUATION = EvaluationIdentity(B_ID, B_VARIANT, B_METHOD, B_PAPER)
@@ -130,6 +132,8 @@ def _run_episode(
     np: Any,
     identity: EvaluationIdentity = B_EVALUATION,
     stop_transition: Callable[..., Any] | None = None,
+    proposal_transition: Any | None = None,
+    capture_training_context: bool = False,
 ) -> dict[str, Any]:
     task = parse_task_description(case.path / "task_description.txt")
     plan = build_fixed_plan(task, steps_per_subtask)
@@ -149,6 +153,8 @@ def _run_episode(
         initial_state_source = "annotated_demo_shift_state"
     dynamic_state = _dynamic_injection_state(env, case, task, steps_per_subtask, episode_seed)
     client.reset({"episode_seed": episode_seed})
+    if proposal_transition is not None:
+        proposal_transition.reset()
 
     hold_action = np.asarray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
     if start_event is None:
@@ -166,6 +172,7 @@ def _run_episode(
     predicted_actions = 0
     selector_executed_actions = 0
     active_subgoal = 0
+    subgoal_start_step = 0
     retry_attempt_index = 0
     retry_counts = [0] * len(plan.subgoals)
     retry_attempts = 0
@@ -177,6 +184,9 @@ def _run_episode(
     selector_stop_commits = 0
     selector_prefix_histogram = [0] * (execution_horizon + 1)
     injection_count = 0
+    recovery_triggers = 0
+    recovery_reobservations = 0
+    recovery_consensus_executions = 0
     zero_progress_decisions = 0
     policy_latencies: list[float] = []
     started = time.perf_counter()
@@ -189,18 +199,19 @@ def _run_episode(
         visited_subgoals.add(active_subgoal)
         instruction = plan.subgoals[active_subgoal]
         policy_observation = build_policy_observation(observation, instruction, np)
-        options = {
-            "b_selector": {
-                "anchor_history": anchors,
-                "subgoal_start": subgoal_start,
-                "max_prefix": execution_horizon,
-                "episode_seed": episode_seed,
-                "decision_index": policy_calls,
-                # Use only the frozen global budget. The shorter evaluator-only
-                # post-success window must not leak success into selector masks.
-                "remaining_steps": max_steps - step,
-            }
+        selector_options = {
+            "anchor_history": anchors,
+            "subgoal_start": subgoal_start,
+            "max_prefix": execution_horizon,
+            "episode_seed": episode_seed,
+            "decision_index": policy_calls,
+            # Use only the frozen global budget. The shorter evaluator-only
+            # post-success window must not leak success into selector masks.
+            "remaining_steps": max_steps - step,
+            "subgoal_elapsed_steps": step - subgoal_start_step,
+            "capture_training_context": capture_training_context,
         }
+        options = {"ours" if identity.recovery else "b_selector": selector_options}
         policy_started = time.perf_counter()
         raw_action, info = client.get_action_with_info(policy_observation, options)
         policy_latency = time.perf_counter() - policy_started
@@ -243,16 +254,65 @@ def _run_episode(
         if selector_info.get("anchor_history_sha256") != expected_anchor_hashes:
             raise RuntimeError("B server anchor history does not match evaluator state")
 
-        selection = confirm_stop(
-            candidate,
-            confirmation_state,
-            confirmation_window=stop_confirmation_window,
-        )
+        selector_candidate = candidate
+        recovery_directive = None
+        if proposal_transition is not None:
+            recovery_info = info.get("ours")
+            if not isinstance(recovery_info, dict):
+                raise RuntimeError("Ours server response is missing recovery metadata")
+            expected_recovery_runtime = {
+                "recovery_weights_sha256": provenance["recovery_weights_sha256"],
+                "recovery_provenance_sha256": provenance["recovery_provenance_sha256"],
+                "selector_weights_sha256": provenance["selector_weights_sha256"],
+            }
+            if recovery_info.get("runtime_provenance") != expected_recovery_runtime:
+                raise RuntimeError("Ours server runtime provenance does not match artifacts")
+            recovery_directive = proposal_transition.decide(
+                candidate=candidate,
+                action_chunk=chunk,
+                scores=scores,
+                valid=valid,
+                completion_probability=float(recovery_info["completion_probability"]),
+                progress_probability=float(recovery_info["progress_probability"]),
+                subgoal_elapsed_steps=step - subgoal_start_step,
+                np=np,
+            )
+            candidate = int(recovery_directive.candidate)
+            chunk = np.asarray(recovery_directive.action_chunk, dtype=np.float32)
+            if (
+                candidate < 0
+                or candidate >= len(valid)
+                or not bool(valid[candidate])
+                or chunk.shape != (16, 7)
+            ):
+                raise RuntimeError("Ours recovery directive is invalid")
+            if recovery_directive.recovery_triggered:
+                recovery_triggers += 1
+            if recovery_directive.option == "REOBSERVE":
+                recovery_reobservations += 1
+            if recovery_directive.option == "CONSENSUS_PREFIX":
+                recovery_consensus_executions += 1
+
+        if recovery_directive is not None and recovery_directive.suppress_stop_confirmation:
+            confirmation_state = StopConfirmationState()
+            selection = ConfirmedSelection(
+                proposed_candidate=0,
+                executed_prefix_length=0,
+                stop_pending=True,
+                stop_committed=False,
+                state=confirmation_state,
+            )
+        else:
+            selection = confirm_stop(
+                candidate,
+                confirmation_state,
+                confirmation_window=stop_confirmation_window,
+            )
         confirmation_state = selection.state
         policy_calls += 1
         predicted_actions += len(chunk)
-        selector_prefix_histogram[candidate] += 1
-        if candidate == 0:
+        selector_prefix_histogram[selector_candidate] += 1
+        if selector_candidate == 0:
             selector_stop_proposals += 1
         frame_path = (
             _trace_frame(output_dir, case, trial, policy_calls, policy_observation, np)
@@ -293,6 +353,8 @@ def _run_episode(
                 else:
                     retry_attempt_index = 0
             subgoal_start = retry_triggered or active_subgoal < len(plan.subgoals)
+            if subgoal_start:
+                subgoal_start_step = step
             zero_progress_decisions += 1
             if subgoal_advanced and active_subgoal >= len(plan.subgoals):
                 termination_reason = "selector_final_stop"
@@ -368,6 +430,30 @@ def _run_episode(
                 "selector_scores": scores.tolist(),
                 "selector_valid": valid.tolist(),
                 "selector_candidate": candidate,
+                **(
+                    {
+                        "selector_candidate_before_recovery": selector_candidate,
+                        "recovery_option": recovery_directive.option,
+                        "recovery_triggered": recovery_directive.recovery_triggered,
+                        "recovery_hypothesis_count": recovery_directive.hypothesis_count,
+                        "recovery_completion_probability": (
+                            recovery_directive.completion_probability
+                        ),
+                        "recovery_progress_probability": recovery_directive.progress_probability,
+                        "recovery_suppressed_stop": (recovery_directive.suppress_stop_confirmation),
+                        **(
+                            {
+                                "recovery_training_context": np.asarray(
+                                    recovery_info["training_context"], dtype=np.float32
+                                ).tolist()
+                            }
+                            if capture_training_context
+                            else {}
+                        ),
+                    }
+                    if recovery_directive is not None
+                    else {}
+                ),
                 "selector_context_sha256": selector_info["current_context_sha256"],
                 "selector_anchor_history_sha256": expected_anchor_hashes,
                 "new_subgoal_anchor": new_anchor,
@@ -402,7 +488,7 @@ def _run_episode(
                     if identity.retry
                     else {}
                 ),
-                "recovery": False,
+                "recovery": identity.recovery,
             },
         )
 
@@ -479,7 +565,7 @@ def _run_episode(
                     if identity.retry
                     else {}
                 ),
-                "recovery": False,
+                "recovery": identity.recovery,
             },
         )
 
@@ -553,7 +639,19 @@ def _run_episode(
             if identity.retry
             else {}
         ),
-        "recovery": False,
+        "recovery": identity.recovery,
+        **(
+            {
+                "failure_detector": True,
+                "recovery_memory": True,
+                "recovery_policy": True,
+                "recovery_triggers": recovery_triggers,
+                "recovery_reobservations": recovery_reobservations,
+                "recovery_consensus_executions": recovery_consensus_executions,
+            }
+            if identity.recovery
+            else {}
+        ),
     }
 
 
@@ -619,7 +717,7 @@ def _run_manifest(
             if identity.retry
             else {}
         ),
-        "recovery": False,
+        "recovery": identity.recovery,
         "task_types": args.task_types,
         "cases": [f"{case.task_type}/{case.case_name}" for case in cases],
         "trials_per_case": args.trials,
@@ -648,7 +746,7 @@ def _build_summary(
         "fixed_hierarchy": False,
         "stop_or_adaptive_chunk": True,
         "retry": bool(manifest.get("retry", False)),
-        "recovery": False,
+        "recovery": bool(manifest.get("recovery", False)),
         "checkpoint_contract": asdict(contract) | {"checkpoint_dir": str(contract.checkpoint_dir)},
         "episodes": episodes,
         "complete": episodes == manifest["expected_episodes"],
@@ -679,6 +777,21 @@ def _build_summary(
             if manifest.get("retry")
             else {}
         ),
+        **(
+            {
+                "total_recovery_triggers": sum(
+                    int(result["recovery_triggers"]) for result in results
+                ),
+                "total_recovery_reobservations": sum(
+                    int(result["recovery_reobservations"]) for result in results
+                ),
+                "total_recovery_consensus_executions": sum(
+                    int(result["recovery_consensus_executions"]) for result in results
+                ),
+            }
+            if manifest.get("recovery")
+            else {}
+        ),
         "total_policy_inference_seconds": sum(
             result["policy_inference_seconds"] for result in results
         ),
@@ -691,6 +804,8 @@ def run(
     *,
     identity: EvaluationIdentity = B_EVALUATION,
     stop_transition: Callable[..., Any] | None = None,
+    proposal_transition: Any | None = None,
+    manifest_extensions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if min(args.trials, args.control_frequency_hz, args.steps_per_subtask) < 1:
         raise ValueError("B evaluator counts must be positive")
@@ -703,6 +818,8 @@ def run(
         raise ValueError(f"{identity.experiment_id} evaluator identity is frozen")
     if identity.retry != (stop_transition is not None):
         raise ValueError("retry identity and controller must be enabled together")
+    if identity.recovery != (proposal_transition is not None):
+        raise ValueError("recovery identity and proposal controller must be enabled together")
     if args.planner != A2_PLANNER or args.plan_source != A2_PLAN_SOURCE:
         raise ValueError(f"{identity.experiment_id} canonical planner source is frozen")
     contract, checkpoint_provenance = inspect_a1_checkpoint(
@@ -744,6 +861,7 @@ def run(
         output_dir,
         identity,
     )
+    manifest.update(manifest_extensions or {})
     manifest["hierarchy_audit"] = hierarchy_audit_payload(hierarchy_audit)
     manifest_path = output_dir / "run_manifest.json"
     if manifest_path.is_file():
@@ -778,6 +896,13 @@ def run(
             "a1_checkpoint_weight_shards_sha256"
         ],
     }
+    if identity.recovery:
+        provenance.update(
+            {
+                "recovery_weights_sha256": manifest["recovery_weights_sha256"],
+                "recovery_provenance_sha256": manifest["recovery_provenance_sha256"],
+            }
+        )
     with RemotePolicyClient(args.policy_host, args.policy_port) as client:
         if not client.ping():
             raise RuntimeError("B policy server did not answer ping")
@@ -811,6 +936,10 @@ def run(
                         np=np,
                         identity=identity,
                         stop_transition=stop_transition,
+                        proposal_transition=proposal_transition,
+                        capture_training_context=bool(
+                            getattr(args, "capture_training_context", False)
+                        ),
                     )
                     results.append(result)
                     _append_jsonl(output_dir / "episodes.jsonl", result)

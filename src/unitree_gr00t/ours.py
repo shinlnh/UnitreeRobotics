@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from enum import StrEnum
+from enum import Enum
 from typing import Any
 
 OURS_ID = "Ours"
@@ -18,7 +18,7 @@ class OursContractError(ValueError):
     """Raised when Ours crosses a frozen scientific boundary."""
 
 
-class RecoveryOption(StrEnum):
+class RecoveryOption(str, Enum):  # noqa: UP042 - Isaac-GR00T runtime is Python 3.10.
     ACCEPT_B = "ACCEPT_B"
     REOBSERVE = "REOBSERVE"
     RETRY_CURRENT = "RETRY_CURRENT"
