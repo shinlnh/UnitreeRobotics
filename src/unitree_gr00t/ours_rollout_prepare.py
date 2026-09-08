@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -46,10 +47,10 @@ def _episode_key(record: dict[str, Any]) -> tuple[str, str, int]:
 
 
 def build_failure_targets(
-    subgoals: list[int],
-    elapsed: list[int],
-    complete: list[bool],
-    failure_after_injection: list[bool],
+    subgoals: Sequence[Any],
+    elapsed: Sequence[int],
+    complete: Sequence[bool],
+    failure_after_injection: Sequence[bool],
     *,
     failure_onset_steps: int,
     np: Any,

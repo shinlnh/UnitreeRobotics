@@ -10,6 +10,7 @@ from typing import Any
 
 from .a1 import sha256_file
 from .ours import OURS_ID, OURS_METHOD, OURS_VARIANT, OursContractError
+from .ours_rollout_prepare import build_failure_targets
 from .ours_train import calibrate_threshold
 
 
@@ -97,11 +98,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "progress": [],
         "maximum": [],
     }
-    failure_labels: list[bool] = []
     failure_probabilities: list[float] = []
+    failure_segments: list[Any] = []
+    failure_elapsed: list[int] = []
+    failure_after_injection: list[bool] = []
+    recovery_triggered: list[bool] = []
     injection_seen: dict[tuple[str, str, int], bool] = {}
-    recovery_triggers = 0
-    false_recovery_triggers = 0
+    segment_index: dict[tuple[str, str, int], int] = {}
+    segment_start: dict[tuple[str, str, int], int] = {}
     for row in _read_jsonl(decisions_path):
         if row.get("policy_invoked") is False:
             continue
@@ -121,24 +125,34 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         signals["progress"].append(progress_probability)
         signals["maximum"].append(max(completion_probability, progress_probability))
 
-        task_type = episode_key[0]
-        failure_active = (
-            injection_seen.get(episode_key, False)
-            if task_type == "Random_Disturbance"
-            else task_type != "Ideal"
-        )
+        if row.get("new_subgoal_anchor") is not None:
+            segment_index[episode_key] = segment_index.get(episode_key, -1) + 1
+            segment_start[episode_key] = int(row["step_before"])
+        if episode_key not in segment_start:
+            raise OursContractError("rollout decision is missing its causal segment anchor")
+        failure_segments.append((episode_key, segment_index[episode_key]))
+        failure_elapsed.append(int(row["step_before"]) - segment_start[episode_key])
+        failure_after_injection.append(injection_seen.get(episode_key, False))
         if "recovery_failure_probability" in row:
-            failure_labels.append(failure_active)
             failure_probabilities.append(float(row["recovery_failure_probability"]))
-        triggered = bool(row.get("recovery_triggered"))
-        recovery_triggers += int(triggered)
-        false_recovery_triggers += int(triggered and not failure_active)
+        recovery_triggered.append(bool(row.get("recovery_triggered")))
         injection_seen[episode_key] = injection_seen.get(episode_key, False) or any(
             transition.get("injection") is not None for transition in row["transitions"]
         )
 
     labels = np.asarray(completion_labels, dtype=np.bool_)
     stops = np.asarray(stop_proposals, dtype=np.bool_)
+    failure_labels = build_failure_targets(
+        failure_segments,
+        failure_elapsed,
+        completion_labels,
+        failure_after_injection,
+        failure_onset_steps=75,
+        np=np,
+    )
+    triggers = np.asarray(recovery_triggered, dtype=np.bool_)
+    recovery_triggers = int(triggers.sum())
+    false_recovery_triggers = int((triggers & ~failure_labels).sum())
     calibration = {
         name: calibrate_rollout_signal(
             np.asarray(values, dtype=np.float32),
@@ -150,10 +164,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for name, values in signals.items()
     }
     failure_calibration = None
-    if failure_probabilities:
+    if len(failure_probabilities) == len(failure_labels):
         failure_calibration = calibrate_rollout_signal(
             np.asarray(failure_probabilities, dtype=np.float32),
-            np.asarray(failure_labels, dtype=np.bool_),
+            failure_labels,
             np.ones(len(failure_labels), dtype=np.bool_),
             max_false_positive_rate=args.max_false_positive_rate,
             np=np,
@@ -168,6 +182,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "completion_positives": int(labels.sum()),
         "completion_negatives": int((~labels).sum()),
         "selector_stop_proposals": int(stops.sum()),
+        "failure_positives": int(failure_labels.sum()),
         "max_false_positive_rate": args.max_false_positive_rate,
         "gate_calibration_on_stop_proposals": calibration,
         "failure_calibration": failure_calibration,
