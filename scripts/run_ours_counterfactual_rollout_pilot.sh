@@ -9,6 +9,11 @@ EVAL_PYTHON="${EVAL_PYTHON:-.venv-a0/bin/python}"
 PORT="${PORT:-5551}"
 DESTINATION="${DESTINATION:-outputs/robocerebra/ctr-counterfactual-rollout-v2-pilot}"
 ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/counterfactual/R0-rollforward-pilot}"
+STOP_STRIDE="${STOP_STRIDE:-128}"
+MAX_STATES_PER_EPISODE="${MAX_STATES_PER_EPISODE:-1}"
+ROLLOUT_STEPS="${ROLLOUT_STEPS:-75}"
+MAX_POLICY_CALLS="${MAX_POLICY_CALLS:-24}"
+CONSENSUS_HYPOTHESES="${CONSENSUS_HYPOTHESES:-4}"
 mkdir -p logs "${ARTIFACT_ROOT}"
 
 if pgrep -f 'python .*unitree_gr00t\.(ours_server|b_server)' >/dev/null; then
@@ -62,11 +67,11 @@ PYTHONPATH=src "${EVAL_PYTHON}" -m unitree_gr00t.ours_counterfactual_rollout_pre
   --destination "${DESTINATION}" \
   --policy-host 127.0.0.1 \
   --policy-port "${PORT}" \
-  --stop-stride 128 \
-  --max-states-per-episode 1 \
-  --rollout-steps 75 \
-  --max-policy-calls 24 \
-  --consensus-hypotheses 4 \
+  --stop-stride "${STOP_STRIDE}" \
+  --max-states-per-episode "${MAX_STATES_PER_EPISODE}" \
+  --rollout-steps "${ROLLOUT_STEPS}" \
+  --max-policy-calls "${MAX_POLICY_CALLS}" \
+  --consensus-hypotheses "${CONSENSUS_HYPOTHESES}" \
   >logs/ours-counterfactual-rollout-pilot.log 2>&1
 
 PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_audit \
