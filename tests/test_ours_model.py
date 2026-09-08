@@ -59,3 +59,8 @@ def test_temporal_model_shapes_and_parameter_budget(encoder: str) -> None:
 def test_temporal_model_rejects_unregistered_encoder() -> None:
     with pytest.raises(OursContractError, match="unsupported"):
         build_temporal_recovery_model(TemporalRecoveryModelConfig(encoder="rnn"))
+
+
+def test_temporal_model_rejects_invalid_dropout() -> None:
+    with pytest.raises(OursContractError, match="dimensions"):
+        build_temporal_recovery_model(TemporalRecoveryModelConfig(dropout=1.0))

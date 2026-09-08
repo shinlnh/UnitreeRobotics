@@ -58,6 +58,7 @@ def build_temporal_recovery_model(config: TemporalRecoveryModelConfig) -> Any:
         )
         < 1
         or config.temporal_width % config.temporal_heads
+        or not 0.0 <= config.dropout < 1.0
     ):
         raise OursContractError("invalid Ours temporal model dimensions")
 

@@ -769,6 +769,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         or not 0.0 < args.max_false_positive_rate <= 0.05
         or not 0.0 <= args.live_batch_fraction < 1.0
         or not 0.0 <= args.option_batch_fraction <= args.live_batch_fraction
+        or not 0.0 <= args.dropout < 1.0
         or min(
             args.option_value_weight,
             args.option_rank_weight,
