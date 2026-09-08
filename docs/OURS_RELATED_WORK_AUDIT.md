@@ -26,6 +26,12 @@ the final Ours benchmark. It is a claim boundary, not a leaderboard claim.
   initial-state, task, time-limit, and recovery-scenario protocol differs from
   this repository's RoboCerebra continuous/no-restore protocol, so its model
   numbers are context rather than comparable baselines.
+- [Manipulation Benchmark Audit v1](https://arxiv.org/abs/2606.04233v1)
+  identifies shortcut solvability, statistical insignificance, creeping
+  overfitting, and data-source dependence as common failure modes in robot
+  manipulation claims. Its diagnosis motivates this project's paired seeds,
+  task-stratified confidence intervals, immutable negative variants, and strict
+  separation of train, development, and final outcomes.
 
 ## Distinction of the working method
 
