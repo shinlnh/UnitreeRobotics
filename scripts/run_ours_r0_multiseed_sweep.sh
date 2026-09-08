@@ -71,6 +71,9 @@ for specification in "${variants[@]}"; do
     --validate-steps 250 \
     --live-batch-fraction "${live_fraction}" \
     --option-batch-fraction "${option_fraction}" \
+    --option-value-weight 0.10 \
+    --option-rank-weight 0.25 \
+    --option-classification-weight 1.00 \
     --device cuda:0 \
     --seed 10007 \
     >"${ARTIFACT_ROOT}/${variant}.log" 2>&1

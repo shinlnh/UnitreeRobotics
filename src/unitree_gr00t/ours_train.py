@@ -98,6 +98,9 @@ def _parser() -> argparse.ArgumentParser:
         default=0.125,
         help="Minimum batch fraction carrying counterfactual option supervision",
     )
+    parser.add_argument("--option-value-weight", type=float, default=0.25)
+    parser.add_argument("--option-rank-weight", type=float, default=0.25)
+    parser.add_argument("--option-classification-weight", type=float, default=0.0)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=10007)
     return parser
@@ -717,6 +720,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         or not 0.0 < args.max_false_positive_rate <= 0.05
         or not 0.0 <= args.live_batch_fraction < 1.0
         or not 0.0 <= args.option_batch_fraction <= args.live_batch_fraction
+        or min(
+            args.option_value_weight,
+            args.option_rank_weight,
+            args.option_classification_weight,
+        )
+        < 0.0
     ):
         raise ValueError("Ours training counts or calibration limit are invalid")
     dataset = args.dataset.expanduser().resolve()
@@ -851,6 +860,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 batch["failure_valid"],
                 batch["option_values"],
                 batch["option_valid"],
+                option_value_weight=args.option_value_weight,
+                option_rank_weight=args.option_rank_weight,
+                option_classification_weight=args.option_classification_weight,
             )
         loss.backward()
         gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.gradient_clip_norm)
@@ -875,6 +887,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "train_failure_loss": float(losses["failure_loss"]),
                 "train_option_value_loss": float(losses["option_value_loss"]),
                 "train_option_rank_loss": float(losses["option_rank_loss"]),
+                "train_option_classification_loss": float(
+                    losses["option_classification_loss"]
+                ),
                 "gradient_norm": float(gradient_norm),
                 "development": dev_metrics,
                 "elapsed_seconds": time.perf_counter() - started,
@@ -945,6 +960,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "option_batch_fraction": (
             args.option_batch_fraction if additional_datasets else 0.0
         ),
+        "option_value_weight": args.option_value_weight,
+        "option_rank_weight": args.option_rank_weight,
+        "option_classification_weight": args.option_classification_weight,
         "selector_weights_sha256": manifest["selector_weights_sha256"],
         "a1_checkpoint_weight_shards_sha256": manifest["a1_checkpoint_weight_shards_sha256"],
         "seed": args.seed,

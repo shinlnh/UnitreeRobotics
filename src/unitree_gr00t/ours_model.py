@@ -202,6 +202,9 @@ def completion_progress_loss(
     *,
     completion_weight: float = 1.0,
     progress_weight: float = 1.0,
+    option_value_weight: float = 0.25,
+    option_rank_weight: float = 0.25,
+    option_classification_weight: float = 0.0,
 ) -> tuple[Any, dict[str, Any]]:
     """R0 loss for the false-STOP gate before failure branches are added."""
 
@@ -231,6 +234,7 @@ def completion_progress_loss(
         failure = (failure_losses * failure_mask).sum() / failure_mask.sum().clamp_min(1.0)
     option_value = outputs["option_values"].sum() * 0.0
     option_rank = outputs["option_values"].sum() * 0.0
+    option_classification = outputs["option_values"].sum() * 0.0
     if target_option_values is not None and target_option_valid is not None:
         normalized_target = target_option_values.to(outputs["option_values"].dtype) / 16.0
         option_mask = target_option_valid.to(outputs["option_values"].dtype)
@@ -254,12 +258,25 @@ def completion_progress_loss(
         )
         pair_weight = pair_mask.to(pair_losses.dtype)
         option_rank = (pair_losses * pair_weight).sum() / pair_weight.sum().clamp_min(1.0)
+        masked_target = normalized_target.masked_fill(~target_option_valid, -torch.inf)
+        ordered_target = masked_target.sort(dim=1).values
+        strict = (
+            target_option_valid.sum(dim=1) >= 2
+        ) & (ordered_target[:, -1] - ordered_target[:, -2] > 1e-4)
+        if strict.any():
+            masked_logits = outputs["option_values"].masked_fill(
+                ~target_option_valid, -torch.inf
+            )
+            option_classification = functional.cross_entropy(
+                masked_logits[strict], masked_target[strict].argmax(dim=1)
+            )
     total = (
         completion_weight * completion
         + progress_weight * progress
         + 0.5 * failure
-        + 0.25 * option_value
-        + 0.25 * option_rank
+        + option_value_weight * option_value
+        + option_rank_weight * option_rank
+        + option_classification_weight * option_classification
     )
     return total, {
         "loss": total.detach(),
@@ -268,4 +285,5 @@ def completion_progress_loss(
         "failure_loss": failure.detach(),
         "option_value_loss": option_value.detach(),
         "option_rank_loss": option_rank.detach(),
+        "option_classification_loss": option_classification.detach(),
     }

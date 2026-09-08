@@ -44,13 +44,16 @@ def test_temporal_model_shapes_and_parameter_budget(encoder: str) -> None:
         target_option_values=torch.tensor(
             [[0.0, 16.0, 0.0, 0.0, 0.0, 0.0], [16.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
         ),
-        target_option_valid=torch.tensor([[True, True, False, False, False, False]] * 2),
+        target_option_valid=torch.tensor(
+            [[True, True, False, False, False, False]] * 2
+        ),
     )
     loss.backward()
     assert torch.isfinite(loss)
     assert metrics["completion_loss"] >= 0
     assert metrics["option_value_loss"] > 0
     assert metrics["option_rank_loss"] >= 0
+    assert metrics["option_classification_loss"] > 0
 
 
 def test_temporal_model_rejects_unregistered_encoder() -> None:
