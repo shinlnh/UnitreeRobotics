@@ -9,6 +9,7 @@ DEMO_DATASET="${DEMO_DATASET:-outputs/robocerebra/ctr-recovery-v1}"
 CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/R0-residual-v8-confirmed}"
 ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-residual-v8-confirmed}"
 COUNTERFACTUAL_PREFIX="${COUNTERFACTUAL_PREFIX:-ctr-counterfactual-rollout-v8-confirmed}"
+RESIDUAL_OPTION_ADVANTAGES="${RESIDUAL_OPTION_ADVANTAGES:-false}"
 COUNTERFACTUAL_DATASETS=(
   "outputs/robocerebra/${COUNTERFACTUAL_PREFIX}-seed10007"
   "outputs/robocerebra/${COUNTERFACTUAL_PREFIX}-seed11007"
@@ -17,6 +18,13 @@ COUNTERFACTUAL_DATASETS=(
 
 mkdir -p "${CHECKPOINT_ROOT}" "${ARTIFACT_ROOT}"
 additional_args=()
+residual_advantage_args=()
+if [[ "${RESIDUAL_OPTION_ADVANTAGES}" == "true" ]]; then
+  residual_advantage_args=(--residual-option-advantages)
+elif [[ "${RESIDUAL_OPTION_ADVANTAGES}" != "false" ]]; then
+  echo "RESIDUAL_OPTION_ADVANTAGES must be true or false" >&2
+  exit 1
+fi
 for dataset in "${COUNTERFACTUAL_DATASETS[@]}"; do
   PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_split \
     --corpus "${dataset}" \
@@ -75,6 +83,7 @@ for specification in "${variants[@]}"; do
     --option-rank-weight 0.25 \
     --option-classification-weight 1.00 \
     --checkpoint-selection residual \
+    "${residual_advantage_args[@]}" \
     --device cuda:0 \
     --seed 10007 \
     >"${ARTIFACT_ROOT}/${variant}.log" 2>&1

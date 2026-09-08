@@ -206,6 +206,7 @@ def completion_progress_loss(
     option_value_weight: float = 0.25,
     option_rank_weight: float = 0.25,
     option_classification_weight: float = 0.0,
+    option_baseline_index: int | None = None,
 ) -> tuple[Any, dict[str, Any]]:
     """R0 loss for the false-STOP gate before failure branches are added."""
 
@@ -238,6 +239,16 @@ def completion_progress_loss(
     option_classification = outputs["option_values"].sum() * 0.0
     if target_option_values is not None and target_option_valid is not None:
         normalized_target = target_option_values.to(outputs["option_values"].dtype) / 16.0
+        if option_baseline_index is not None:
+            if not 0 <= option_baseline_index < normalized_target.shape[1]:
+                raise ValueError("option baseline index is outside the option head")
+            labeled = target_option_valid.sum(dim=1) >= 2
+            if not target_option_valid[labeled, option_baseline_index].all():
+                raise ValueError("option baseline must be valid for every labeled row")
+            normalized_target = (
+                normalized_target
+                - normalized_target[:, option_baseline_index : option_baseline_index + 1]
+            )
         option_mask = target_option_valid.to(outputs["option_values"].dtype)
         option_losses = functional.smooth_l1_loss(
             outputs["option_values"],

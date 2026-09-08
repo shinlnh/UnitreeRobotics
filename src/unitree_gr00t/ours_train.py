@@ -12,7 +12,14 @@ from pathlib import Path
 from typing import Any
 
 from .a1 import sha256_file
-from .ours import OURS_ID, OURS_METHOD, OURS_PARENT, OURS_VARIANT
+from .ours import (
+    OURS_ID,
+    OURS_METHOD,
+    OURS_PARENT,
+    OURS_VARIANT,
+    RECOVERY_OPTIONS,
+    RecoveryOption,
+)
 from .ours_data import OURS_CORPUS_MANIFEST, audit_recovery_corpus
 from .ours_model import (
     TemporalRecoveryModelConfig,
@@ -103,6 +110,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--option-value-weight", type=float, default=0.25)
     parser.add_argument("--option-rank-weight", type=float, default=0.25)
     parser.add_argument("--option-classification-weight", type=float, default=0.0)
+    parser.add_argument(
+        "--residual-option-advantages",
+        action="store_true",
+        help="Center option-value targets on RETRY_CURRENT for residual training",
+    )
     parser.add_argument(
         "--checkpoint-selection",
         choices=("completion", "residual"),
@@ -889,6 +901,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         < 0.0
     ):
         raise ValueError("Ours training counts or calibration limit are invalid")
+    if args.residual_option_advantages and args.checkpoint_selection != "residual":
+        raise ValueError(
+            "residual option advantages require residual checkpoint selection"
+        )
     dataset = args.dataset.expanduser().resolve()
     raw_additional = args.additional_train_dataset
     if raw_additional is None:
@@ -1039,6 +1055,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 option_value_weight=args.option_value_weight,
                 option_rank_weight=args.option_rank_weight,
                 option_classification_weight=args.option_classification_weight,
+                option_baseline_index=(
+                    RECOVERY_OPTIONS.index(RecoveryOption.RETRY_CURRENT)
+                    if args.residual_option_advantages
+                    else None
+                ),
             )
         loss.backward()
         gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.gradient_clip_norm)
@@ -1178,6 +1199,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "option_value_weight": args.option_value_weight,
         "option_rank_weight": args.option_rank_weight,
         "option_classification_weight": args.option_classification_weight,
+        "residual_option_advantages": args.residual_option_advantages,
+        "option_value_baseline": (
+            RecoveryOption.RETRY_CURRENT.value
+            if args.residual_option_advantages
+            else None
+        ),
         "selector_weights_sha256": manifest["selector_weights_sha256"],
         "a1_checkpoint_weight_shards_sha256": manifest["a1_checkpoint_weight_shards_sha256"],
         "seed": args.seed,

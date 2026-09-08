@@ -326,6 +326,12 @@ branch horizon increases prospectively from 75 steps / 24 calls to 150 steps /
 setting remains the horizon ablation.  V9 uses fresh empty destinations and
 records `return_target=outcome-first-physical-v1` plus
 `cost_terms_in_target=false` in every manifest.
+Because the runtime decision is an override of B-retry, v9 also centers every
+valid option target on the same state's `RETRY_CURRENT` return before value
+regression. Pairwise ranks and winning classes are unchanged, while the value
+head learns the causal residual advantage directly instead of spending
+capacity on a state-dependent common return offset. The centering flag and
+baseline option are recorded in checkpoint provenance.
 
 The six low-capacity R0 architectures and all optimizer settings remain
 identical to v5.  V8 models are diagnostic ablations; the R1b registry is ranked
