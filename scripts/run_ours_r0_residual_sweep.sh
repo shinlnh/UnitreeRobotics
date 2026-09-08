@@ -11,6 +11,7 @@ ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-residual-v8-confirmed}"
 COUNTERFACTUAL_PREFIX="${COUNTERFACTUAL_PREFIX:-ctr-counterfactual-rollout-v8-confirmed}"
 RESIDUAL_OPTION_ADVANTAGES="${RESIDUAL_OPTION_ADVANTAGES:-false}"
 MIN_STRICT_PREFERENCE_RATE="${MIN_STRICT_PREFERENCE_RATE:-0.10}"
+RESIDUAL_STRATIFIED_SPLIT="${RESIDUAL_STRATIFIED_SPLIT:-false}"
 COUNTERFACTUAL_DATASETS=(
   "outputs/robocerebra/${COUNTERFACTUAL_PREFIX}-seed10007"
   "outputs/robocerebra/${COUNTERFACTUAL_PREFIX}-seed11007"
@@ -20,10 +21,17 @@ COUNTERFACTUAL_DATASETS=(
 mkdir -p "${CHECKPOINT_ROOT}" "${ARTIFACT_ROOT}"
 additional_args=()
 residual_advantage_args=()
+split_args=()
 if [[ "${RESIDUAL_OPTION_ADVANTAGES}" == "true" ]]; then
   residual_advantage_args=(--residual-option-advantages)
 elif [[ "${RESIDUAL_OPTION_ADVANTAGES}" != "false" ]]; then
   echo "RESIDUAL_OPTION_ADVANTAGES must be true or false" >&2
+  exit 1
+fi
+if [[ "${RESIDUAL_STRATIFIED_SPLIT}" == "true" ]]; then
+  split_args=(--stratify-residual-overrides)
+elif [[ "${RESIDUAL_STRATIFIED_SPLIT}" != "false" ]]; then
+  echo "RESIDUAL_STRATIFIED_SPLIT must be true or false" >&2
   exit 1
 fi
 for dataset in "${COUNTERFACTUAL_DATASETS[@]}"; do
@@ -31,6 +39,7 @@ for dataset in "${COUNTERFACTUAL_DATASETS[@]}"; do
     --corpus "${dataset}" \
     --modulus 5 \
     --remainder 4 \
+    "${split_args[@]}" \
     >>"${ARTIFACT_ROOT}/option_split.log"
   PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_audit \
     --corpus "${dataset}" \
