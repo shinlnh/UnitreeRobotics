@@ -243,6 +243,7 @@ def summarize_residual_predictions(
     *,
     np: Any,
     max_false_recovery_rate: float = 0.05,
+    allowed_override_options: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     """Calibrate learned overrides while treating B-retry as abstention."""
 
@@ -255,24 +256,30 @@ def summarize_residual_predictions(
     ):
         raise ValueError("residual option audit arrays have incompatible shapes")
     retry_id = RECOVERY_OPTIONS.index("RETRY_CURRENT")
-    accept_id = RECOVERY_OPTIONS.index("ACCEPT_B")
-    advance_id = RECOVERY_OPTIONS.index("ADVANCE")
+    available_overrides = tuple(
+        option
+        for option in RECOVERY_OPTIONS
+        if option not in {"ACCEPT_B", "RETRY_CURRENT"}
+    )
+    allowed_overrides = allowed_override_options or available_overrides
+    if (
+        not allowed_overrides
+        or len(set(allowed_overrides)) != len(allowed_overrides)
+        or any(option not in available_overrides for option in allowed_overrides)
+    ):
+        raise ValueError("residual allowed override options are invalid")
+    alternative_ids = np.asarray(
+        [RECOVERY_OPTIONS.index(option) for option in allowed_overrides]
+    )
     labeled = (
         (target_valid.sum(axis=1) >= 2)
         & target_valid[:, retry_id]
-        & target_valid[:, advance_id]
+        & target_valid[:, alternative_ids].any(axis=1)
     )
     if not labeled.any():
         raise ValueError("residual audit requires confirmed-STOP labels")
     target = np.where(target_valid[labeled], target_values[labeled], -np.inf)
     prediction = np.where(target_valid[labeled], predictions[labeled], -np.inf)
-    alternative_ids = np.asarray(
-        [
-            index
-            for index in range(len(RECOVERY_OPTIONS))
-            if index not in {accept_id, retry_id}
-        ]
-    )
     target_retry = target[:, retry_id]
     target_alternative = target[:, alternative_ids].max(axis=1)
     predicted_retry = prediction[:, retry_id]

@@ -177,3 +177,34 @@ def test_residual_audit_counts_retry_ties_as_false_override_negatives() -> None:
     assert np.isclose(result["selective_recovery"]["option_value_margin"], 0.4)
     assert result["selective_recovery"]["false_recovery_rate"] == 0.0
     assert result["selective_recovery"]["true_recovery_rate"] == 1.0
+
+
+def test_residual_audit_can_restrict_the_runtime_override_library() -> None:
+    targets = np.asarray(
+        [
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        ],
+        dtype=np.float32,
+    )
+    predictions = np.asarray(
+        [
+            [0.0, 2.0, 0.0, -1.0, -1.0, 1.0],
+            [0.0, -1.0, 0.0, -1.0, -1.0, -1.0],
+        ],
+        dtype=np.float32,
+    )
+    valid = np.ones_like(targets, dtype=np.bool_)
+
+    unrestricted = summarize_residual_predictions(targets, valid, predictions, np=np)
+    consensus_only = summarize_residual_predictions(
+        targets,
+        valid,
+        predictions,
+        np=np,
+        allowed_override_options=("CONSENSUS_PREFIX",),
+    )
+
+    assert unrestricted["selective_recovery"]["beneficial_recovery_rate"] == 0.0
+    assert consensus_only["override_options"] == ["CONSENSUS_PREFIX"]
+    assert consensus_only["selective_recovery"]["beneficial_recovery_rate"] == 1.0
