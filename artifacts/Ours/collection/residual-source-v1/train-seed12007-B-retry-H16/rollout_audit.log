@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "experiment_id": "Ours",
+  "source_rollout": "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-residual-rollouts-v1/train-seed12007-B-retry-H16",
+  "base_seed": 12007,
+  "episodes": 60,
+  "policy_decisions": 3389,
+  "completion_positives": 0,
+  "completion_negatives": 3389,
+  "selector_stop_proposals": 2252,
+  "failure_positives": 989,
+  "max_false_positive_rate": 0.05,
+  "gate_calibration_on_stop_proposals": {
+    "completion": {
+      "calibratable": false,
+      "stop_samples": 2252,
+      "completion_negatives": 2252,
+      "completion_positives": 0
+    },
+    "progress": {
+      "calibratable": false,
+      "stop_samples": 2252,
+      "completion_negatives": 2252,
+      "completion_positives": 0
+    },
+    "maximum": {
+      "calibratable": false,
+      "stop_samples": 2252,
+      "completion_negatives": 2252,
+      "completion_positives": 0
+    }
+  },
+  "failure_calibration": {
+    "calibratable": true,
+    "stop_samples": 3389,
+    "completion_negatives": 2400,
+    "completion_positives": 989,
+    "threshold": 0.609375,
+    "false_positive_rate": 0.04958333333333333,
+    "true_positive_rate": 0.45197168857431747,
+    "precision": 0.7897526501766784,
+    "accuracy": 0.8049572145175568
+  },
+  "recovery_triggers": 0,
+  "false_recovery_triggers": 0,
+  "false_recovery_rate": 0.0,
+  "run_manifest_sha256": "2f5915f3359d5d310d4aca47cefb423fdc52a21ad22966f0f8ce419713c97e39",
+  "summary_sha256": "224836f16a7fa2d70c40154a052724888a62f0550bbbf3389a4f8e74c80585a7",
+  "decisions_sha256": "2cda4ec0855a86ce44b54ad50070f5c78e6b19eb81079a952f471d447002a86e",
+  "episodes_sha256": "b6931e6c887699a5a6ffa47fa9a0839fda949d3c55064fcc950cc271b7f43185"
+}
