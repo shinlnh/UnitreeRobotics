@@ -119,3 +119,36 @@ def test_residual_audit_calibrates_against_retry_on_confirmed_stops() -> None:
     assert np.isclose(result["selective_recovery"]["option_value_margin"], 0.4)
     assert result["selective_recovery"]["false_recovery_rate"] == 0.0
     assert result["selective_recovery"]["beneficial_recovery_rate"] == 1.0
+
+
+def test_residual_audit_counts_retry_ties_as_false_override_negatives() -> None:
+    targets = np.asarray(
+        [
+            [-1.0, -1.0, 0.0, -1.0, 0.0, -1.0],
+            [-1.0, -1.0, 0.0, -1.0, 1.0, -1.0],
+        ],
+        dtype=np.float32,
+    )
+    predictions = np.asarray(
+        [
+            [-1.0, -1.0, 0.0, -1.0, 0.3, -1.0],
+            [-1.0, -1.0, 0.0, -1.0, 0.4, -1.0],
+        ],
+        dtype=np.float32,
+    )
+    valid = np.ones_like(targets, dtype=np.bool_)
+
+    result = summarize_residual_predictions(
+        targets,
+        valid,
+        predictions,
+        np=np,
+        max_false_recovery_rate=0.0,
+    )
+
+    assert result["strict_states"] == 1
+    assert result["target_retry_states"] == 1
+    assert result["target_tie_states"] == 1
+    assert np.isclose(result["selective_recovery"]["option_value_margin"], 0.4)
+    assert result["selective_recovery"]["false_recovery_rate"] == 0.0
+    assert result["selective_recovery"]["true_recovery_rate"] == 1.0

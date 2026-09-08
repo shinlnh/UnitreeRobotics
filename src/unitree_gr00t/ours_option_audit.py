@@ -246,9 +246,9 @@ def summarize_residual_predictions(
         prediction[:, alternative_ids].argmax(axis=1)
     ]
     strict = np.abs(target_alternative - target_retry) > 1e-6
-    target_override = target_alternative > target_retry
-    strict_retry = strict & ~target_override
-    strict_override = strict & target_override
+    target_override = target_alternative > target_retry + 1e-6
+    target_retry_or_tie = ~target_override
+    strict_override = target_override
     advantage = predicted_alternative - predicted_retry
     nonnegative = advantage[np.isfinite(advantage) & (advantage >= 0.0)]
     reject_all_margin = np.nextafter(
@@ -259,7 +259,11 @@ def summarize_residual_predictions(
     selected: tuple[tuple[float, float, float], dict[str, Any]] | None = None
     for margin in margins:
         override = advantage >= margin
-        false_rate = float(override[strict_retry].mean() if strict_retry.any() else 0.0)
+        false_rate = float(
+            override[target_retry_or_tie].mean()
+            if target_retry_or_tie.any()
+            else 0.0
+        )
         if false_rate > max_false_recovery_rate + 1e-12:
             continue
         recall = float(override[strict_override].mean() if strict_override.any() else 0.0)
@@ -273,7 +277,7 @@ def summarize_residual_predictions(
         chosen = np.where(override, predicted_alternative_id, retry_id)
         best = target.max(axis=1)
         regret = float((best - target[np.arange(len(target)), chosen]).mean())
-        accuracy = float((override[strict] == target_override[strict]).mean())
+        accuracy = float((override == target_override).mean())
         key = (beneficial_rate, recall, accuracy, -float(margin))
         payload = {
             "max_false_recovery_rate": max_false_recovery_rate,
@@ -293,10 +297,13 @@ def summarize_residual_predictions(
         "strict_states": int(strict.sum()),
         "baseline_option": "RETRY_CURRENT",
         "override_options": [RECOVERY_OPTIONS[index] for index in alternative_ids],
-        "target_retry_states": int(strict_retry.sum()),
+        "target_retry_states": int(target_retry_or_tie.sum()),
+        "target_tie_states": int(((~strict) & target_retry_or_tie).sum()),
         "target_override_states": int(strict_override.sum()),
         "raw_false_recovery_rate": float(
-            (advantage[strict_retry] >= 0.0).mean() if strict_retry.any() else 0.0
+            (advantage[target_retry_or_tie] >= 0.0).mean()
+            if target_retry_or_tie.any()
+            else 0.0
         ),
         "raw_recovery_rate": float(
             (advantage[strict_override] >= 0.0).mean() if strict_override.any() else 0.0

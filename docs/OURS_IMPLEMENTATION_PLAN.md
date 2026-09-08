@@ -286,7 +286,9 @@ frozen as **counterfactual residual recovery over B-retry**:
    duplicate actions with inconsistent shaped targets.
 4. An override is permitted only when its learned advantage over
    `RETRY_CURRENT` clears an episode-held-out margin calibrated to at most 5%
-   false override.  Otherwise execution is byte-equivalent to B-retry.
+   false override. Every state where the best override is tied with or worse
+   than `RETRY_CURRENT` is a negative for this cap; ties are not silently
+   discarded. Otherwise execution is byte-equivalent to B-retry.
 5. Re-observation and consensus consume the retry opportunity they replace;
    no override restores simulator state or extends the global step budget.
 
