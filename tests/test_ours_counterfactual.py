@@ -81,6 +81,7 @@ def test_counterfactual_options_branch_and_restore_exact_state() -> None:
         np=np,
     )
     assert [branch.option for branch in branches] == ["ACCEPT_B", "CONSENSUS_PREFIX"]
+    assert len({branch.branch_seed for branch in branches}) == 1
     assert branches[1].return_value > branches[0].return_value
     assert branches[1].policy_calls == 0
     assert env.sim.value.tolist() == [0.0, 0.0]
