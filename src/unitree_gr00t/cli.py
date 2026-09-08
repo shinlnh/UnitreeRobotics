@@ -46,6 +46,7 @@ from .commands import (
 from .config import load_config
 from .dataset import validate_dataset
 from .doctor import doctor_ok, run_doctor
+from .ours import validate_recovery_config
 from .policy import HeuristicGeneralistPolicy
 from .reporting import write_report
 from .simulation import run_suite
@@ -271,6 +272,11 @@ def _parser() -> argparse.ArgumentParser:
     b_retry_eval.add_argument("--no-trace-images", action="store_true")
     b_retry_eval.add_argument("--resume", action="store_true")
     b_retry_eval.add_argument("--execute", action="store_true")
+
+    subparsers.add_parser(
+        "ours-check",
+        help="Validate the frozen Ours recovery protocol and parent B assets",
+    )
 
     subparsers.add_parser("show-config", help="Print resolved runtime configuration")
     return parser
@@ -719,6 +725,28 @@ def _run(args: argparse.Namespace) -> int:
             ),
             args.execute,
         )
+
+    if args.command == "ours-check":
+        recovery_contract = validate_recovery_config(config.robocerebra_recovery)
+        contract, _ = inspect_a1_checkpoint(
+            config.robocerebra_posttrain.checkpoint_dir,
+            expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
+        )
+        selector_audit, selector_provenance = inspect_selector_checkpoint(
+            config.robocerebra_selector.checkpoint_dir,
+            expected_action_horizon=config.robocerebra_selector.action_horizon,
+            expected_context_width=config.robocerebra_selector.context_width,
+        )
+        verify_a1_weight_hashes(
+            contract, selector_provenance.get("a1_checkpoint_weight_shards_sha256")
+        )
+        payload = recovery_contract | {
+            "checkpoint": str(contract.checkpoint_dir),
+            "selector_checkpoint": str(selector_audit.checkpoint_dir),
+            "selector_weights_sha256": selector_audit.weights_sha256,
+        }
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
 
     if args.command == "show-config":
         resolved = {

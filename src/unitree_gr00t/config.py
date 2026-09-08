@@ -129,6 +129,35 @@ class RoboCerebraRetryConfig:
 
 
 @dataclass(frozen=True)
+class RoboCerebraRecoveryConfig:
+    experiment_id: str
+    variant: str
+    method: str
+    parent_experiment: str
+    checkpoint_dir: Path
+    dataset_dir: Path
+    context_width: int
+    temporal_width: int
+    temporal_layers: int
+    temporal_heads: int
+    max_parameters: int
+    history_lengths: tuple[int, ...]
+    options: tuple[str, ...]
+    consensus_hypotheses: tuple[int, ...]
+    max_recovery_attempts: tuple[int, ...]
+    failure_confirmation_window: int
+    recovery_completion_confirmation_window: int
+    zero_progress_guard: int
+    false_recovery_rate_limit: float
+    overhead_fraction_limit: float
+    max_search_variants: int
+    train_base_seeds: tuple[int, ...]
+    development_base_seeds: tuple[int, ...]
+    smoke_base_seed: int
+    final_base_seed: int
+
+
+@dataclass(frozen=True)
 class ModelConfig:
     base_model: str
     embodiment: str
@@ -177,6 +206,7 @@ class ProjectConfig:
     robocerebra_hierarchy: RoboCerebraHierarchyConfig
     robocerebra_selector: RoboCerebraSelectorConfig
     robocerebra_retry: RoboCerebraRetryConfig
+    robocerebra_recovery: RoboCerebraRecoveryConfig
     model: ModelConfig
     sonic: SonicConfig
     training: TrainingConfig
@@ -224,6 +254,7 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
     robocerebra_hierarchy = raw["robocerebra_hierarchy"]
     robocerebra_selector = raw["robocerebra_selector"]
     robocerebra_retry = raw["robocerebra_retry"]
+    robocerebra_recovery = raw["robocerebra_recovery"]
     model = raw["model"]
     sonic = raw["sonic"]
     training = raw["training"]
@@ -366,6 +397,43 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
             failure_detector=bool(robocerebra_retry["failure_detector"]),
             recovery_memory=bool(robocerebra_retry["recovery_memory"]),
             recovery_policy=bool(robocerebra_retry["recovery_policy"]),
+        ),
+        robocerebra_recovery=RoboCerebraRecoveryConfig(
+            experiment_id=str(robocerebra_recovery["experiment_id"]),
+            variant=str(robocerebra_recovery["variant"]),
+            method=str(robocerebra_recovery["method"]),
+            parent_experiment=str(robocerebra_recovery["parent_experiment"]),
+            checkpoint_dir=project_path(str(robocerebra_recovery["checkpoint_dir"])),
+            dataset_dir=project_path(str(robocerebra_recovery["dataset_dir"])),
+            context_width=int(robocerebra_recovery["context_width"]),
+            temporal_width=int(robocerebra_recovery["temporal_width"]),
+            temporal_layers=int(robocerebra_recovery["temporal_layers"]),
+            temporal_heads=int(robocerebra_recovery["temporal_heads"]),
+            max_parameters=int(robocerebra_recovery["max_parameters"]),
+            history_lengths=tuple(int(value) for value in robocerebra_recovery["history_lengths"]),
+            options=tuple(str(value) for value in robocerebra_recovery["options"]),
+            consensus_hypotheses=tuple(
+                int(value) for value in robocerebra_recovery["consensus_hypotheses"]
+            ),
+            max_recovery_attempts=tuple(
+                int(value) for value in robocerebra_recovery["max_recovery_attempts"]
+            ),
+            failure_confirmation_window=int(robocerebra_recovery["failure_confirmation_window"]),
+            recovery_completion_confirmation_window=int(
+                robocerebra_recovery["recovery_completion_confirmation_window"]
+            ),
+            zero_progress_guard=int(robocerebra_recovery["zero_progress_guard"]),
+            false_recovery_rate_limit=float(robocerebra_recovery["false_recovery_rate_limit"]),
+            overhead_fraction_limit=float(robocerebra_recovery["overhead_fraction_limit"]),
+            max_search_variants=int(robocerebra_recovery["max_search_variants"]),
+            train_base_seeds=tuple(
+                int(value) for value in robocerebra_recovery["train_base_seeds"]
+            ),
+            development_base_seeds=tuple(
+                int(value) for value in robocerebra_recovery["development_base_seeds"]
+            ),
+            smoke_base_seed=int(robocerebra_recovery["smoke_base_seed"]),
+            final_base_seed=int(robocerebra_recovery["final_base_seed"]),
         ),
         model=ModelConfig(
             base_model=str(model["base_model"]),

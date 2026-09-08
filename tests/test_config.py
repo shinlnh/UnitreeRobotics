@@ -37,6 +37,13 @@ def test_project_config_resolves_paths() -> None:
     assert not config.robocerebra_retry.failure_detector
     assert not config.robocerebra_retry.recovery_memory
     assert not config.robocerebra_retry.recovery_policy
+    assert config.robocerebra_recovery.experiment_id == "Ours"
+    assert config.robocerebra_recovery.parent_experiment == "B"
+    assert config.robocerebra_recovery.context_width == 2048
+    assert config.robocerebra_recovery.history_lengths == (4, 8, 16)
+    assert config.robocerebra_recovery.train_base_seeds == (10007, 11007, 12007)
+    assert config.robocerebra_recovery.development_base_seeds == (20007, 21007)
+    assert config.robocerebra_recovery.final_base_seed == 7
 
 
 def test_task_catalog_and_selection() -> None:

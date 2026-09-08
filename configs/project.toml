@@ -123,6 +123,40 @@ failure_detector = false
 recovery_memory = false
 recovery_policy = false
 
+[robocerebra_recovery]
+experiment_id = "Ours"
+variant = "GR00T-RC-SparkVLA-counterfactual-temporal-recovery"
+method = "counterfactual-temporal-recovery"
+parent_experiment = "B"
+checkpoint_dir = "checkpoints/robocerebra/GR00T-RC-CTR"
+dataset_dir = "outputs/robocerebra/ctr-recovery-v1"
+context_width = 2048
+temporal_width = 256
+temporal_layers = 4
+temporal_heads = 8
+max_parameters = 15000000
+history_lengths = [4, 8, 16]
+options = [
+  "ACCEPT_B",
+  "REOBSERVE",
+  "RETRY_CURRENT",
+  "BACKTRACK_ONE",
+  "ADVANCE",
+  "CONSENSUS_PREFIX",
+]
+consensus_hypotheses = [1, 4, 8]
+max_recovery_attempts = [1, 2]
+failure_confirmation_window = 2
+recovery_completion_confirmation_window = 2
+zero_progress_guard = 8
+false_recovery_rate_limit = 0.05
+overhead_fraction_limit = 0.20
+max_search_variants = 12
+train_base_seeds = [10007, 11007, 12007]
+development_base_seeds = [20007, 21007]
+smoke_base_seed = 30007
+final_base_seed = 7
+
 [model]
 base_model = "nvidia/GR00T-N1.7-3B"
 embodiment = "UNITREE_G1_SONIC"
