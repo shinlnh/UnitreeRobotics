@@ -77,3 +77,29 @@ def test_training_sampler_guarantees_counterfactual_option_quota() -> None:
     selected_options = ids[np.isin(ids, [12, 13])]
     assert len(selected_options) >= 2
     assert {12, 13}.issubset(set(selected_options.tolist()))
+
+
+def test_training_sampler_does_not_treat_ties_as_first_class_wins() -> None:
+    option_valid = np.zeros((16, 6), dtype=np.bool_)
+    option_valid[12:15, :2] = True
+    option_values = np.zeros((16, 6), dtype=np.float32)
+    option_values[12, 0] = 1.0
+    option_values[13, 1] = 1.0
+    corpus = SimpleNamespace(
+        train_ids=np.arange(16, dtype=np.int64),
+        live_ids=np.arange(8, 16, dtype=np.int64),
+        target_complete=np.asarray([True, False] * 8, dtype=np.bool_),
+        target_option_valid=option_valid,
+        target_option_values=option_values,
+    )
+
+    ids = sample_training_ids(
+        corpus,
+        batch_size=8,
+        live_batch_fraction=0.5,
+        option_batch_fraction=0.25,
+        generator=np.random.default_rng(10007),
+        np=np,
+    )
+
+    assert {12, 13}.issubset(set(ids.tolist()))

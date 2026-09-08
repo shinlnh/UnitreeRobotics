@@ -414,10 +414,15 @@ def sample_training_ids(
                 corpus.target_option_values[option_ids],
                 -np.inf,
             )
-            winners = masked_values.argmax(axis=1)
+            ordered_values = np.sort(masked_values, axis=1)
+            strict = ordered_values[:, -1] - ordered_values[:, -2] > 1e-4
+            balanced_ids = option_ids[strict]
+            winners = masked_values[strict].argmax(axis=1)
             winner_groups = [
-                option_ids[winners == winner] for winner in np.unique(winners)
+                balanced_ids[winners == winner] for winner in np.unique(winners)
             ]
+            if not winner_groups:
+                winner_groups = [option_ids]
             per_group, remainder = divmod(option_count, len(winner_groups))
             sampled_options = [
                 generator.choice(
