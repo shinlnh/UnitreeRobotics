@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "corpus": "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-counterfactual-rollout-v2-pilot",
+  "corpus_files": 60,
+  "corpus_samples": 25369,
+  "thresholds": {
+    "min_labeled_states": 32,
+    "min_winning_options": 2,
+    "min_strict_preference_rate": 0.1
+  },
+  "option_targets": {
+    "labeled_states": 59,
+    "valid_option_targets": 304,
+    "strict_preferences": 57,
+    "strict_preference_rate": 0.9661016949152542,
+    "ties": 2,
+    "winning_options": {
+      "ACCEPT_B": 44,
+      "ADVANCE": 4,
+      "BACKTRACK_ONE": 3,
+      "CONSENSUS_PREFIX": 2,
+      "REOBSERVE": 1,
+      "RETRY_CURRENT": 3
+    },
+    "distinct_winning_options": 6,
+    "mean_best_margin": 0.7175254403155739,
+    "per_option": {
+      "ACCEPT_B": {
+        "count": 59,
+        "mean": 0.005016949027776718,
+        "standard_deviation": 0.2395983636379242,
+        "minimum": -0.19599999487400055,
+        "maximum": 1.7999999523162842
+      },
+      "REOBSERVE": {
+        "count": 59,
+        "mean": 0.09772882610559464,
+        "standard_deviation": 1.0248934030532837,
+        "minimum": -0.20999999344348907,
+        "maximum": 7.895999908447266
+      },
+      "RETRY_CURRENT": {
+        "count": 59,
+        "mean": 0.1127118468284607,
+        "standard_deviation": 1.148834466934204,
+        "minimum": -0.20000000298023224,
+        "maximum": 8.854000091552734
+      },
+      "BACKTRACK_ONE": {
+        "count": 9,
+        "mean": -0.07866665720939636,
+        "standard_deviation": 0.08303145319223404,
+        "minimum": -0.20000000298023224,
+        "maximum": -0.019999999552965164
+      },
+      "ADVANCE": {
+        "count": 59,
+        "mean": -7.0912885665893555,
+        "standard_deviation": 3.6618716716766357,
+        "minimum": -8.199999809265137,
+        "maximum": 7.980000019073486
+      },
+      "CONSENSUS_PREFIX": {
+        "count": 59,
+        "mean": -0.05854237824678421,
+        "standard_deviation": 0.1908307820558548,
+        "minimum": -0.23999999463558197,
+        "maximum": 0.9380000233650208
+      }
+    }
+  },
+  "checks": {
+    "minimum_labeled_states": true,
+    "multiple_winning_options": true,
+    "strict_preference_rate": true
+  },
+  "valid": true
+}
