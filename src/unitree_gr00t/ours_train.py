@@ -63,7 +63,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--additional-train-dataset",
         type=Path,
-        help="Optional train-only live-rollout corpus; the primary development split stays frozen",
+        action="append",
+        help=(
+            "Repeatable train-only live-rollout corpus; the primary development "
+            "split stays frozen"
+        ),
     )
     parser.add_argument("--destination", type=Path, required=True)
     parser.add_argument("--encoder", choices=("linear", "mlp", "gru", "transformer"), required=True)
@@ -366,7 +370,7 @@ def merge_corpora(primary: LoadedCorpus, additional: LoadedCorpus, np: Any) -> L
         ),
         train_ids=np.concatenate((primary.train_ids, additional.train_ids + offset)),
         development_ids=primary.development_ids,
-        live_ids=additional.train_ids + offset,
+        live_ids=np.concatenate((primary.live_ids, additional.train_ids + offset)),
     )
 
 
@@ -716,20 +720,25 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     ):
         raise ValueError("Ours training counts or calibration limit are invalid")
     dataset = args.dataset.expanduser().resolve()
-    additional_dataset = (
-        args.additional_train_dataset.expanduser().resolve()
-        if args.additional_train_dataset is not None
-        else None
-    )
+    raw_additional = args.additional_train_dataset
+    if raw_additional is None:
+        additional_datasets: list[Path] = []
+    elif isinstance(raw_additional, Path):
+        # Keep programmatic callers using the pre-repeatable API compatible.
+        additional_datasets = [raw_additional.expanduser().resolve()]
+    else:
+        additional_datasets = [path.expanduser().resolve() for path in raw_additional]
+    if len(set(additional_datasets)) != len(additional_datasets):
+        raise ValueError("additional Ours corpora must be unique")
     destination = args.destination.expanduser().resolve()
     if destination.exists() and any(destination.iterdir()):
         raise FileExistsError(f"refusing to overwrite Ours checkpoint: {destination}")
     audit_recovery_corpus(dataset, verify_hashes=True)
     manifest_path = dataset / OURS_CORPUS_MANIFEST
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    additional_manifest_path = None
-    additional_manifest = None
-    if additional_dataset is not None:
+    additional_manifest_paths: list[Path] = []
+    additional_manifests: list[dict[str, Any]] = []
+    for additional_dataset in additional_datasets:
         audit_recovery_corpus(
             additional_dataset,
             verify_hashes=True,
@@ -752,6 +761,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             additional_manifest.get(field) != manifest.get(field) for field in compatible_fields
         ):
             raise ValueError("additional Ours corpus is not compatible with the primary corpus")
+        additional_manifest_paths.append(additional_manifest_path)
+        additional_manifests.append(additional_manifest)
 
     # CUDA requires this workspace contract for deterministic CuBLAS kernels.
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
@@ -765,7 +776,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     torch.cuda.manual_seed_all(args.seed)
     torch.use_deterministic_algorithms(True, warn_only=True)
     corpus = load_corpus(dataset, args.history_length, np)
-    if additional_dataset is not None:
+    for additional_dataset in additional_datasets:
         live_corpus = load_corpus(
             additional_dataset,
             args.history_length,
@@ -900,10 +911,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "parent_experiment": OURS_PARENT,
         "stage": (
             "R0-counterfactual-option-distillation"
-            if additional_manifest is not None
-            and bool(additional_manifest.get("contains_counterfactuals"))
+            if any(
+                bool(additional_manifest.get("contains_counterfactuals"))
+                for additional_manifest in additional_manifests
+            )
             else "R0-live-adapted-temporal-gate"
-            if additional_dataset is not None
+            if additional_datasets
             else "R0-successful-demonstration-temporal-gate"
         ),
         "model": model_config.payload(),
@@ -911,20 +924,26 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "dataset": str(dataset),
         "dataset_manifest_sha256": sha256_file(manifest_path),
         "additional_train_dataset": (
-            str(additional_dataset) if additional_dataset is not None else None
+            str(additional_datasets[0]) if len(additional_datasets) == 1 else None
         ),
         "additional_train_dataset_manifest_sha256": (
-            sha256_file(additional_manifest_path) if additional_manifest_path is not None else None
+            sha256_file(additional_manifest_paths[0])
+            if len(additional_manifest_paths) == 1
+            else None
         ),
+        "additional_train_datasets": [str(path) for path in additional_datasets],
+        "additional_train_dataset_manifests_sha256": [
+            sha256_file(path) for path in additional_manifest_paths
+        ],
         "live_training_samples": int(len(corpus.live_ids)),
         "counterfactual_training_states": int(
             (
                 corpus.target_option_valid[corpus.live_ids].sum(axis=1) >= 2
             ).sum()
         ),
-        "live_batch_fraction": args.live_batch_fraction if additional_dataset else 0.0,
+        "live_batch_fraction": args.live_batch_fraction if additional_datasets else 0.0,
         "option_batch_fraction": (
-            args.option_batch_fraction if additional_dataset is not None else 0.0
+            args.option_batch_fraction if additional_datasets else 0.0
         ),
         "selector_weights_sha256": manifest["selector_weights_sha256"],
         "a1_checkpoint_weight_shards_sha256": manifest["a1_checkpoint_weight_shards_sha256"],

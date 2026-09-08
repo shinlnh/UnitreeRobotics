@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from unitree_gr00t.ours_train import calibrate_threshold, sample_training_ids
+from unitree_gr00t.ours_train import calibrate_threshold, merge_corpora, sample_training_ids
 
 
 def test_completion_calibration_maximizes_recall_under_false_positive_cap() -> None:
@@ -103,3 +103,33 @@ def test_training_sampler_does_not_treat_ties_as_first_class_wins() -> None:
     )
 
     assert {12, 13}.issubset(set(ids.tolist()))
+
+
+def test_repeated_corpus_merge_preserves_all_live_training_ids() -> None:
+    def corpus(size: int, *, train_ids: list[int], live_ids: list[int]) -> SimpleNamespace:
+        return SimpleNamespace(
+            contexts=np.zeros((size, 2), dtype=np.float16),
+            anchor_ids=np.arange(size),
+            action_chunks=np.zeros((size, 1, 1), dtype=np.float16),
+            selector_features=np.zeros((size, 2), dtype=np.float16),
+            scalars=np.zeros((size, 1), dtype=np.float16),
+            histories=np.arange(size)[:, None],
+            target_progress=np.zeros(size),
+            target_progress_valid=np.ones(size, dtype=np.bool_),
+            target_complete=np.zeros(size, dtype=np.bool_),
+            target_failure=np.zeros(size, dtype=np.bool_),
+            target_failure_valid=np.ones(size, dtype=np.bool_),
+            target_option_values=np.zeros((size, 6)),
+            target_option_valid=np.zeros((size, 6), dtype=np.bool_),
+            selector_candidates=np.zeros(size, dtype=np.int8),
+            train_ids=np.asarray(train_ids),
+            development_ids=np.asarray([], dtype=np.int64),
+            live_ids=np.asarray(live_ids),
+        )
+
+    primary = corpus(4, train_ids=[0, 1, 2], live_ids=[])
+    first = merge_corpora(primary, corpus(3, train_ids=[0, 1], live_ids=[0, 1]), np)
+    combined = merge_corpora(first, corpus(2, train_ids=[0], live_ids=[0]), np)
+
+    assert combined.train_ids.tolist() == [0, 1, 2, 4, 5, 7]
+    assert combined.live_ids.tolist() == [4, 5, 7]

@@ -10,7 +10,7 @@ from typing import Any
 
 from .ours import RECOVERY_OPTIONS
 from .ours_model import TemporalRecoveryModelConfig, build_temporal_recovery_model
-from .ours_train import _batch, inspect_recovery_checkpoint, load_corpus, merge_corpora
+from .ours_train import _batch, inspect_recovery_checkpoint, load_corpus
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -28,6 +28,7 @@ def summarize_option_predictions(
     predictions: Any,
     *,
     np: Any,
+    max_false_recovery_rate: float = 0.05,
 ) -> dict[str, Any]:
     """Summarize strict multiclass and runtime accept/recover decisions."""
 
@@ -36,6 +37,7 @@ def summarize_option_predictions(
         or target_values.shape != target_valid.shape
         or target_values.shape != predictions.shape
         or target_values.shape[1] != len(RECOVERY_OPTIONS)
+        or not 0.0 <= max_false_recovery_rate <= 1.0
     ):
         raise ValueError("option audit arrays have incompatible shapes")
     labeled = target_valid.sum(axis=1) >= 2
@@ -99,6 +101,54 @@ def summarize_option_predictions(
     target_best = target.max(axis=1)
     strict_target_accept = strict_group & ~target_recover
     strict_target_recover = strict_group & target_recover
+    recovery_gap = predicted_recovery - predicted_accept
+    nonnegative_gaps = recovery_gap[
+        np.isfinite(recovery_gap) & (recovery_gap >= 0.0)
+    ]
+    reject_all_margin = np.nextafter(
+        np.float32(max(float(nonnegative_gaps.max()) if len(nonnegative_gaps) else 0.0, 0.0)),
+        np.float32(np.inf),
+    )
+    margins = np.unique(
+        np.concatenate((np.asarray([0.0, reject_all_margin]), nonnegative_gaps))
+    )
+    selected_calibration: tuple[tuple[float, float, float], dict[str, Any]] | None = None
+    for margin in margins:
+        calibrated_recover = recovery_gap >= margin
+        false_recovery_rate = float(
+            calibrated_recover[strict_target_accept].mean()
+            if strict_target_accept.any()
+            else 0.0
+        )
+        if false_recovery_rate > max_false_recovery_rate + 1e-12:
+            continue
+        true_recovery_rate = float(
+            calibrated_recover[strict_target_recover].mean()
+            if strict_target_recover.any()
+            else 0.0
+        )
+        accuracy = float(
+            (calibrated_recover[strict_group] == target_recover[strict_group]).mean()
+        )
+        selected = np.where(
+            calibrated_recover,
+            recovery_ids[prediction[:, recovery_ids].argmax(axis=1)],
+            accept_ids[prediction[:, accept_ids].argmax(axis=1)],
+        )
+        regret = float((target_best - target[np.arange(len(target)), selected]).mean())
+        key = (true_recovery_rate, accuracy, -float(margin))
+        payload = {
+            "max_false_recovery_rate": max_false_recovery_rate,
+            "option_value_margin": float(margin),
+            "false_recovery_rate": false_recovery_rate,
+            "true_recovery_rate": true_recovery_rate,
+            "accuracy": accuracy,
+            "mean_decision_regret": regret,
+        }
+        if selected_calibration is None or key > selected_calibration[0]:
+            selected_calibration = (key, payload)
+    if selected_calibration is None:
+        raise ValueError("option margin calibration has no feasible operating point")
     return {
         "labeled_states": int(labeled.sum()),
         "strict_states": int(strict.sum()),
@@ -132,43 +182,50 @@ def summarize_option_predictions(
                 else 0.0
             ),
         },
+        "selective_recovery": selected_calibration[1],
     }
 
 
-def _audit_model_ids(
+def _audit_model_partitions(
     model: Any,
-    corpus: Any,
-    raw_ids: Any,
+    partitions: list[tuple[Any, Any]],
     *,
     batch_size: int,
     device: str,
     np: Any,
     torch: Any,
 ) -> dict[str, Any] | None:
-    ids = raw_ids[corpus.target_option_valid[raw_ids].sum(axis=1) >= 2]
-    if not len(ids):
-        return None
+    targets: list[Any] = []
+    validity: list[Any] = []
     predictions: list[Any] = []
     with torch.inference_mode():
-        for start in range(0, len(ids), batch_size):
-            selected = ids[start : start + batch_size]
-            batch = _batch(corpus, selected, device=device, np=np, torch=torch)
-            with torch.autocast(
-                device_type="cuda",
-                dtype=torch.bfloat16,
-                enabled=device.startswith("cuda"),
-            ):
-                outputs = model(
-                    batch["contexts"],
-                    batch["anchors"],
-                    batch["actions"],
-                    batch["selector"],
-                    batch["scalars"],
-                )
-            predictions.append(outputs["option_values"].float().cpu().numpy())
+        for corpus, raw_ids in partitions:
+            ids = raw_ids[corpus.target_option_valid[raw_ids].sum(axis=1) >= 2]
+            if not len(ids):
+                continue
+            targets.append(corpus.target_option_values[ids])
+            validity.append(corpus.target_option_valid[ids])
+            for start in range(0, len(ids), batch_size):
+                selected = ids[start : start + batch_size]
+                batch = _batch(corpus, selected, device=device, np=np, torch=torch)
+                with torch.autocast(
+                    device_type="cuda",
+                    dtype=torch.bfloat16,
+                    enabled=device.startswith("cuda"),
+                ):
+                    outputs = model(
+                        batch["contexts"],
+                        batch["anchors"],
+                        batch["actions"],
+                        batch["selector"],
+                        batch["scalars"],
+                    )
+                predictions.append(outputs["option_values"].float().cpu().numpy())
+    if not targets:
+        return None
     return summarize_option_predictions(
-        corpus.target_option_values[ids],
-        corpus.target_option_valid[ids],
+        np.concatenate(targets),
+        np.concatenate(validity),
         np.concatenate(predictions),
         np=np,
     )
@@ -190,22 +247,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     for checkpoint in checkpoints:
         audit, provenance = inspect_recovery_checkpoint(checkpoint)
         config = TemporalRecoveryModelConfig(**provenance["model"])
-        primary = load_corpus(Path(provenance["dataset"]), config.history_length, np)
-        additional_path = provenance.get("additional_train_dataset")
-        if not additional_path:
+        additional_paths = provenance.get("additional_train_datasets") or []
+        if not additional_paths and provenance.get("additional_train_dataset"):
+            additional_paths = [provenance["additional_train_dataset"]]
+        if not additional_paths:
             raise ValueError(f"checkpoint lacks counterfactual training data: {checkpoint}")
-        additional = load_corpus(
-            Path(additional_path), config.history_length, np, require_development=False
-        )
-        additional_offset = len(primary.contexts)
-        corpus = merge_corpora(primary, additional, np)
+        additional_corpora = [
+            load_corpus(Path(path), config.history_length, np) for path in additional_paths
+        ]
         model = build_temporal_recovery_model(config).to(args.device)
         model.load_state_dict(load_file(checkpoint / "model.safetensors", device=args.device))
         model.eval()
-        result = _audit_model_ids(
+        result = _audit_model_partitions(
             model,
-            corpus,
-            corpus.live_ids,
+            [(corpus, corpus.train_ids) for corpus in additional_corpora],
             batch_size=args.batch_size,
             device=args.device,
             np=np,
@@ -213,11 +268,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
         if result is None:
             raise ValueError(f"checkpoint has no counterfactual fit states: {checkpoint}")
-        validation_ids = additional.development_ids + additional_offset
-        result["option_validation"] = _audit_model_ids(
+        result["option_validation"] = _audit_model_partitions(
             model,
-            corpus,
-            validation_ids,
+            [(corpus, corpus.development_ids) for corpus in additional_corpora],
             batch_size=args.batch_size,
             device=args.device,
             np=np,
@@ -236,7 +289,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             }
         )
         results.append(result)
-        del model, corpus, primary, additional
+        del model, additional_corpora
         if args.device.startswith("cuda"):
             torch.cuda.empty_cache()
 

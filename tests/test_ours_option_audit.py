@@ -43,3 +43,38 @@ def test_option_audit_does_not_subtract_masked_infinities() -> None:
 
     assert result["pairwise_comparisons"] == 1
     assert result["pairwise_ranking_accuracy"] == 1.0
+
+
+def test_option_audit_calibrates_a_safe_recovery_margin() -> None:
+    targets = np.asarray(
+        [
+            [2.0, 1.0, 0.0, 0.0, -1.0, 0.0],
+            [2.0, 1.0, 0.0, 0.0, -1.0, 0.0],
+            [0.0, 2.0, 0.0, 0.0, -1.0, 0.0],
+            [0.0, 2.0, 0.0, 0.0, -1.0, 0.0],
+        ],
+        dtype=np.float32,
+    )
+    valid = np.ones_like(targets, dtype=np.bool_)
+    predictions = np.asarray(
+        [
+            [0.0, 0.1, -1.0, -1.0, -1.0, -1.0],
+            [0.0, -0.1, -1.0, -1.0, -1.0, -1.0],
+            [0.0, 0.3, -1.0, -1.0, -1.0, -1.0],
+            [0.0, 0.2, -1.0, -1.0, -1.0, -1.0],
+        ],
+        dtype=np.float32,
+    )
+
+    result = summarize_option_predictions(
+        targets,
+        valid,
+        predictions,
+        np=np,
+        max_false_recovery_rate=0.0,
+    )
+
+    calibration = result["selective_recovery"]
+    assert np.isclose(calibration["option_value_margin"], 0.2)
+    assert calibration["false_recovery_rate"] == 0.0
+    assert calibration["true_recovery_rate"] == 1.0
