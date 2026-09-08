@@ -169,6 +169,11 @@ def load_corpus(
             valid = value["selector_valid"].astype(np.bool_, copy=False)
             candidates = value["selector_candidates"].astype(np.int8, copy=False)
             local_anchors = value["anchor_positions"].astype(np.int64, copy=False)
+            anchor_contexts = (
+                value["anchor_contexts"].astype(np.float16, copy=False)
+                if "anchor_contexts" in value
+                else None
+            )
             subgoals = value["subgoal_indices"].astype(np.int64, copy=False)
             elapsed = value["elapsed_steps"].astype(np.int64, copy=False)
             progress = value["target_progress"].astype(np.float32, copy=False)
@@ -204,10 +209,38 @@ def load_corpus(
             len(failure),
             len(failure_valid),
         )
-        if any(size != row_count for size in shapes) or np.any(
-            (local_anchors < 0) | (local_anchors >= row_count)
+        expected_shapes = (
+            (row_count, context_width),
+            (row_count, horizon, action_dim),
+            (row_count, horizon + 1),
+            (row_count, horizon + 1),
+        )
+        actual_shapes = (
+            episode_contexts.shape,
+            episode_chunks.shape,
+            scores.shape,
+            valid.shape,
+        )
+        candidate_out_of_bounds = np.any((candidates < 0) | (candidates > horizon))
+        invalid_candidate = bool(candidate_out_of_bounds) or np.any(
+            ~valid[np.arange(row_count), candidates.astype(np.int64)]
+        )
+        if (
+            any(size != row_count for size in shapes)
+            or actual_shapes != expected_shapes
+            or np.any((local_anchors < 0) | (local_anchors >= row_count))
+            or invalid_candidate
+            or not np.isfinite(episode_contexts).all()
+            or not np.isfinite(episode_chunks).all()
+            or not np.isfinite(scores).all()
         ):
             raise ValueError(f"inconsistent Ours feature rows: {filename}")
+        if anchor_contexts is not None:
+            if anchor_contexts.shape != episode_contexts.shape or not np.array_equal(
+                anchor_contexts,
+                episode_contexts[local_anchors],
+            ):
+                raise ValueError(f"noncausal Ours anchor contexts: {filename}")
         contexts[ids] = episode_contexts
         anchor_ids[ids] = ids[local_anchors]
         action_chunks[ids] = episode_chunks
