@@ -25,6 +25,7 @@ def test_training_sampler_reserves_live_quota_without_losing_demo_balance() -> N
             dtype=np.bool_,
         ),
         target_option_valid=np.zeros((12, 6), dtype=np.bool_),
+        target_option_values=np.zeros((12, 6), dtype=np.float32),
     )
     ids = sample_training_ids(
         corpus,
@@ -53,11 +54,15 @@ def test_training_sampler_guarantees_counterfactual_option_quota() -> None:
     option_valid = np.zeros((16, 6), dtype=np.bool_)
     option_valid[12:14, 0] = True
     option_valid[12:14, 4] = True
+    option_values = np.zeros((16, 6), dtype=np.float32)
+    option_values[12, 0] = 1.0
+    option_values[13, 4] = 1.0
     corpus = SimpleNamespace(
         train_ids=np.arange(16, dtype=np.int64),
         live_ids=np.arange(8, 16, dtype=np.int64),
         target_complete=np.asarray([True, False] * 8, dtype=np.bool_),
         target_option_valid=option_valid,
+        target_option_values=option_values,
     )
     ids = sample_training_ids(
         corpus,
@@ -69,4 +74,6 @@ def test_training_sampler_guarantees_counterfactual_option_quota() -> None:
     )
     assert len(ids) == 8
     assert int((ids >= 8).sum()) == 4
-    assert int(np.isin(ids, [12, 13]).sum()) >= 2
+    selected_options = ids[np.isin(ids, [12, 13])]
+    assert len(selected_options) >= 2
+    assert {12, 13}.issubset(set(selected_options.tolist()))

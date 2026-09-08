@@ -407,7 +407,24 @@ def sample_training_ids(
             else 0
         )
         if option_count:
-            parts += (generator.choice(option_ids, size=option_count, replace=True),)
+            masked_values = np.where(
+                corpus.target_option_valid[option_ids],
+                corpus.target_option_values[option_ids],
+                -np.inf,
+            )
+            winners = masked_values.argmax(axis=1)
+            winner_groups = [option_ids[winners == winner] for winner in np.unique(winners)]
+            per_group, remainder = divmod(option_count, len(winner_groups))
+            sampled_options = [
+                generator.choice(
+                    group,
+                    size=per_group + int(index < remainder),
+                    replace=True,
+                )
+                for index, group in enumerate(winner_groups)
+                if per_group + int(index < remainder)
+            ]
+            parts += (np.concatenate(sampled_options),)
         remaining_live = live_count - option_count
         if remaining_live:
             live_positive = corpus.live_ids[corpus.target_complete[corpus.live_ids]]
