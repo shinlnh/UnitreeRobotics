@@ -7,9 +7,10 @@ Hugging Face repositories:
 - Benchmarks and other large data: <https://huggingface.co/datasets/shin0412/UnitreeRobotic>
 
 The Hugging Face branch graph follows the GitHub feature graph: A0 and A1
-branch from `main`, A2 branches from A1, and B branches from A2. Commit titles
-use the same Conventional Commit style as the corresponding GitHub artifact
-commit. Full GitHub source SHAs are stored in the Hugging Face commit messages.
+branch from `main`, A2 branches from A1, B branches from A2, and B-retry
+branches from B. Commit titles use the same Conventional Commit style as the
+corresponding GitHub artifact commit. Full GitHub source SHAs are stored in the
+Hugging Face commit messages.
 
 | Feature | GitHub source | Model commit | Dataset commit | Dataset payload added |
 | --- | --- | --- | --- | ---: |
@@ -17,6 +18,7 @@ commit. Full GitHub source SHAs are stored in the Hugging Face commit messages.
 | A1 | `68b1a1f39570731ded4b9d56c1d017dbe0f29478` | `11b5e08e71431035c75d3eeeee2bc6731725abca` | `b763ba56a08052406cb4ceb2856fb53c7fac4080` | 31,317,064,265 B |
 | A2 | `c9930fd0aa9ffec8d4fde817981680955ff9281f` | `6cfca341d8c9f2622aff7f59dfe0738112a0ed33` | `d7d0f516862720d1849baf2fa83d9d282be7f9d0` | 30,902,981,382 B |
 | B | `06ae5d385ad55415332e4f1688b7cd59f868ac96` | `34235eed4ad8cf2724a691a22dd28b93d0eb64a8` | `be9e12b06599e5916c582fe8e86ab62c2699e1b6` | 7,258,466,080 B |
+| B-retry | `16ff826c7da577ec9ca9be2b311c545568ca5171` | `6df173a68ef4272c91456e7365eba408c89d5b90` | `868f4d66bf3fb4ae51e0f3dd065e0cf746fba77c` | 11,429,713,474 B |
 
 ## Branches
 
@@ -26,6 +28,7 @@ commit. Full GitHub source SHAs are stored in the Hugging Face commit messages.
 | A1 | `feat(A1)/implement-GR00T-RC` |
 | A2 | `feat(A2)/implement-GR00T-RC-fixed-hierarchy` |
 | B | `feat(B)/implement-GR00T-RC-SparkVLA-style-execution` |
+| B-retry | `feat(B-retry)/implement-naive-retry-control` |
 
 ## Layout and restoration
 
@@ -55,9 +58,9 @@ Model LFS objects:
 | --- | --- |
 | A0 model shard 1 | `39b7beaadd9a06c87502f2b741a36f939b84941f37fef757c6177e54e34a5eff` |
 | A0 model shard 2 | `8c4fa56f1b4f25a1a842c811e8a12d2bf6d77d73942f9a04f5b876a11bd6d703` |
-| A1/A2/B base model shard 1 | `d273ca475107b081cb91ecb4f555b6ac46692ba0d8c337935c00a03dc889b973` |
-| A1/A2/B base model shard 2 | `244a7ea7e7b2510a31cad92a805f59651301277a9e36508f863012bde49ed4aa` |
-| B selector | `88a05811257384bbba867169b72103d3bc1e118f5813a9d6c4f4713b274e1f16` |
+| A1/A2/B/B-retry base model shard 1 | `d273ca475107b081cb91ecb4f555b6ac46692ba0d8c337935c00a03dc889b973` |
+| A1/A2/B/B-retry base model shard 2 | `244a7ea7e7b2510a31cad92a805f59651301277a9e36508f863012bde49ed4aa` |
+| B/B-retry selector | `88a05811257384bbba867169b72103d3bc1e118f5813a9d6c4f4713b274e1f16` |
 
 Decision logs and auxiliary archives:
 
@@ -73,6 +76,8 @@ Decision logs and auxiliary archives:
 | B H16 decisions | `f8d24466d24973cf0155632ed642b68e47811689de2329271f909dcc20de4d33` |
 | B H8 decisions | `1878426a806d34f595571d7162d60fda222e9a7dfd7f928f622180f0dc518121` |
 | B selector feature archive | `173325dd3a697e6dfe3e640eb26aeb59366de14c500faf275b57060e67b56e88` |
+| B-retry H16 decisions | `0630f1ab078df3484728ff780e144917410f69c4fc4db6ce355860a05e21d04f` |
+| B-retry H8 decisions | `147a306980388482c6f16ec3293cc6ec4631d2b4575dab172ceefa49326e7057` |
 
 Frame archive SHA-256 values, ordered as `Ideal`, `Memory_Execution`,
 `Memory_Exploration`, `Mix`, `Observation_Mismatching`, and
@@ -88,3 +93,5 @@ Frame archive SHA-256 values, ordered as `Ideal`, `Memory_Execution`,
 | A2 H8 | `85934c7bff6bf06611a801859d0e993fa24ee2fe1f3916a05ae70a845cb89f64`, `562dd702c4bee488067b9b7408431274c3d2f0a67a790d4e0290df8c06165200`, `bb6c669d2b8a8401db13cbe55492ee7d8833e57af374f628ce4c1d19778b7964`, `e3a1fe9f9e077c557ae8000c166cdd5597bbed0fa95da155593b333c238ee7e6`, `3f46f0351a86fe492532424c54ffcaa2483d79bb9076b6ba63023c95bca4a9a1`, `c3e25b8290c2146bce57e544485c9113725322c968b412e0d9850f965667a539` |
 | B H16 | `5e5dc0dfcf8f969550454414956be1a6473ba09747412900ef48126c0f5a1a34`, `b95020e73557f99ddfdd64c73cfcca84e1d56372f64bda9c82217da5d2c19b8b`, `a98067835e1a6f29456f264fadf0030a84a2c1ffe89183f6a270aa5470fa7a49`, `18b387417694c53da8d6c758fe65e64d0fad485ef502ff1ca7cd1fb749cb3607`, `0e78aa726c2671407ea16c747324ad48fe2cbaf6b3f3b1ea38d850dc66280f72`, `c8776649be8ffa1e0ffb9a4355b502a6e2adc58fcdcf9c3820211c4dd889c8a8` |
 | B H8 | `20f6a409ceeaa97a47ff864ccff51d5df13b7f6a02602afda520f7c8ecc7e17b`, `29d6ebb0ad15af519be535375b2aeca2c4076677e985ef146b29fbb39eb30553`, `26637045b1caeaac264971d1fd2daec70f4cfbcc27c63f2ba1919f7184f14f7e`, `ef9d73723ae8f9ef9c9701fa1e8253afe5e8bf424fad5a2c027bd0bef1d8ac29`, `c58d59a42f7a61b2daedc2fad1c96e106503603247ccf2a84a652558c83dbfac`, `760b5ba1adf0d97db06b9e65cbf46672d7af44173b5a2fb7f355aa7952882d6e` |
+| B-retry H16 | `6bc4e84020f40aa01bb0c779c5b9e8905ffb9b4df35fead3cba009c154d1aa57`, `0062d65ed6669f79159b66a95ce25973324aca4b1b3db74a9a70c025d4900bc8`, `acc769ac4c5dde544902d0cdf25ce93be10b16cc4d4ad0837e6ca1f0b5e61f09`, `eac242f9abda5735f49b3bc76b04dec9b79373ff6c01e7d38c6c58a25fa49677`, `c803a547cf556ad75f614287edf9dbd3a05d243d29682634a28b4efa5b35bbc1`, `11522bcdedaad2770d5b11033f448a3f973b68b06aed4b95ab1e02d69d610ef7` |
+| B-retry H8 | `4aa842353275f9e85fe3a469b68b198f1afa57807d253334500926de97cfbdd5`, `bba907af0b4edd0b26c170d8b1d4c84f96943ed249dc1350e3511e5962573506`, `bf6f772518cf68f5073816b4a9a6cbb47475e2c142465b1c96c80981ffa9ec4e`, `6f7ff75613c3c49ad6fdd49f9c778d8c88af57ad518a4973197a305b2cc7d4f6`, `ca2807bb3030b31743001218145605d60c21c66bb6c0868a77a5f571d68be4d6`, `a16cbc97d30318710daee4af1fe40bf6d9bcc0662a50309cc600170bc4503672` |
