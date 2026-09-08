@@ -20,14 +20,18 @@ in the Hugging Face commit messages.
 | B | `06ae5d385ad55415332e4f1688b7cd59f868ac96` | `34235eed4ad8cf2724a691a22dd28b93d0eb64a8` | `be9e12b06599e5916c582fe8e86ab62c2699e1b6` | 7,258,466,080 B |
 | Ours R0 | `b69ec837d088709f59015f46ee7742475b429022` | `ab8f52158020041eb36d4cf91924ea2c5c1232ce` | `dd29f40bfe20c13e107ed4fe3e4557d22e3431d3` | 86,859,304 B |
 | Ours R0 v3 | `476473b829bd6b43e4772a3dbd19877860120f22` | `b1b41802ae4f53783a031cbe2bafbe3f5145db4d` | `94fb8a3f0531afd896736ac8bc4953fc89411e17` | 86,699,045 B |
+| Ours R0 v5 multi-seed | `d17214eaba93495cc4575b13315fd1e7e213c619` | `49c5e7344f7ede5bf16a24f23a1acb6c532a86a0` | `c1626968d98544dd8d8ffca74862b3a7fb3e9e6c` | 26,562,361 B |
 
 The Ours entry is an intermediate, train-only R0 mirror. That R0 corpus and its
 checkpoints were subsequently retired after a counterfactual continuation
 mismatch was found; the immutable mirror is retained as negative-result
 provenance. R0 v3 fixes that mismatch and passes its corpus audit, but its
 single-seed checkpoints are also retained as negative evidence because they
-failed the held-out option-label generalization audit. Development and final
-rollout artifacts are added only after their respective protocol gates.
+failed the held-out option-label generalization audit. R0 v5 expands to three
+train seeds, uses episode-held-out calibration and balanced seed/option
+sampling, and advances only the preregistered top four models to R1. It is an
+intermediate candidate, not a paper winner. Development and final rollout
+artifacts are added only after their respective protocol gates.
 
 ## Branches
 
@@ -78,6 +82,12 @@ Model LFS objects:
 | Ours R0 v3 MLP H16 v01 | `d0bc0b86841603a6ee3a806085bce1c18106dffc33f153243db95bfe0e8b2e42` |
 | Ours R0 v3 GRU H16 v02 | `51e0cff455ea459c7a2bf9a6185d1c18121a95ea59b5aaa1c642f70f99b912c4` |
 | Ours R0 v3 Transformer H8 v03 | `40579b7ea495d6fe8766e3c039fd2e7d62af349d01473a66658b5bb7b83e7f07` |
+| Ours R0 v5 linear H4 W32 | `f3b1ac0df932e0a5dba2bc8697cd1f82a11c2e45d6f1450541da4b6cb853b0ab` |
+| Ours R0 v5 linear H8 W64 | `9a77a36832066a5e6030692e2b92f057a935e175f9afd478f2337f19f983fd2e` |
+| Ours R0 v5 MLP H4 W32 | `2c480f4c787cd1ea658006d0b98ab5d06a495601f1e1befb79fdfa800ae9ebd4` |
+| Ours R0 v5 MLP H8 W64 | `bbd316a50c2f0d58a911cd2d9f48da46f42ef103f72cd313795fcd4012f950ed` |
+| Ours R0 v5 GRU H8 W64 | `0d2b52846750291c99791bd8b7cfcd7f4582d2a1950cca1b7dc326c6354d1459` |
+| Ours R0 v5 Transformer H8 W64 | `bfc18fa09d0c5ea4b079e539992dc6348778e98be705ce95fae47efaa19095ef` |
 
 Decision logs and auxiliary archives:
 
@@ -97,6 +107,12 @@ Decision logs and auxiliary archives:
 | Ours R0 counterfactual branch log | `373f494d8435f8a61e3a05a256276af9a1bb63a92f878f37b1bedf54fa74b399` |
 | Ours R0 v3 counterfactual corpus manifest | `5f02bcd537a37961d5d53b384d4c021dbe6d30eeb9b0dcdfac19f2805fa2ffdf` |
 | Ours R0 v3 counterfactual branch log | `e8aae2f96faa9ec50405cbb687ddd39fd7c68e4aefddb478c25a19c79063ddaa` |
+| Ours R0 v5 seed-11007 live corpus manifest | `2639a121a001478327bda117442d75256120096e19eaf01b9a0697f82cf5f06d` |
+| Ours R0 v5 seed-12007 live corpus manifest | `ade3d9c276d577b657ce0ac6ab4af2d6d2534b83cbc27456fb396ea53a2364e5` |
+| Ours R0 v5 seed-11007 counterfactual corpus manifest | `1d90c921e16fc0bf1e0668d70f0b9e193f12198ecea853e3f9a6ca8ea75f6080` |
+| Ours R0 v5 seed-11007 counterfactual branch log | `a135774302ca4917d9cb33c7231903e0e4dce98f071fd28fa3e88fc08437f786` |
+| Ours R0 v5 seed-12007 counterfactual corpus manifest | `7de2858d3f4171abd43767a2978a9de9fc82d34665233a977647d90ab55d8ba3` |
+| Ours R0 v5 seed-12007 counterfactual branch log | `c68aaa3c039e4c68df0d2f27eac48d8ab4ef96d316bd0c827ef974d2ace85094` |
 
 Frame archive SHA-256 values, ordered as `Ideal`, `Memory_Execution`,
 `Memory_Exploration`, `Mix`, `Observation_Mismatching`, and
