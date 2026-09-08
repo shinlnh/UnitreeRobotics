@@ -115,6 +115,29 @@ def _apply_stop_confirmation(
     return target_subgoal + 1, 0, True
 
 
+def _apply_residual_stop_confirmation(
+    *,
+    target_subgoal: int,
+    subgoal_count: int,
+    stop_streak: int,
+    retry_attempt_index: int,
+) -> tuple[int, int, int, bool, bool]:
+    """Apply B-retry, not B, after a residual counterfactual option."""
+
+    if retry_attempt_index not in {0, 1}:
+        raise OursContractError("counterfactual B-retry attempt is invalid")
+    next_subgoal, next_streak, committed = _apply_stop_confirmation(
+        target_subgoal=target_subgoal,
+        subgoal_count=subgoal_count,
+        stop_streak=stop_streak,
+    )
+    if not committed:
+        return target_subgoal, next_streak, retry_attempt_index, False, False
+    if retry_attempt_index == 0:
+        return target_subgoal, 0, 1, True, False
+    return next_subgoal, 0, 0, False, True
+
+
 def _selected_rollout_positions(
     rows: list[dict[str, Any]],
     *,
@@ -205,6 +228,7 @@ def _roll_option(
     rollout_steps: int,
     max_policy_calls: int,
     consensus_hypotheses: int,
+    residual_retry_baseline: bool,
     expected_runtime: dict[str, Any],
     np: Any,
 ) -> tuple[int, int]:
@@ -213,6 +237,7 @@ def _roll_option(
     target_subgoal = active_subgoal
     subgoal_start = False
     stop_streak = 0
+    retry_attempt_index = 0
     if option is RecoveryOption.ACCEPT_B:
         if stop_pending:
             target_subgoal += 1
@@ -221,12 +246,19 @@ def _roll_option(
             stop_streak = 1
     elif option is RecoveryOption.RETRY_CURRENT:
         subgoal_start = True
+        retry_attempt_index = int(residual_retry_baseline)
     elif option is RecoveryOption.BACKTRACK_ONE:
         target_subgoal -= 1
         subgoal_start = True
     elif option is RecoveryOption.ADVANCE:
         target_subgoal += 1
         subgoal_start = True
+    if residual_retry_baseline and option in {
+        RecoveryOption.REOBSERVE,
+        RecoveryOption.CONSENSUS_PREFIX,
+    }:
+        # These alternatives replace B-retry's current-subtask retry.
+        retry_attempt_index = 1
     if target_subgoal >= len(subgoals):
         return 0, 0
 
@@ -274,14 +306,29 @@ def _roll_option(
         first_proposal = False
         subgoal_start = False
         if candidate == 0:
-            target_subgoal, stop_streak, advanced = _apply_stop_confirmation(
-                target_subgoal=target_subgoal,
-                subgoal_count=len(subgoals),
-                stop_streak=stop_streak,
-            )
+            retry_triggered = False
+            if residual_retry_baseline:
+                (
+                    target_subgoal,
+                    stop_streak,
+                    retry_attempt_index,
+                    retry_triggered,
+                    advanced,
+                ) = _apply_residual_stop_confirmation(
+                    target_subgoal=target_subgoal,
+                    subgoal_count=len(subgoals),
+                    stop_streak=stop_streak,
+                    retry_attempt_index=retry_attempt_index,
+                )
+            else:
+                target_subgoal, stop_streak, advanced = _apply_stop_confirmation(
+                    target_subgoal=target_subgoal,
+                    subgoal_count=len(subgoals),
+                    stop_streak=stop_streak,
+                )
             if advanced and target_subgoal >= len(subgoals):
                 break
-            subgoal_start = advanced
+            subgoal_start = retry_triggered or advanced
             continue
         stop_streak = 0
         selected = min(candidate, remaining)
@@ -462,6 +509,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                 rollout_steps=args.rollout_steps,
                                 max_policy_calls=args.max_policy_calls,
                                 consensus_hypotheses=args.consensus_hypotheses,
+                                residual_retry_baseline=args.residual_retry_baseline,
                                 expected_runtime=expected_runtime,
                                 np=np,
                             )
@@ -543,6 +591,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 ),
                 "require_stop_pending": args.require_stop_pending,
                 "residual_retry_baseline": args.residual_retry_baseline,
+                "continuation_policy": (
+                    "B-retry-confirmed-stop-one-retry-per-subtask"
+                    if args.residual_retry_baseline
+                    else "B-confirmed-stop-advance"
+                ),
                 "stop_stride": args.stop_stride,
                 "max_states_per_episode": args.max_states_per_episode,
                 "min_source_elapsed_steps": args.min_source_elapsed_steps,

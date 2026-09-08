@@ -286,7 +286,11 @@ Residual labels use only the already frozen training rollouts at seeds `10007`,
 `11007`, and `12007`.  Every eligible confirmed STOP is sampled with stride 1,
 at most eight states per episode, producing a pre-audited upper bound of 426
 states (363 + 41 + 22).  Each valid option gets the same 75-step/24-call
-continuation budget.  The six low-capacity R0 architectures and all optimizer
+continuation budget and then follows the exact B-retry transition rule, including
+one retry on every newly entered subtask.  A v6 collection was interrupted after
+490 branches when review found that `ADVANCE` and `BACKTRACK_ONE` continued with
+B rather than B-retry; no v6 label is admissible for training.  Corrected v7
+starts from empty destinations.  The six low-capacity R0 architectures and all optimizer
 settings remain identical to v5; models are reranked only by held-out residual
 advantage against `RETRY_CURRENT`.  Within each architecture, validation
 checkpoints are selected by beneficial residual recovery under the same 5%

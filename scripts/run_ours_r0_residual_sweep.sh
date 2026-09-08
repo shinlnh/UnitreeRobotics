@@ -6,12 +6,12 @@ cd "${ROOT}"
 
 PYTHON_BIN="${PYTHON_BIN:-.upstream/Isaac-GR00T-N1.7/.venv/bin/python}"
 DEMO_DATASET="${DEMO_DATASET:-outputs/robocerebra/ctr-recovery-v1}"
-CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/R0-residual-v6-confirmed}"
-ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-residual-v6-confirmed}"
+CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/R0-residual-v7-confirmed}"
+ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-residual-v7-confirmed}"
 COUNTERFACTUAL_DATASETS=(
-  "outputs/robocerebra/ctr-counterfactual-rollout-v6-confirmed-seed10007"
-  "outputs/robocerebra/ctr-counterfactual-rollout-v6-confirmed-seed11007"
-  "outputs/robocerebra/ctr-counterfactual-rollout-v6-confirmed-seed12007"
+  "outputs/robocerebra/ctr-counterfactual-rollout-v7-confirmed-seed10007"
+  "outputs/robocerebra/ctr-counterfactual-rollout-v7-confirmed-seed11007"
+  "outputs/robocerebra/ctr-counterfactual-rollout-v7-confirmed-seed12007"
 )
 
 mkdir -p "${CHECKPOINT_ROOT}" "${ARTIFACT_ROOT}"
@@ -30,7 +30,7 @@ for dataset in "${COUNTERFACTUAL_DATASETS[@]}"; do
 done
 
 # id encoder history width layers heads feedforward dropout steps lr wd live-frac option-frac
-# Frozen before any residual-v6 model or development-seed result is produced.
+# Frozen before any residual-v7 model or development-seed result is produced.
 variants=(
   "v00-linear-h4-w32-d025 linear 4 32 1 4 128 0.25 1000 0.00010 0.10 0.50 0.25"
   "v01-linear-h8-w64-d025 linear 8 64 1 4 128 0.25 1500 0.00010 0.10 0.50 0.25"

@@ -31,7 +31,7 @@ stop_server() {
 }
 trap stop_server EXIT INT TERM
 
-server_log="artifacts/Ours/counterfactual/R0-residual-v6-server.log"
+server_log="artifacts/Ours/counterfactual/R0-residual-v7-server.log"
 mkdir -p "$(dirname "${server_log}")"
 PYTHONPATH=src "${SERVER_PYTHON}" -m unitree_gr00t.b_server \
   --checkpoint checkpoints/robocerebra/GR00T-RC \
@@ -61,8 +61,8 @@ fi
 for base_seed in 10007 11007 12007; do
   source_rollout="outputs/robocerebra/ctr-live-rollouts-v1/train-seed${base_seed}-full-c1-H16"
   source_corpus="outputs/robocerebra/ctr-live-corpus-v2/train-seed${base_seed}-full-c1-H16"
-  destination="outputs/robocerebra/ctr-counterfactual-rollout-v6-confirmed-seed${base_seed}"
-  artifact_root="artifacts/Ours/counterfactual/R0-residual-v6-confirmed-seed${base_seed}"
+  destination="outputs/robocerebra/ctr-counterfactual-rollout-v7-confirmed-seed${base_seed}"
+  artifact_root="artifacts/Ours/counterfactual/R0-residual-v7-confirmed-seed${base_seed}"
   mkdir -p "${artifact_root}"
   if [[ -f "${destination}/manifest.json" ]]; then
     PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_audit \
