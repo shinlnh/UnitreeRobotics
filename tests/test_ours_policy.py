@@ -63,3 +63,24 @@ def test_selective_consensus_accepts_action_and_high_confidence_stop() -> None:
     )
     assert action.option == "ACCEPT_B"
     assert stop.option == "ADVANCE"
+
+
+def test_stagnation_boundary_advances_without_reading_outcome() -> None:
+    controller = SelectiveConsensusRecovery(
+        completion_threshold=0.99,
+        consensus_hypotheses=4,
+        force_boundary_steps=150,
+    )
+    directive = controller.decide(
+        candidate=8,
+        action_chunk=np.zeros((16, 7), dtype=np.float32),
+        scores=np.zeros(17, dtype=np.float32),
+        valid=np.ones(17, dtype=np.bool_),
+        completion_probability=0.01,
+        progress_probability=0.01,
+        subgoal_elapsed_steps=150,
+        np=np,
+    )
+    assert directive.candidate == 0
+    assert directive.option == "ADVANCE"
+    assert not directive.suppress_stop_confirmation

@@ -267,6 +267,14 @@ def _run_episode(
             }
             if recovery_info.get("runtime_provenance") != expected_recovery_runtime:
                 raise RuntimeError("Ours server runtime provenance does not match artifacts")
+            failure_probability = float(recovery_info["failure_probability"])
+            option_values = np.asarray(recovery_info["option_values"], dtype=np.float32)
+            if (
+                not 0.0 <= failure_probability <= 1.0
+                or option_values.shape != (6,)
+                or not np.isfinite(option_values).all()
+            ):
+                raise RuntimeError("Ours server returned invalid failure/option predictions")
             recovery_directive = proposal_transition.decide(
                 candidate=candidate,
                 action_chunk=chunk,
@@ -440,6 +448,8 @@ def _run_episode(
                             recovery_directive.completion_probability
                         ),
                         "recovery_progress_probability": recovery_directive.progress_probability,
+                        "recovery_failure_probability": failure_probability,
+                        "recovery_option_values": option_values.tolist(),
                         "recovery_suppressed_stop": (recovery_directive.suppress_stop_confirmation),
                         **(
                             {

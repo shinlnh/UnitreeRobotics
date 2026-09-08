@@ -41,6 +41,16 @@ def _parser() -> argparse.ArgumentParser:
         choices=("completion", "progress", "maximum"),
         default="completion",
     )
+    parser.add_argument(
+        "--gate-threshold-override",
+        type=float,
+        help="Development-search threshold; forbidden for the final held-out seed",
+    )
+    parser.add_argument(
+        "--stagnation-boundary-steps",
+        type=int,
+        help="Bounded outcome-blind ADVANCE fallback searched only on development runs",
+    )
     parser.add_argument("--capture-training-context", action="store_true")
     parser.add_argument("--collection-force-boundary-steps", type=int)
     return parser
@@ -51,6 +61,17 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         raise ValueError("training context export is restricted to frozen train base seeds")
     if args.collection_force_boundary_steps is not None and not args.capture_training_context:
         raise ValueError("forced boundaries are restricted to training-context collection")
+    if (
+        args.collection_force_boundary_steps is not None
+        and args.stagnation_boundary_steps is not None
+    ):
+        raise ValueError("collection and searched stagnation boundaries are mutually exclusive")
+    if args.seed == 7 and (
+        args.gate_threshold_override is not None or args.stagnation_boundary_steps is not None
+    ):
+        raise ValueError("held-out evaluation requires controls frozen into checkpoint provenance")
+    if args.gate_threshold_override is not None and not 0.0 <= args.gate_threshold_override <= 1.0:
+        raise ValueError("gate threshold override must be inside [0, 1]")
     recovery_audit, recovery_provenance = inspect_recovery_checkpoint(args.recovery_checkpoint)
     metrics = recovery_provenance["development_metrics"]
     threshold_key = {
@@ -62,12 +83,22 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         raise ValueError(
             f"Ours checkpoint predates {args.gate_signal} gate calibration: {recovery_audit.checkpoint_dir}"
         )
-    gate_threshold = float(metrics[threshold_key])
+    checkpoint_gate_threshold = float(metrics[threshold_key])
+    gate_threshold = (
+        float(args.gate_threshold_override)
+        if args.gate_threshold_override is not None
+        else checkpoint_gate_threshold
+    )
+    boundary_steps = (
+        args.collection_force_boundary_steps
+        if args.collection_force_boundary_steps is not None
+        else args.stagnation_boundary_steps
+    )
     controller = SelectiveConsensusRecovery(
         gate_signal=args.gate_signal,
         gate_threshold=gate_threshold,
         consensus_hypotheses=args.consensus_hypotheses,
-        force_boundary_steps=args.collection_force_boundary_steps,
+        force_boundary_steps=boundary_steps,
     )
     manifest_extensions = {
         "decision_schedule": OURS_DECISION_SCHEDULE,
@@ -80,6 +111,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "completion_threshold": recovery_audit.completion_threshold,
         "gate_signal": args.gate_signal,
         "gate_threshold": gate_threshold,
+        "checkpoint_gate_threshold": checkpoint_gate_threshold,
+        "gate_threshold_override": args.gate_threshold_override,
         "consensus_hypotheses": args.consensus_hypotheses,
         "recovery_checkpoint_stage": recovery_provenance["stage"],
         "failure_detector": True,
@@ -91,6 +124,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "state_restoration": False,
         "capture_training_context": args.capture_training_context,
         "collection_force_boundary_steps": args.collection_force_boundary_steps,
+        "stagnation_boundary_steps": args.stagnation_boundary_steps,
     }
     return run_b(
         args,

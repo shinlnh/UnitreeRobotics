@@ -175,6 +175,8 @@ def build_recovery_sim_policy(
                 recovery = self.recovery_model(*recovery_inputs)
             completion_probability = float(recovery["completion_logit"].sigmoid().float().cpu()[0])
             progress_probability = float(recovery["progress_logit"].sigmoid().float().cpu()[0])
+            failure_probability = float(recovery["failure_logit"].sigmoid().float().cpu()[0])
+            option_values = recovery["option_values"].float().cpu()[0].numpy()
             selector_info = {
                 "candidate": candidate,
                 "scores": scores,
@@ -191,6 +193,8 @@ def build_recovery_sim_policy(
             recovery_info = {
                 "completion_probability": completion_probability,
                 "progress_probability": progress_probability,
+                "failure_probability": failure_probability,
+                "option_values": option_values,
                 "completion_threshold": completion_threshold,
                 "history_length": len(self._memory),
                 "history_capacity": recovery_config.history_length,
