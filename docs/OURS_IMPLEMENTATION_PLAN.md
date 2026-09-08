@@ -147,7 +147,7 @@ Seed partitions are immutable:
 | Partition | Base seeds | Permitted use |
 | --- | --- | --- |
 | train | `10007`, `11007`, `12007` | fitting and counterfactual labels |
-| development | `20007`, `21007` | architecture, threshold, and checkpoint selection |
+| development | `20007`, `21007`, `22007`, `23007` | disjoint staged model selection described below |
 | implementation smoke | `30007` | deterministic contract checks only |
 | final held-out | `7` | one frozen H16/H8 evaluation after all gates |
 
@@ -207,20 +207,23 @@ states. Non-option live rows are balanced across train seeds as well.
 
 ## Trial-and-error protocol
 
-Search uses deterministic successive halving:
+Search uses deterministic successive halving, as amended prospectively after
+the original CTR family closed R1 without a valid candidate:
 
 1. **R0 — offline sanity:** reject models that fail split, replay, calibration,
    or synthetic temporal tests.
-2. **R1 — breadth:** at most 12 registered variants, one development trial over
-   all 60 cases at base seed `20007`.
-3. **R2 — mechanism:** top four Pareto-valid variants, three development trials
-   over all 60 cases at base seed `20007`.
-4. **R3 — confirmation:** top two variants, all ten trials over all 60 cases at
-   base seed `21007`.
-5. **R4 — freeze:** select one architecture, checkpoint, thresholds, option
+2. **R1 — original CTR breadth (closed):** at most 12 registered variants, one
+   development trial over all 60 cases at base seed `20007`.
+3. **R1b — residual breadth:** seven prospectively registered variants, one
+   development trial over all 60 cases at base seed `22007`.
+4. **R2b — residual mechanism:** top four Pareto-valid variants, three trials
+   over all 60 cases at base seed `23007`.
+5. **R3b — confirmation:** top two variants, all ten trials over all 60 cases
+   at base seed `21007`.
+6. **R4 — freeze:** select one architecture, checkpoint, thresholds, option
    masks, retry bounds, and hypothesis count. Exact ties choose the earlier
    registered variant and earlier checkpoint.
-6. **R5 — held-out:** run the frozen method once for 600 H16 and 600 H8 episodes
+7. **R5 — held-out:** run the frozen method once for 600 H16 and 600 H8 episodes
    at final base seed `7`.
 
 A variant is Pareto-valid only if it improves development task-macro subtask
@@ -246,6 +249,61 @@ C1 run with its calibrated option margin increased by 0.05. All use the
 checkpoint-calibrated completion and failure thresholds, one bounded recovery
 attempt, and minimum elapsed time 75. The rank labels are determined solely by
 the train-seed option audit and cannot be reordered using R1 outcomes.
+
+## Prospective residual-over-B-retry amendment
+
+The original CTR family completed all seven remaining R1 slots at seed `20007`.
+Every model completed 5/537 pooled subtasks with task-macro rate 0.992657%,
+versus 9/537 and 1.619991% for paired B-retry.  Their common paired delta was
+-0.595960 percentage points; all bootstrap intervals excluded zero below.
+False-recovery rates ranged from 0% to 20%, and none was Pareto-valid.  These
+results close the original R1 family: no candidate advances to its planned R2.
+
+Trace comparison exposed a structural cause.  CTR's abstention path inherited
+B's confirmed-STOP advance, so it silently discarded B-retry's one bounded
+retry.  Varying architecture, option margin, and hypothesis count could not
+repair a controller whose default policy was weaker than its control.
+
+Before using any newly added development seed, the revised working method is
+frozen as **counterfactual residual recovery over B-retry**:
+
+1. B-retry remains the exact default policy.  Until the second consecutive STOP,
+   and after B-retry's bounded retry is spent, the learned controller abstains.
+2. At the first confirmed STOP after at least 75 causal simulator steps, the
+   controller compares B-retry's `RETRY_CURRENT` value with four physically
+   distinct overrides: `REOBSERVE`, `BACKTRACK_ONE`, `ADVANCE`, and
+   `CONSENSUS_PREFIX`.
+3. `ACCEPT_B` is excluded from residual override training because at a confirmed
+   STOP it is physically identical to `ADVANCE`; retaining both would create
+   duplicate actions with inconsistent shaped targets.
+4. An override is permitted only when its learned advantage over
+   `RETRY_CURRENT` clears an episode-held-out margin calibrated to at most 5%
+   false override.  Otherwise execution is byte-equivalent to B-retry.
+5. Re-observation and consensus consume the retry opportunity they replace;
+   no override restores simulator state or extends the global step budget.
+
+Residual labels use only the already frozen training rollouts at seeds `10007`,
+`11007`, and `12007`.  Every eligible confirmed STOP is sampled with stride 1,
+at most eight states per episode, producing a pre-audited upper bound of 426
+states (363 + 41 + 22).  Each valid option gets the same 75-step/24-call
+continuation budget.  The six low-capacity R0 architectures and all optimizer
+settings remain identical to v5; models are reranked only by held-out residual
+advantage against `RETRY_CURRENT`.
+
+The seed roles are now fixed as follows.  Seed `20007` is retired after the
+original-family diagnosis.  Seed `22007` is used once for R1b breadth with a new
+paired B-retry control.  Seed `23007` is reserved for three-trial R2b mechanism
+tests.  Seed `21007` remains unseen and is reserved for the ten-trial R3b
+confirmation.  Seed `30007` remains implementation-smoke-only and seed `7`
+remains final-held-out-only.
+
+The seven R1b identities are frozen before seed `22007` is consumed: residual
+offline ranks 1--4 with option-only gating and C4; rank 1 additionally receives
+the checkpoint failure gate at C4, a C1 consensus ablation, and a C4 margin
+increased by 0.05.  C4 is primary because its rollout matches the four-hypothesis
+counterfactual consensus label.  If no R1b candidate improves paired task-macro
+success while satisfying both safety and overhead caps, the residual family
+stops without touching R2b, R3b, or the final seed.
 
 ## Training objectives and calibration
 

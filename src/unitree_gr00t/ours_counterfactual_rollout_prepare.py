@@ -53,6 +53,16 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-policy-calls", type=int, default=24)
     parser.add_argument("--consensus-hypotheses", type=int, choices=(4, 8), default=4)
     parser.add_argument("--max-replay-mismatch-rate", type=float, default=0.05)
+    parser.add_argument(
+        "--require-stop-pending",
+        action="store_true",
+        help="Label only second consecutive STOPs where B-retry would act",
+    )
+    parser.add_argument(
+        "--residual-retry-baseline",
+        action="store_true",
+        help="Omit duplicate ACCEPT_B labels and compare real overrides with retry",
+    )
     return parser
 
 
@@ -73,15 +83,17 @@ def _medoid_index(chunks: list[Any], np: Any) -> int:
 
 
 def _valid_options(
-    active_subgoal: int, subgoal_count: int, *, stop_pending: bool = False
+    active_subgoal: int,
+    subgoal_count: int,
+    *,
+    stop_pending: bool = False,
+    residual_retry_baseline: bool = False,
 ) -> tuple[RecoveryOption, ...]:
     if not 0 <= active_subgoal < subgoal_count:
         raise OursContractError("counterfactual active subgoal is invalid")
-    options = [
-        RecoveryOption.ACCEPT_B,
-        RecoveryOption.REOBSERVE,
-        RecoveryOption.RETRY_CURRENT,
-    ]
+    options = [RecoveryOption.REOBSERVE, RecoveryOption.RETRY_CURRENT]
+    if not residual_retry_baseline:
+        options.insert(0, RecoveryOption.ACCEPT_B)
     if active_subgoal > 0:
         options.append(RecoveryOption.BACKTRACK_ONE)
     if stop_pending:
@@ -109,6 +121,7 @@ def _selected_rollout_positions(
     stride: int,
     maximum: int,
     min_elapsed_steps: int,
+    require_stop_pending: bool = False,
 ) -> set[int]:
     if min(stride, maximum) < 1 or min_elapsed_steps < 0:
         raise OursContractError("counterfactual rollout sampling is invalid")
@@ -118,7 +131,19 @@ def _selected_rollout_positions(
         if row.get("new_subgoal_anchor") is not None or segment_start is None:
             segment_start = int(row["step_before"])
         elapsed = int(row["step_before"]) - segment_start
-        if int(row["selector_candidate_before_recovery"]) == 0 and elapsed >= min_elapsed_steps:
+        previous = rows[index - 1] if index else None
+        stop_pending_before = bool(
+            require_stop_pending
+            and previous is not None
+            and int(previous["stop_confirmation_streak_after"]) > 0
+            and int(previous["active_subgoal_index_after"])
+            == int(row["active_subgoal_index_before"])
+        )
+        if (
+            int(row["selector_candidate_before_recovery"]) == 0
+            and elapsed >= min_elapsed_steps
+            and (stop_pending_before or not require_stop_pending)
+        ):
             candidates.append(index)
     return set(candidates[::stride][:maximum])
 
@@ -279,6 +304,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         or not 0.0 <= args.max_replay_mismatch_rate <= 0.05
     ):
         raise ValueError("counterfactual roll-forward settings are invalid")
+    if args.residual_retry_baseline and not args.require_stop_pending:
+        raise ValueError("residual B-retry labels require confirmed STOP states")
     rollout = args.rollout.expanduser().resolve()
     source_corpus = args.source_corpus.expanduser().resolve()
     benchmark_dir = args.benchmark_dir.expanduser().resolve()
@@ -358,6 +385,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 stride=args.stop_stride,
                 maximum=args.max_states_per_episode,
                 min_elapsed_steps=args.min_source_elapsed_steps,
+                require_stop_pending=args.require_stop_pending,
             )
 
             task = parse_task_description(case.path / "task_description.txt")
@@ -420,6 +448,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             active_subgoal,
                             len(task.steps),
                             stop_pending=stop_pending_before,
+                            residual_retry_baseline=args.residual_retry_baseline,
                         ):
                             rollouts[option] = partial(
                                 _roll_option,
@@ -468,6 +497,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                             "case": key[1],
                                             "trial": key[2],
                                             "policy_call": int(row["policy_call"]),
+                                            "source_stop_pending": stop_pending_before,
                                             "source_context_sha256": row[
                                                 "selector_context_sha256"
                                             ],
@@ -506,7 +536,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "contains_counterfactuals": True,
             "counterfactual_source_manifest_sha256": sha256_file(source_manifest_path),
             "counterfactual_sampling": {
-                "candidate_states": "B STOP proposals",
+                "candidate_states": (
+                    "confirmed B STOP proposals"
+                    if args.require_stop_pending
+                    else "B STOP proposals"
+                ),
+                "require_stop_pending": args.require_stop_pending,
+                "residual_retry_baseline": args.residual_retry_baseline,
                 "stop_stride": args.stop_stride,
                 "max_states_per_episode": args.max_states_per_episode,
                 "min_source_elapsed_steps": args.min_source_elapsed_steps,

@@ -135,6 +135,12 @@ def test_recovery_config_freezes_identity_search_space_and_seed_partitions() -> 
     assert audit["valid"]
     assert not audit["runtime"]["observes_goal_predicates"]
     assert audit["runtime"]["continuous_live_state"]
+    assert audit["search"]["development_base_seeds"] == (
+        20007,
+        21007,
+        22007,
+        23007,
+    )
 
     with pytest.raises(OursContractError, match="seed partitions"):
         validate_recovery_config(replace(config, final_base_seed=20007))

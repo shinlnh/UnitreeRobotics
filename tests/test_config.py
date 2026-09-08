@@ -42,7 +42,12 @@ def test_project_config_resolves_paths() -> None:
     assert config.robocerebra_recovery.context_width == 2048
     assert config.robocerebra_recovery.history_lengths == (4, 8, 16)
     assert config.robocerebra_recovery.train_base_seeds == (10007, 11007, 12007)
-    assert config.robocerebra_recovery.development_base_seeds == (20007, 21007)
+    assert config.robocerebra_recovery.development_base_seeds == (
+        20007,
+        21007,
+        22007,
+        23007,
+    )
     assert config.robocerebra_recovery.final_base_seed == 7
 
 

@@ -19,6 +19,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument(
+        "--residual-retry-baseline",
+        action="store_true",
+        help="Calibrate alternatives against RETRY_CURRENT on confirmed STOPs",
+    )
     return parser
 
 
@@ -197,6 +202,110 @@ def summarize_option_predictions(
     }
 
 
+def summarize_residual_predictions(
+    target_values: Any,
+    target_valid: Any,
+    predictions: Any,
+    *,
+    np: Any,
+    max_false_recovery_rate: float = 0.05,
+) -> dict[str, Any]:
+    """Calibrate learned overrides while treating B-retry as abstention."""
+
+    if (
+        target_values.ndim != 2
+        or target_values.shape != target_valid.shape
+        or target_values.shape != predictions.shape
+        or target_values.shape[1] != len(RECOVERY_OPTIONS)
+        or not 0.0 <= max_false_recovery_rate <= 1.0
+    ):
+        raise ValueError("residual option audit arrays have incompatible shapes")
+    retry_id = RECOVERY_OPTIONS.index("RETRY_CURRENT")
+    accept_id = RECOVERY_OPTIONS.index("ACCEPT_B")
+    advance_id = RECOVERY_OPTIONS.index("ADVANCE")
+    labeled = (
+        (target_valid.sum(axis=1) >= 2)
+        & target_valid[:, retry_id]
+        & target_valid[:, advance_id]
+    )
+    if not labeled.any():
+        raise ValueError("residual audit requires confirmed-STOP labels")
+    target = np.where(target_valid[labeled], target_values[labeled], -np.inf)
+    prediction = np.where(target_valid[labeled], predictions[labeled], -np.inf)
+    alternative_ids = np.asarray(
+        [
+            index
+            for index in range(len(RECOVERY_OPTIONS))
+            if index not in {accept_id, retry_id}
+        ]
+    )
+    target_retry = target[:, retry_id]
+    target_alternative = target[:, alternative_ids].max(axis=1)
+    predicted_retry = prediction[:, retry_id]
+    predicted_alternative = prediction[:, alternative_ids].max(axis=1)
+    predicted_alternative_id = alternative_ids[
+        prediction[:, alternative_ids].argmax(axis=1)
+    ]
+    strict = np.abs(target_alternative - target_retry) > 1e-6
+    target_override = target_alternative > target_retry
+    strict_retry = strict & ~target_override
+    strict_override = strict & target_override
+    advantage = predicted_alternative - predicted_retry
+    nonnegative = advantage[np.isfinite(advantage) & (advantage >= 0.0)]
+    reject_all_margin = np.nextafter(
+        np.float32(max(float(nonnegative.max()) if len(nonnegative) else 0.0, 0.0)),
+        np.float32(np.inf),
+    )
+    margins = np.unique(np.concatenate((np.asarray([0.0, reject_all_margin]), nonnegative)))
+    selected: tuple[tuple[float, float, float], dict[str, Any]] | None = None
+    for margin in margins:
+        override = advantage >= margin
+        false_rate = float(override[strict_retry].mean() if strict_retry.any() else 0.0)
+        if false_rate > max_false_recovery_rate + 1e-12:
+            continue
+        recall = float(override[strict_override].mean() if strict_override.any() else 0.0)
+        beneficial = override & (
+            target[np.arange(len(target)), predicted_alternative_id]
+            > target_retry + 1e-6
+        )
+        beneficial_rate = float(
+            beneficial[strict_override].mean() if strict_override.any() else 0.0
+        )
+        chosen = np.where(override, predicted_alternative_id, retry_id)
+        best = target.max(axis=1)
+        regret = float((best - target[np.arange(len(target)), chosen]).mean())
+        accuracy = float((override[strict] == target_override[strict]).mean())
+        key = (beneficial_rate, recall, accuracy, -float(margin))
+        payload = {
+            "max_false_recovery_rate": max_false_recovery_rate,
+            "option_value_margin": float(margin),
+            "false_recovery_rate": false_rate,
+            "true_recovery_rate": recall,
+            "beneficial_recovery_rate": beneficial_rate,
+            "accuracy": accuracy,
+            "mean_decision_regret": regret,
+        }
+        if selected is None or key > selected[0]:
+            selected = (key, payload)
+    if selected is None:
+        raise ValueError("residual margin calibration has no feasible operating point")
+    return {
+        "labeled_states": int(labeled.sum()),
+        "strict_states": int(strict.sum()),
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [RECOVERY_OPTIONS[index] for index in alternative_ids],
+        "target_retry_states": int(strict_retry.sum()),
+        "target_override_states": int(strict_override.sum()),
+        "raw_false_recovery_rate": float(
+            (advantage[strict_retry] >= 0.0).mean() if strict_retry.any() else 0.0
+        ),
+        "raw_recovery_rate": float(
+            (advantage[strict_override] >= 0.0).mean() if strict_override.any() else 0.0
+        ),
+        "selective_recovery": selected[1],
+    }
+
+
 def _audit_model_partitions(
     model: Any,
     partitions: list[tuple[Any, Any]],
@@ -205,6 +314,7 @@ def _audit_model_partitions(
     device: str,
     np: Any,
     torch: Any,
+    residual_retry_baseline: bool = False,
 ) -> dict[str, Any] | None:
     targets: list[Any] = []
     validity: list[Any] = []
@@ -234,7 +344,12 @@ def _audit_model_partitions(
                 predictions.append(outputs["option_values"].float().cpu().numpy())
     if not targets:
         return None
-    return summarize_option_predictions(
+    summarize = (
+        summarize_residual_predictions
+        if residual_retry_baseline
+        else summarize_option_predictions
+    )
+    return summarize(
         np.concatenate(targets),
         np.concatenate(validity),
         np.concatenate(predictions),
@@ -276,6 +391,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             device=args.device,
             np=np,
             torch=torch,
+            residual_retry_baseline=args.residual_retry_baseline,
         )
         if result is None:
             raise ValueError(f"checkpoint has no counterfactual fit states: {checkpoint}")
@@ -286,6 +402,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             device=args.device,
             np=np,
             torch=torch,
+            residual_retry_baseline=args.residual_retry_baseline,
         )
         result.update(
             {
@@ -312,7 +429,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ],
             -result["option_validation"]["selective_recovery"]["true_recovery_rate"],
             result["option_validation"]["selective_recovery"]["mean_decision_regret"],
-            -result["option_validation"]["balanced_recall_strict"],
+            -result["option_validation"].get("balanced_recall_strict", 0.0),
             result["variant_id"],
         ),
     )
@@ -321,12 +438,21 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     payload = {
         "schema_version": 1,
         "experiment_id": "Ours",
-        "stage": "R0-counterfactual-option-fit-audit",
+        "stage": (
+            "R0-counterfactual-residual-fit-audit"
+            if args.residual_retry_baseline
+            else "R0-counterfactual-option-fit-audit"
+        ),
         "scope": "train-only diagnostic; rollout development seeds were not consumed",
         "selection_rule": (
             "max beneficial recovery at calibrated false-recovery<=5%, then recovery "
-            "recall, regret, balanced recall, registered id"
+            + (
+                "recall, regret, registered id; RETRY_CURRENT is the abstention baseline"
+                if args.residual_retry_baseline
+                else "recall, regret, balanced recall, registered id"
+            )
         ),
+        "residual_retry_baseline": args.residual_retry_baseline,
         "selected_variant": ranked[0]["variant_id"],
         "selected_option_value_margin": ranked[0]["option_validation"][
             "selective_recovery"

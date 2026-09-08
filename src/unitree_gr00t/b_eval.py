@@ -289,6 +289,7 @@ def _run_episode(
                 subgoal_elapsed_steps=step - subgoal_start_step,
                 subgoal_index=active_subgoal,
                 stop_pending=confirmation_state.streak > 0,
+                retry_attempt_index=retry_attempt_index,
                 np=np,
             )
             candidate = int(recovery_directive.candidate)
@@ -311,6 +312,8 @@ def _run_episode(
                 recovery_consensus_executions += 1
             if recovery_directive.apply_subgoal_transition:
                 recovery_subgoal_transitions += 1
+            if identity.retry and recovery_directive.consume_retry_budget:
+                retry_attempt_index = identity.max_retries_per_subtask
 
         if recovery_directive is not None and recovery_directive.apply_subgoal_transition:
             confirmation_state = StopConfirmationState()
@@ -363,6 +366,8 @@ def _run_episode(
             if not 0 <= active_subgoal <= len(plan.subgoals):
                 raise RuntimeError("Ours selected an invalid live subgoal transition")
             subgoal_advanced = recovery_directive.subgoal_delta > 0
+            if identity.retry and recovery_directive.subgoal_delta != 0:
+                retry_attempt_index = 0
             subgoal_start = recovery_directive.reanchor and active_subgoal < len(plan.subgoals)
             if subgoal_start:
                 subgoal_start_step = step

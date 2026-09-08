@@ -37,6 +37,18 @@ def test_rollout_options_respect_backtrack_boundary() -> None:
     assert "BACKTRACK_ONE" in later
     assert "ADVANCE" not in later
     assert "ADVANCE" in pending
+    residual = {
+        value.value
+        for value in _valid_options(
+            1,
+            3,
+            stop_pending=True,
+            residual_retry_baseline=True,
+        )
+    }
+    assert "ACCEPT_B" not in residual
+    assert "RETRY_CURRENT" in residual
+    assert "ADVANCE" in residual
     with pytest.raises(OursContractError, match="active subgoal"):
         _valid_options(3, 3)
 
@@ -68,3 +80,25 @@ def test_rollout_sampling_uses_subgoal_relative_failure_onset() -> None:
         maximum=8,
         min_elapsed_steps=75,
     ) == {2, 5}
+
+
+def test_counterfactual_selection_can_focus_on_confirmed_stops() -> None:
+    rows = [
+        {
+            "selector_candidate_before_recovery": 0,
+            "step_before": 75,
+            "new_subgoal_anchor": [0.0] if index == 0 else None,
+            "active_subgoal_index_before": 0,
+            "active_subgoal_index_after": 0,
+            "stop_confirmation_streak_after": 1 if index in {0, 2} else 0,
+        }
+        for index in range(4)
+    ]
+
+    assert _selected_rollout_positions(
+        rows,
+        stride=1,
+        maximum=8,
+        min_elapsed_steps=0,
+        require_stop_pending=True,
+    ) == {1, 3}

@@ -1,5 +1,7 @@
 import numpy as np
+import pytest
 
+from unitree_gr00t.ours import OursContractError
 from unitree_gr00t.ours_policy import SelectiveConsensusRecovery
 
 
@@ -247,6 +249,109 @@ def test_learned_option_values_apply_backtrack_and_confirmed_advance() -> None:
     assert confirmed.option == "ADVANCE"
     assert confirmed.apply_subgoal_transition
     assert confirmed.subgoal_delta == 1
+
+
+def test_residual_mode_abstains_to_b_retry_until_confirmed_stop() -> None:
+    controller = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        use_option_values=True,
+        option_value_margin=0.1,
+        failure_threshold=0.0,
+        residual_retry_baseline=True,
+    )
+    kwargs = {
+        "candidate": 0,
+        "action_chunk": np.ones((16, 7), dtype=np.float32),
+        "scores": np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        "valid": np.asarray([True, True, True] + [False] * 14),
+        "completion_probability": 0.99,
+        "progress_probability": 0.99,
+        "failure_probability": 0.99,
+        "option_values": np.asarray([3.0, 0.0, 1.0, -1.0, 4.0, 0.5]),
+        "subgoal_elapsed_steps": 75,
+        "subgoal_index": 1,
+        "np": np,
+    }
+
+    first_stop = controller.decide(stop_pending=False, **kwargs)
+    after_retry = controller.decide(
+        stop_pending=True,
+        retry_attempt_index=1,
+        **kwargs,
+    )
+    assert first_stop.option == "ACCEPT_B"
+    assert not first_stop.recovery_triggered
+    assert after_retry.option == "ACCEPT_B"
+    assert not after_retry.recovery_triggered
+
+
+def test_residual_mode_uses_retry_as_abstention_and_overrides_with_advantage() -> None:
+    kwargs = {
+        "candidate": 0,
+        "action_chunk": np.ones((16, 7), dtype=np.float32),
+        "scores": np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        "valid": np.asarray([True, True, True] + [False] * 14),
+        "completion_probability": 0.1,
+        "progress_probability": 0.2,
+        "failure_probability": 0.9,
+        "subgoal_elapsed_steps": 75,
+        "subgoal_index": 1,
+        "stop_pending": True,
+        "np": np,
+    }
+    abstain = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        use_option_values=True,
+        option_value_margin=0.2,
+        residual_retry_baseline=True,
+    ).decide(
+        # ACCEPT_B is the same physical advance at this boundary and is not a
+        # separately eligible residual override, even if its unused logit is high.
+        option_values=np.asarray([9.0, 0.0, 2.0, -1.0, 0.5, 0.0]),
+        **kwargs,
+    )
+    override = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        use_option_values=True,
+        option_value_margin=0.2,
+        residual_retry_baseline=True,
+    ).decide(
+        # ACCEPT_B is not a distinct residual action at a confirmed STOP;
+        # ADVANCE is the explicit learned override of B-retry's retry.
+        option_values=np.asarray([3.0, 0.0, 1.0, -1.0, 4.0, 0.0]),
+        **kwargs,
+    )
+    assert abstain.option == "ACCEPT_B"
+    assert not abstain.recovery_triggered
+    assert override.option == "ADVANCE"
+    assert override.recovery_triggered
+    assert override.apply_subgoal_transition
+    assert override.subgoal_delta == 1
+
+    reobserve = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        use_option_values=True,
+        option_value_margin=0.2,
+        residual_retry_baseline=True,
+    ).decide(
+        option_values=np.asarray([0.0, 3.0, 1.0, -1.0, 0.0, 0.0]),
+        **kwargs,
+    )
+    assert reobserve.option == "REOBSERVE"
+    assert reobserve.consume_retry_budget
+
+
+def test_residual_mode_requires_option_values() -> None:
+    with pytest.raises(OursContractError, match="requires learned option values"):
+        SelectiveConsensusRecovery(
+            completion_threshold=0.8,
+            consensus_hypotheses=1,
+            residual_retry_baseline=True,
+        )
 
 
 def test_consensus_finishes_after_nonstop_followup_hypotheses() -> None:

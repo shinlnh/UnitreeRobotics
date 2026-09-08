@@ -153,7 +153,7 @@ false_recovery_rate_limit = 0.05
 overhead_fraction_limit = 0.20
 max_search_variants = 12
 train_base_seeds = [10007, 11007, 12007]
-development_base_seeds = [20007, 21007]
+development_base_seeds = [20007, 21007, 22007, 23007]
 smoke_base_seed = 30007
 final_base_seed = 7
 

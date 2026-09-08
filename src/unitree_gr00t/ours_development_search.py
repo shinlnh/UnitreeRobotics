@@ -21,6 +21,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-variants", type=int, required=True)
     parser.add_argument("--bootstrap-resamples", type=int, default=10_000)
     parser.add_argument("--seed", type=int, default=20007)
+    parser.add_argument("--run-prefix", default="r1-")
     return parser
 
 
@@ -95,7 +96,8 @@ def _complete_run(
         or len(rows) != int(summary.get("episodes", -1))
         or len({_key(row) for row in rows}) != len(rows)
         or (
-            expected_experiment is not None and manifest.get("experiment_id") != expected_experiment
+            expected_experiment is not None
+            and manifest.get("experiment_id") != expected_experiment
         )
     ):
         raise OursContractError(f"incomplete development run: {root}")
@@ -115,7 +117,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     import numpy as np
 
     variants: list[dict[str, Any]] = []
-    run_dirs = sorted(path.parent for path in runs_root.glob("r1-*/summary.json"))
+    if not args.run_prefix or "/" in args.run_prefix or ".." in args.run_prefix:
+        raise ValueError("development run prefix is invalid")
+    run_dirs = sorted(
+        path.parent for path in runs_root.glob(f"{args.run_prefix}*/summary.json")
+    )
     if len(run_dirs) != args.expected_variants:
         raise OursContractError(
             f"expected {args.expected_variants} development variants, found {len(run_dirs)}"
@@ -165,7 +171,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "failure_threshold": manifest["failure_threshold"],
                 "consensus_cooldown_decisions": manifest["consensus_cooldown_decisions"],
                 "max_recovery_attempts": manifest.get("max_recovery_attempts"),
-                "min_recovery_elapsed_steps": manifest.get("min_recovery_elapsed_steps"),
+                "min_recovery_elapsed_steps": manifest.get(
+                    "min_recovery_elapsed_steps"
+                ),
                 "stagnation_boundary_steps": manifest["stagnation_boundary_steps"],
                 "task_macro_subtask_rate": task_macro_subtask_rate(rows),
                 "paired_task_macro": paired,

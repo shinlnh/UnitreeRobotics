@@ -21,10 +21,16 @@ class RecoveryDirective:
     apply_subgoal_transition: bool = False
     subgoal_delta: int = 0
     reanchor: bool = False
+    consume_retry_budget: bool = False
 
 
 class SelectiveConsensusRecovery:
-    """Recover only from low-completion, high-failure STOP proposals."""
+    """Recover only from low-completion, high-failure STOP proposals.
+
+    Residual mode treats B-retry's first confirmed-STOP retry as the abstention
+    action.  The learned policy can then override that control only when its
+    predicted alternative advantage clears a calibrated margin.
+    """
 
     def __init__(
         self,
@@ -40,6 +46,7 @@ class SelectiveConsensusRecovery:
         failure_threshold: float = 0.5,
         consensus_cooldown_decisions: int = 16,
         force_boundary_steps: int | None = None,
+        residual_retry_baseline: bool = False,
     ):
         # completion_threshold remains an explicit compatibility alias for the
         # first recorded smoke artifact.
@@ -62,6 +69,8 @@ class SelectiveConsensusRecovery:
             raise OursContractError("consensus cooldown cannot be negative")
         if force_boundary_steps is not None and force_boundary_steps < 1:
             raise OursContractError("forced collection boundary must be positive")
+        if residual_retry_baseline and not use_option_values:
+            raise OursContractError("residual B-retry mode requires learned option values")
         self.gate_signal = gate_signal
         self.gate_threshold = selected_threshold
         self.consensus_hypotheses = consensus_hypotheses
@@ -72,6 +81,7 @@ class SelectiveConsensusRecovery:
         self.failure_threshold = failure_threshold
         self.consensus_cooldown_decisions = consensus_cooldown_decisions
         self.force_boundary_steps = force_boundary_steps
+        self.residual_retry_baseline = residual_retry_baseline
         self._proposals: list[tuple[Any, Any, Any]] = []
         self._cooldown_remaining = 0
         self._recovery_attempts = 0
@@ -119,10 +129,13 @@ class SelectiveConsensusRecovery:
         subgoal_elapsed_steps: int = 0,
         subgoal_index: int = 0,
         stop_pending: bool = False,
+        retry_attempt_index: int = 0,
         np: Any,
     ) -> RecoveryDirective:
         if subgoal_index < 0:
             raise OursContractError("subgoal index cannot be negative")
+        if retry_attempt_index not in {0, 1}:
+            raise OursContractError("retry attempt index is outside the B-retry contract")
         if self._active_subgoal != subgoal_index:
             self._active_subgoal = subgoal_index
             self._recovery_attempts = 0
@@ -163,6 +176,7 @@ class SelectiveConsensusRecovery:
                     hypothesis_count=len(self._proposals),
                     completion_probability=completion_probability,
                     progress_probability=progress_probability,
+                    consume_retry_budget=self.residual_retry_baseline,
                 )
             chosen = self._medoid(self._proposals, np)
             chosen_chunk, chosen_scores, chosen_valid = self._proposals[chosen]
@@ -180,6 +194,7 @@ class SelectiveConsensusRecovery:
                 hypothesis_count=count,
                 completion_probability=completion_probability,
                 progress_probability=progress_probability,
+                consume_retry_budget=self.residual_retry_baseline,
             )
 
         if (
@@ -214,7 +229,7 @@ class SelectiveConsensusRecovery:
             "progress": progress_probability,
             "maximum": max(completion_probability, progress_probability),
         }[self.gate_signal]
-        if gate_probability >= self.gate_threshold:
+        if not self.residual_retry_baseline and gate_probability >= self.gate_threshold:
             self._clear_proposals()
             return RecoveryDirective(
                 candidate=0,
@@ -233,7 +248,27 @@ class SelectiveConsensusRecovery:
                 candidate=0,
                 action_chunk=action_chunk,
                 suppress_stop_confirmation=False,
-                option=RecoveryOption.ADVANCE.value,
+                option=(
+                    RecoveryOption.ACCEPT_B.value
+                    if self.residual_retry_baseline
+                    else RecoveryOption.ADVANCE.value
+                ),
+                recovery_triggered=False,
+                hypothesis_count=1,
+                completion_probability=completion_probability,
+                progress_probability=progress_probability,
+            )
+
+        # B-retry acts only after the second consecutive STOP.  In residual
+        # mode the first proposal and any STOP after the baseline retry remain
+        # byte-for-byte on that frozen control path.
+        if self.residual_retry_baseline and (not stop_pending or retry_attempt_index > 0):
+            self._clear_proposals()
+            return RecoveryDirective(
+                candidate=0,
+                action_chunk=action_chunk,
+                suppress_stop_confirmation=False,
+                option=RecoveryOption.ACCEPT_B.value,
                 recovery_triggered=False,
                 hypothesis_count=1,
                 completion_probability=completion_probability,
@@ -263,16 +298,26 @@ class SelectiveConsensusRecovery:
             if values.shape != (len(RECOVERY_OPTIONS),) or not np.isfinite(values).all():
                 raise OursContractError("learned recovery option values are invalid")
             index = {option: RECOVERY_OPTIONS.index(option) for option in RECOVERY_OPTIONS}
-            accept_options = [RecoveryOption.ACCEPT_B]
-            if stop_pending:
-                accept_options.append(RecoveryOption.ADVANCE)
-            recover_options = [
-                RecoveryOption.REOBSERVE,
-                RecoveryOption.RETRY_CURRENT,
-                RecoveryOption.CONSENSUS_PREFIX,
-            ]
-            if subgoal_index > 0:
-                recover_options.append(RecoveryOption.BACKTRACK_ONE)
+            if self.residual_retry_baseline:
+                accept_options = [RecoveryOption.RETRY_CURRENT]
+                recover_options = [
+                    RecoveryOption.REOBSERVE,
+                    RecoveryOption.ADVANCE,
+                    RecoveryOption.CONSENSUS_PREFIX,
+                ]
+                if subgoal_index > 0:
+                    recover_options.append(RecoveryOption.BACKTRACK_ONE)
+            else:
+                accept_options = [RecoveryOption.ACCEPT_B]
+                if stop_pending:
+                    accept_options.append(RecoveryOption.ADVANCE)
+                recover_options = [
+                    RecoveryOption.REOBSERVE,
+                    RecoveryOption.RETRY_CURRENT,
+                    RecoveryOption.CONSENSUS_PREFIX,
+                ]
+                if subgoal_index > 0:
+                    recover_options.append(RecoveryOption.BACKTRACK_ONE)
             best_accept = max(accept_options, key=lambda option: float(values[index[option]]))
             best_recover = max(recover_options, key=lambda option: float(values[index[option]]))
             accept_value = float(values[index[best_accept]])
@@ -305,6 +350,24 @@ class SelectiveConsensusRecovery:
                 )
             selected_option = best_recover
 
+        if self.residual_retry_baseline and selected_option is RecoveryOption.ADVANCE:
+            self._clear_proposals()
+            self._recovery_attempts += 1
+            self._cooldown_remaining = self.consensus_cooldown_decisions
+            return RecoveryDirective(
+                candidate=0,
+                action_chunk=action_chunk,
+                suppress_stop_confirmation=True,
+                option=selected_option.value,
+                recovery_triggered=True,
+                hypothesis_count=1,
+                completion_probability=completion_probability,
+                progress_probability=progress_probability,
+                apply_subgoal_transition=True,
+                subgoal_delta=1,
+                reanchor=True,
+            )
+
         if selected_option in {
             RecoveryOption.REOBSERVE,
             RecoveryOption.RETRY_CURRENT,
@@ -328,6 +391,7 @@ class SelectiveConsensusRecovery:
                 apply_subgoal_transition=transition,
                 subgoal_delta=(-1 if selected_option is RecoveryOption.BACKTRACK_ONE else 0),
                 reanchor=transition,
+                consume_retry_budget=(self.residual_retry_baseline and not transition),
             )
 
         self._proposals.append((action_chunk.copy(), scores.copy(), valid.copy()))
@@ -341,6 +405,7 @@ class SelectiveConsensusRecovery:
                 hypothesis_count=len(self._proposals),
                 completion_probability=completion_probability,
                 progress_probability=progress_probability,
+                consume_retry_budget=self.residual_retry_baseline,
             )
         chosen = self._medoid(self._proposals, np)
         chosen_chunk, chosen_scores, chosen_valid = self._proposals[chosen]
@@ -358,4 +423,5 @@ class SelectiveConsensusRecovery:
             hypothesis_count=count,
             completion_probability=completion_probability,
             progress_probability=progress_probability,
+            consume_retry_budget=self.residual_retry_baseline,
         )

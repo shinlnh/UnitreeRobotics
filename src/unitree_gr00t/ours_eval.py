@@ -8,6 +8,11 @@ import json
 from .b_eval import EvaluationIdentity
 from .b_eval import _parser as _b_parser
 from .b_eval import run as run_b
+from .b_retry import (
+    B_RETRY_MAX_RETRIES_PER_SUBTASK,
+    B_RETRY_TRIGGER,
+    confirmed_stop_transition,
+)
 from .ours import OURS_ID, OURS_METHOD, OURS_VARIANT
 from .ours_policy import SelectiveConsensusRecovery
 from .ours_train import inspect_recovery_checkpoint
@@ -15,12 +20,24 @@ from .ours_train import inspect_recovery_checkpoint
 OURS_PAPER = "working-method-before-final-freeze"
 OURS_DECISION_SCHEDULE = "temporal-completion-gate-onset-bounded-consensus-v4"
 OURS_OPTION_DECISION_SCHEDULE = "counterfactual-value-direct-option-bounded-v6"
+OURS_RESIDUAL_DECISION_SCHEDULE = "counterfactual-residual-over-b-retry-v1"
 OURS_EVALUATION = EvaluationIdentity(
     experiment_id=OURS_ID,
     variant=OURS_VARIANT,
     method=OURS_METHOD,
     paper=OURS_PAPER,
     decision_schedule=OURS_DECISION_SCHEDULE,
+    recovery=True,
+)
+OURS_RESIDUAL_EVALUATION = EvaluationIdentity(
+    experiment_id=OURS_ID,
+    variant=OURS_VARIANT,
+    method=OURS_METHOD,
+    paper=OURS_PAPER,
+    retry=True,
+    retry_trigger=B_RETRY_TRIGGER,
+    max_retries_per_subtask=B_RETRY_MAX_RETRIES_PER_SUBTASK,
+    decision_schedule=OURS_RESIDUAL_DECISION_SCHEDULE,
     recovery=True,
 )
 
@@ -61,6 +78,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-recovery-elapsed-steps", type=int, default=75)
     parser.add_argument("--use-option-values", action="store_true")
     parser.add_argument("--option-value-margin", type=float, default=0.0)
+    parser.add_argument(
+        "--residual-retry-baseline",
+        action="store_true",
+        help="Abstain to frozen B-retry and learn only a confirmed-STOP override",
+    )
     parser.add_argument("--consensus-cooldown-decisions", type=int, default=16)
     parser.add_argument("--capture-training-context", action="store_true")
     parser.add_argument("--collection-force-boundary-steps", type=int)
@@ -93,6 +115,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         raise ValueError("minimum recovery elapsed steps cannot be negative")
     if args.option_value_margin < 0.0:
         raise ValueError("option value margin cannot be negative")
+    if args.residual_retry_baseline and not args.use_option_values:
+        raise ValueError("residual B-retry mode requires --use-option-values")
     recovery_audit, recovery_provenance = inspect_recovery_checkpoint(args.recovery_checkpoint)
     metrics = recovery_provenance["development_metrics"]
     threshold_key = {
@@ -132,10 +156,15 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         failure_threshold=failure_threshold,
         consensus_cooldown_decisions=args.consensus_cooldown_decisions,
         force_boundary_steps=boundary_steps,
+        residual_retry_baseline=args.residual_retry_baseline,
     )
     manifest_extensions = {
         "decision_schedule": (
-            OURS_OPTION_DECISION_SCHEDULE if args.use_option_values else OURS_DECISION_SCHEDULE
+            OURS_RESIDUAL_DECISION_SCHEDULE
+            if args.residual_retry_baseline
+            else OURS_OPTION_DECISION_SCHEDULE
+            if args.use_option_values
+            else OURS_DECISION_SCHEDULE
         ),
         "recovery_checkpoint": str(recovery_audit.checkpoint_dir),
         "recovery_weights_sha256": recovery_audit.weights_sha256,
@@ -153,6 +182,10 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "min_recovery_elapsed_steps": args.min_recovery_elapsed_steps,
         "use_option_values": args.use_option_values,
         "option_value_margin": args.option_value_margin,
+        "residual_retry_baseline": args.residual_retry_baseline,
+        "residual_abstention_option": (
+            "RETRY_CURRENT" if args.residual_retry_baseline else None
+        ),
         "failure_threshold": failure_threshold,
         "checkpoint_failure_threshold": checkpoint_failure_threshold,
         "failure_threshold_override": args.failure_threshold,
@@ -171,7 +204,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     }
     return run_b(
         args,
-        identity=OURS_EVALUATION,
+        identity=(OURS_RESIDUAL_EVALUATION if args.residual_retry_baseline else OURS_EVALUATION),
+        stop_transition=(confirmed_stop_transition if args.residual_retry_baseline else None),
         proposal_transition=controller,
         manifest_extensions=manifest_extensions,
     )

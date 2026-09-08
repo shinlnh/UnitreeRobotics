@@ -2,7 +2,10 @@ import warnings
 
 import numpy as np
 
-from unitree_gr00t.ours_option_audit import summarize_option_predictions
+from unitree_gr00t.ours_option_audit import (
+    summarize_option_predictions,
+    summarize_residual_predictions,
+)
 
 
 def test_option_audit_reports_multiclass_and_accept_recover_errors() -> None:
@@ -79,3 +82,40 @@ def test_option_audit_calibrates_a_safe_recovery_margin() -> None:
     assert calibration["false_recovery_rate"] == 0.0
     assert calibration["true_recovery_rate"] == 1.0
     assert calibration["beneficial_recovery_rate"] == 1.0
+
+
+def test_residual_audit_calibrates_against_retry_on_confirmed_stops() -> None:
+    targets = np.asarray(
+        [
+            [1.0, 0.0, 3.0, -1.0, 0.0, 0.0],
+            [1.0, 0.0, 3.0, -1.0, 0.0, 0.0],
+            [3.0, 0.0, 1.0, -1.0, 2.0, 0.0],
+            [3.0, 0.0, 1.0, -1.0, 2.0, 0.0],
+        ],
+        dtype=np.float32,
+    )
+    valid = np.ones_like(targets, dtype=np.bool_)
+    predictions = np.asarray(
+        [
+            [0.0, 0.0, 0.0, -1.0, 0.3, 0.0],
+            [0.0, -0.1, 0.0, -1.0, -0.1, -0.1],
+            [0.0, 0.0, 0.0, -1.0, 0.5, 0.0],
+            [0.0, 0.0, 0.0, -1.0, 0.4, 0.0],
+        ],
+        dtype=np.float32,
+    )
+
+    result = summarize_residual_predictions(
+        targets,
+        valid,
+        predictions,
+        np=np,
+        max_false_recovery_rate=0.0,
+    )
+
+    assert result["baseline_option"] == "RETRY_CURRENT"
+    assert result["target_retry_states"] == 2
+    assert result["target_override_states"] == 2
+    assert np.isclose(result["selective_recovery"]["option_value_margin"], 0.4)
+    assert result["selective_recovery"]["false_recovery_rate"] == 0.0
+    assert result["selective_recovery"]["beneficial_recovery_rate"] == 1.0

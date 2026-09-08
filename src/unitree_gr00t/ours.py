@@ -336,7 +336,7 @@ def validate_recovery_config(config: Any) -> dict[str, Any]:
     all_seeds = train + development + (smoke, final)
     if (
         train != (10007, 11007, 12007)
-        or development != (20007, 21007)
+        or development != (20007, 21007, 22007, 23007)
         or smoke != 30007
         or final != 7
         or len(set(all_seeds)) != len(all_seeds)
