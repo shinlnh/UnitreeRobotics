@@ -88,6 +88,12 @@ def _parser() -> argparse.ArgumentParser:
         default=0.25,
         help="Fraction of each batch sampled from the optional live-rollout corpus",
     )
+    parser.add_argument(
+        "--option-batch-fraction",
+        type=float,
+        default=0.125,
+        help="Minimum batch fraction carrying counterfactual option supervision",
+    )
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=10007)
     return parser
@@ -369,10 +375,11 @@ def sample_training_ids(
     *,
     batch_size: int,
     live_batch_fraction: float,
+    option_batch_fraction: float = 0.0,
     generator: Any,
     np: Any,
 ) -> Any:
-    """Sample a repeatable demo-balanced batch with an optional live-rollout quota."""
+    """Sample a repeatable batch with live and counterfactual-label quotas."""
 
     live_count = (
         min(batch_size - 2, max(1, round(batch_size * live_batch_fraction)))
@@ -393,21 +400,30 @@ def sample_training_ids(
         generator.choice(demo_negative, size=negative_count, replace=True),
     )
     if live_count:
-        live_positive = corpus.live_ids[corpus.target_complete[corpus.live_ids]]
-        live_negative = corpus.live_ids[~corpus.target_complete[corpus.live_ids]]
-        if len(live_positive) and len(live_negative):
-            live_positive_count = live_count // 2
-            live_parts = (
-                generator.choice(live_positive, size=live_positive_count, replace=True),
-                generator.choice(
-                    live_negative,
-                    size=live_count - live_positive_count,
-                    replace=True,
-                ),
-            )
-            parts += live_parts
-        else:
-            parts += (generator.choice(corpus.live_ids, size=live_count, replace=True),)
+        option_ids = corpus.live_ids[corpus.target_option_valid[corpus.live_ids].sum(axis=1) >= 2]
+        option_count = (
+            min(live_count, max(1, round(batch_size * option_batch_fraction)))
+            if len(option_ids) and option_batch_fraction > 0.0
+            else 0
+        )
+        if option_count:
+            parts += (generator.choice(option_ids, size=option_count, replace=True),)
+        remaining_live = live_count - option_count
+        if remaining_live:
+            live_positive = corpus.live_ids[corpus.target_complete[corpus.live_ids]]
+            live_negative = corpus.live_ids[~corpus.target_complete[corpus.live_ids]]
+            if len(live_positive) and len(live_negative):
+                live_positive_count = remaining_live // 2
+                parts += (
+                    generator.choice(live_positive, size=live_positive_count, replace=True),
+                    generator.choice(
+                        live_negative,
+                        size=remaining_live - live_positive_count,
+                        replace=True,
+                    ),
+                )
+            else:
+                parts += (generator.choice(corpus.live_ids, size=remaining_live, replace=True),)
     ids = np.concatenate(parts)
     generator.shuffle(ids)
     return ids
@@ -652,6 +668,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         min(counts) <= 0
         or not 0.0 < args.max_false_positive_rate <= 0.05
         or not 0.0 <= args.live_batch_fraction < 1.0
+        or not 0.0 <= args.option_batch_fraction <= args.live_batch_fraction
     ):
         raise ValueError("Ours training counts or calibration limit are invalid")
     dataset = args.dataset.expanduser().resolve()
@@ -749,6 +766,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             corpus,
             batch_size=args.batch_size,
             live_batch_fraction=args.live_batch_fraction,
+            option_batch_fraction=args.option_batch_fraction,
             generator=generator,
             np=np,
         )
@@ -853,6 +871,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "live_training_samples": int(len(corpus.live_ids)),
         "live_batch_fraction": args.live_batch_fraction if additional_dataset else 0.0,
+        "option_batch_fraction": (
+            args.option_batch_fraction if additional_dataset is not None else 0.0
+        ),
         "selector_weights_sha256": manifest["selector_weights_sha256"],
         "a1_checkpoint_weight_shards_sha256": manifest["a1_checkpoint_weight_shards_sha256"],
         "seed": args.seed,
