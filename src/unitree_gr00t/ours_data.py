@@ -109,6 +109,8 @@ def audit_recovery_corpus(
     *,
     expected_selector_sha256: str | None = None,
     verify_hashes: bool = True,
+    require_development: bool = True,
+    require_both_completion_classes: bool = True,
 ) -> RecoveryCorpusAudit:
     """Verify identities, split isolation, inventories, and hashes for Ours data."""
 
@@ -154,7 +156,7 @@ def audit_recovery_corpus(
         raise OursContractError("Ours corpus split inventory is missing")
     train = {int(value) for value in split_episodes.get("train", [])}
     development = {int(value) for value in split_episodes.get("development", [])}
-    if not train or not development or train & development:
+    if not train or (require_development and not development) or train & development:
         raise OursContractError("Ours train/development episode splits overlap or are empty")
     counts = manifest.get("label_counts")
     if not isinstance(counts, dict):
@@ -162,7 +164,10 @@ def audit_recovery_corpus(
     negatives = int(counts.get("completion_negative", -1))
     positives = int(counts.get("completion_positive", -1))
     samples = int(manifest.get("samples", -1))
-    if min(negatives, positives) < 1 or negatives + positives != samples:
+    if (
+        min(negatives, positives) < int(require_both_completion_classes)
+        or negatives + positives != samples
+    ):
         raise OursContractError("Ours completion labels are degenerate or inconsistent")
 
     return RecoveryCorpusAudit(
