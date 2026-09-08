@@ -6,12 +6,12 @@ cd "${ROOT}"
 
 PYTHON_BIN="${PYTHON_BIN:-.upstream/Isaac-GR00T-N1.7/.venv/bin/python}"
 DEMO_DATASET="${DEMO_DATASET:-outputs/robocerebra/ctr-recovery-v1}"
-CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v4-multiseed}"
-ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-counterfactual-v4-multiseed}"
+CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v5-multiseed}"
+ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-counterfactual-v5-multiseed}"
 COUNTERFACTUAL_DATASETS=(
   "outputs/robocerebra/ctr-counterfactual-rollout-v3"
-  "outputs/robocerebra/ctr-counterfactual-rollout-v4-dense-seed11007"
-  "outputs/robocerebra/ctr-counterfactual-rollout-v4-dense-seed12007"
+  "outputs/robocerebra/ctr-counterfactual-rollout-v5-exhaustive-seed11007"
+  "outputs/robocerebra/ctr-counterfactual-rollout-v5-exhaustive-seed12007"
 )
 
 mkdir -p "${CHECKPOINT_ROOT}" "${ARTIFACT_ROOT}"
