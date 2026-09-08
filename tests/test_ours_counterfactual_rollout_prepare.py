@@ -10,6 +10,7 @@ from unitree_gr00t.ours_counterfactual_rollout_prepare import (
     _medoid_index,
     _selected_rollout_positions,
     _valid_options,
+    _validate_residual_source,
 )
 
 
@@ -126,3 +127,36 @@ def test_counterfactual_selection_can_focus_on_confirmed_stops() -> None:
         min_elapsed_steps=0,
         require_stop_pending=True,
     ) == {1, 3}
+
+
+def test_residual_source_requires_exact_abstaining_b_retry() -> None:
+    manifest = {
+        "base_seed": 10007,
+        "decision_schedule": "counterfactual-residual-over-b-retry-v1",
+        "residual_retry_baseline": True,
+        "retry": True,
+        "retry_contract": {
+            "trigger": "first-confirmed-stop-per-subtask",
+            "max_retries_per_subtask": 1,
+            "unconditional": True,
+            "preserve_global_step_budget": True,
+        },
+        "capture_training_context": True,
+        "collection_force_boundary_steps": None,
+        "stagnation_boundary_steps": None,
+        "option_value_margin": 1_000_000.0,
+    }
+    summary = {"total_recovery_triggers": 0}
+
+    _validate_residual_source(manifest, summary)
+    for key, value in (
+        ("capture_training_context", False),
+        ("collection_force_boundary_steps", 150),
+        ("option_value_margin", 999_999.0),
+    ):
+        invalid = dict(manifest)
+        invalid[key] = value
+        with pytest.raises(OursContractError, match="exact abstaining B-retry"):
+            _validate_residual_source(invalid, summary)
+    with pytest.raises(OursContractError, match="exact abstaining B-retry"):
+        _validate_residual_source(manifest, {"total_recovery_triggers": 1})

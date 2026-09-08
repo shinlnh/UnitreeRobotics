@@ -287,18 +287,24 @@ frozen as **counterfactual residual recovery over B-retry**:
 5. Re-observation and consensus consume the retry opportunity they replace;
    no override restores simulator state or extends the global step budget.
 
-Residual labels use only the already frozen training rollouts at seeds `10007`,
-`11007`, and `12007`.  Every eligible confirmed STOP is sampled with stride 1,
-at most eight states per episode, producing a pre-audited upper bound of 426
-states (363 + 41 + 22).  Each valid option gets the same 75-step/24-call
-continuation budget and then follows the exact B-retry transition rule, including
-one retry on every newly entered subtask.  A v6 collection was interrupted after
-490 branches when review found that `ADVANCE` and `BACKTRACK_ONE` continued with
-B rather than B-retry.  Corrected v7 was interrupted after 342 branches when
-review found that `CONSENSUS_PREFIX` sampled four fresh proposals instead of
-using the already-observed STOP proposal plus three fresh proposals as runtime
-does.  Neither v6 nor v7 labels are admissible for training.  V8 starts from
-empty destinations and matches both contracts.  The six low-capacity R0
+Residual labels use newly generated, exact B-retry-behavior rollouts at the
+registered training seeds `10007`, `11007`, and `12007`.  They run the residual
+controller with a margin of `1,000,000`, so the smoke-tested abstention path is
+byte-equivalent to B-retry; the source contract additionally requires zero
+recovery triggers, captured training context, and no forced or stagnation
+boundary.  Every eligible confirmed STOP is then sampled with stride 1 and at
+most eight states per episode.  Counts are audited after this on-policy source
+collection rather than fixed from the obsolete CTR distribution.  Each valid
+option gets the same 75-step/24-call continuation budget and then follows the
+exact B-retry transition rule, including one retry on every newly entered
+subtask.  A v6 collection was interrupted after 490 branches when review found
+that `ADVANCE` and `BACKTRACK_ONE` continued with B rather than B-retry.
+Corrected v7 was interrupted after 342 branches when review found that
+`CONSENSUS_PREFIX` sampled four fresh proposals instead of using the
+already-observed STOP proposal plus three fresh proposals as runtime does.
+Neither v6 nor v7 labels are admissible for training.  V8 starts from empty
+destinations, uses the on-policy sources, and matches both branch contracts.
+The six low-capacity R0
 architectures and all optimizer settings remain identical to v5; models are
 reranked only by held-out residual
 advantage against `RETRY_CURRENT`.  Within each architecture, validation

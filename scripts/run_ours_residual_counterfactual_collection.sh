@@ -59,8 +59,8 @@ if ! ss -ltn | grep -q ":${PORT} "; then
 fi
 
 for base_seed in 10007 11007 12007; do
-  source_rollout="outputs/robocerebra/ctr-live-rollouts-v1/train-seed${base_seed}-full-c1-H16"
-  source_corpus="outputs/robocerebra/ctr-live-corpus-v2/train-seed${base_seed}-full-c1-H16"
+  source_rollout="outputs/robocerebra/ctr-residual-rollouts-v1/train-seed${base_seed}-B-retry-H16"
+  source_corpus="outputs/robocerebra/ctr-residual-live-corpus-v1/train-seed${base_seed}-B-retry-H16"
   destination="outputs/robocerebra/ctr-counterfactual-rollout-v8-confirmed-seed${base_seed}"
   artifact_root="artifacts/Ours/counterfactual/R0-residual-v8-confirmed-seed${base_seed}"
   mkdir -p "${artifact_root}"

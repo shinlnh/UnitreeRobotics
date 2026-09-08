@@ -34,7 +34,16 @@ from .ours import OURS_ID, RECOVERY_OPTIONS, OursContractError, RecoveryOption
 from .ours_counterfactual import branch_payload, evaluate_counterfactual_rollouts
 from .ours_counterfactual_prepare import _set_trace_state
 from .ours_data import OURS_CORPUS_MANIFEST, audit_recovery_corpus
-from .ours_rollout_prepare import _episode_key, _read_jsonl, _save_episode, _write_json
+from .ours_rollout_prepare import (
+    _episode_key,
+    _read_jsonl,
+    _save_episode,
+    _write_json,
+)
+
+RESIDUAL_SOURCE_DECISION_SCHEDULE = "counterfactual-residual-over-b-retry-v1"
+RESIDUAL_SOURCE_ABSTENTION_MARGIN = 1_000_000.0
+RESIDUAL_SOURCE_SEEDS = frozenset({10007, 11007, 12007})
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -86,6 +95,34 @@ def _fresh_consensus_count(total_hypotheses: int) -> int:
     if total_hypotheses < 1:
         raise OursContractError("counterfactual consensus count must be positive")
     return total_hypotheses - 1
+
+
+def _validate_residual_source(
+    run_manifest: dict[str, Any], summary: dict[str, Any]
+) -> None:
+    """Reject any residual-label source that is not exact abstaining B-retry."""
+
+    retry_contract = run_manifest.get("retry_contract")
+    if (
+        run_manifest.get("base_seed") not in RESIDUAL_SOURCE_SEEDS
+        or run_manifest.get("decision_schedule") != RESIDUAL_SOURCE_DECISION_SCHEDULE
+        or run_manifest.get("residual_retry_baseline") is not True
+        or run_manifest.get("retry") is not True
+        or not isinstance(retry_contract, dict)
+        or retry_contract.get("trigger") != "first-confirmed-stop-per-subtask"
+        or retry_contract.get("max_retries_per_subtask") != 1
+        or retry_contract.get("unconditional") is not True
+        or retry_contract.get("preserve_global_step_budget") is not True
+        or run_manifest.get("capture_training_context") is not True
+        or run_manifest.get("collection_force_boundary_steps") is not None
+        or run_manifest.get("stagnation_boundary_steps") is not None
+        or run_manifest.get("option_value_margin")
+        != RESIDUAL_SOURCE_ABSTENTION_MARGIN
+        or summary.get("total_recovery_triggers") != 0
+    ):
+        raise OursContractError(
+            "residual counterfactual source is not exact abstaining B-retry"
+        )
 
 
 def _valid_options(
@@ -388,11 +425,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     base_seed = int(run_manifest["base_seed"])
     if (
         run_manifest.get("experiment_id") != OURS_ID
-        or base_seed not in {10007, 11007, 12007}
+        or base_seed not in RESIDUAL_SOURCE_SEEDS
         or not bool(summary.get("complete"))
         or source_manifest.get("rollout_run_manifest_sha256") != sha256_file(run_manifest_path)
     ):
         raise OursContractError("counterfactual source is not a complete paired train rollout")
+    if args.residual_retry_baseline:
+        _validate_residual_source(run_manifest, summary)
 
     np, bddl_utils, runtime = _configure_environment_imports(
         args.robocerebra_source.expanduser().resolve(), benchmark_dir
