@@ -52,8 +52,16 @@ The search is informed by, but must remain distinguishable from:
   failure action generator for negative diffusion guidance;
 - [FLARE](https://arxiv.org/abs/2608.26645), which combines retry augmentation,
   an online MLLM monitor, and a reset-skill library; and
+- [SAFE](https://arxiv.org/abs/2506.09937),
+  [Hide-and-Seek](https://arxiv.org/abs/2605.30834), and
+  [SAFECAST](https://arxiv.org/abs/2608.04246), which learn calibrated failure
+  detectors but do not directly learn CTR's bounded recovery-option values;
+- [FailSafe](https://arxiv.org/abs/2510.01642) and
+  [RepairVLA](https://openreview.net/pdf?id=b388d15b4ca665e9e03ce7c84942760c9dfcb044.pdf),
+  which use larger VLM-based diagnosis/repair systems and generated
+  failure-action supervision under different task protocols;
 - [SparkVLA](https://arxiv.org/abs/2608.16172), whose unified STOP/prefix
-  execution is already isolated as B; and
+  execution is already isolated as B;
 - [LIBERO-RECOVER](https://arxiv.org/abs/2609.05178), a complementary benchmark
   of naturally occurring recovery scenarios whose published model scores are
   not directly comparable to this repository's RoboCerebra protocol.
