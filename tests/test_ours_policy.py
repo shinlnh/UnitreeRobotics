@@ -164,6 +164,38 @@ def test_failure_onset_guard_defers_early_recovery() -> None:
     assert onset.recovery_triggered
 
 
+def test_learned_option_values_veto_harmful_recovery() -> None:
+    controller = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        use_option_values=True,
+        option_value_margin=0.1,
+    )
+    kwargs = {
+        "candidate": 0,
+        "action_chunk": np.ones((16, 7), dtype=np.float32),
+        "scores": np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        "valid": np.asarray([True, True, True] + [False] * 14),
+        "completion_probability": 0.1,
+        "progress_probability": 0.2,
+        "failure_probability": 0.9,
+        "np": np,
+    }
+    accept = controller.decide(
+        option_values=np.asarray([2.0, 0.0, 0.0, -1.0, 1.0, 0.5]),
+        **kwargs,
+    )
+    assert accept.candidate == 0
+    assert not accept.recovery_triggered
+
+    recover = controller.decide(
+        option_values=np.asarray([0.0, 0.0, 2.0, -1.0, 0.0, 1.0]),
+        **kwargs,
+    )
+    assert recover.candidate > 0
+    assert recover.recovery_triggered
+
+
 def test_selective_consensus_accepts_action_and_high_confidence_stop() -> None:
     controller = SelectiveConsensusRecovery(completion_threshold=0.8, consensus_hypotheses=4)
     chunk = np.zeros((16, 7), dtype=np.float32)

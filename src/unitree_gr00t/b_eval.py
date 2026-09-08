@@ -283,6 +283,7 @@ def _run_episode(
                 completion_probability=float(recovery_info["completion_probability"]),
                 progress_probability=float(recovery_info["progress_probability"]),
                 failure_probability=failure_probability,
+                option_values=option_values,
                 subgoal_elapsed_steps=step - subgoal_start_step,
                 subgoal_index=active_subgoal,
                 np=np,

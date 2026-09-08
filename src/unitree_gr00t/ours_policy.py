@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .ours import OursContractError, RecoveryOption
+from .ours import RECOVERY_OPTIONS, OursContractError, RecoveryOption
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,8 @@ class SelectiveConsensusRecovery:
         consensus_hypotheses: int,
         max_recovery_attempts: int = 1,
         min_recovery_elapsed_steps: int = 0,
+        use_option_values: bool = False,
+        option_value_margin: float = 0.0,
         failure_threshold: float = 0.5,
         consensus_cooldown_decisions: int = 16,
         force_boundary_steps: int | None = None,
@@ -49,6 +51,8 @@ class SelectiveConsensusRecovery:
             raise OursContractError("max recovery attempts must be one or two")
         if min_recovery_elapsed_steps < 0:
             raise OursContractError("minimum recovery elapsed steps cannot be negative")
+        if option_value_margin < 0.0:
+            raise OursContractError("option value margin cannot be negative")
         if not 0.0 <= failure_threshold <= 1.0:
             raise OursContractError("failure threshold must be inside [0, 1]")
         if consensus_cooldown_decisions < 0:
@@ -60,6 +64,8 @@ class SelectiveConsensusRecovery:
         self.consensus_hypotheses = consensus_hypotheses
         self.max_recovery_attempts = max_recovery_attempts
         self.min_recovery_elapsed_steps = min_recovery_elapsed_steps
+        self.use_option_values = use_option_values
+        self.option_value_margin = option_value_margin
         self.failure_threshold = failure_threshold
         self.consensus_cooldown_decisions = consensus_cooldown_decisions
         self.force_boundary_steps = force_boundary_steps
@@ -106,6 +112,7 @@ class SelectiveConsensusRecovery:
         completion_probability: float,
         progress_probability: float,
         failure_probability: float = 0.0,
+        option_values: Any | None = None,
         subgoal_elapsed_steps: int = 0,
         subgoal_index: int = 0,
         np: Any,
@@ -207,6 +214,36 @@ class SelectiveConsensusRecovery:
                 completion_probability=completion_probability,
                 progress_probability=progress_probability,
             )
+
+        if self.use_option_values:
+            values = np.asarray(option_values, dtype=np.float32)
+            if values.shape != (len(RECOVERY_OPTIONS),) or not np.isfinite(values).all():
+                raise OursContractError("learned recovery option values are invalid")
+            index = {option: RECOVERY_OPTIONS.index(option) for option in RECOVERY_OPTIONS}
+            accept_value = max(
+                float(values[index[RecoveryOption.ACCEPT_B]]),
+                float(values[index[RecoveryOption.ADVANCE]]),
+            )
+            recover_options = [
+                RecoveryOption.REOBSERVE,
+                RecoveryOption.RETRY_CURRENT,
+                RecoveryOption.CONSENSUS_PREFIX,
+            ]
+            if subgoal_index > 0:
+                recover_options.append(RecoveryOption.BACKTRACK_ONE)
+            recover_value = max(float(values[index[option]]) for option in recover_options)
+            if recover_value < accept_value + self.option_value_margin:
+                self._clear_proposals()
+                return RecoveryDirective(
+                    candidate=0,
+                    action_chunk=action_chunk,
+                    suppress_stop_confirmation=False,
+                    option=RecoveryOption.ACCEPT_B.value,
+                    recovery_triggered=False,
+                    hypothesis_count=1,
+                    completion_probability=completion_probability,
+                    progress_probability=progress_probability,
+                )
 
         self._proposals.append((action_chunk.copy(), scores.copy(), valid.copy()))
         if len(self._proposals) < self.consensus_hypotheses:

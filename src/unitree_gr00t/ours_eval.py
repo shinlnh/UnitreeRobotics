@@ -14,6 +14,7 @@ from .ours_train import inspect_recovery_checkpoint
 
 OURS_PAPER = "working-method-before-final-freeze"
 OURS_DECISION_SCHEDULE = "temporal-completion-gate-onset-bounded-consensus-v4"
+OURS_OPTION_DECISION_SCHEDULE = "counterfactual-value-selective-bounded-consensus-v5"
 OURS_EVALUATION = EvaluationIdentity(
     experiment_id=OURS_ID,
     variant=OURS_VARIANT,
@@ -54,6 +55,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--failure-threshold", type=float, default=0.5)
     parser.add_argument("--max-recovery-attempts", type=int, choices=(1, 2), default=1)
     parser.add_argument("--min-recovery-elapsed-steps", type=int, default=75)
+    parser.add_argument("--use-option-values", action="store_true")
+    parser.add_argument("--option-value-margin", type=float, default=0.0)
     parser.add_argument("--consensus-cooldown-decisions", type=int, default=16)
     parser.add_argument("--capture-training-context", action="store_true")
     parser.add_argument("--collection-force-boundary-steps", type=int)
@@ -82,6 +85,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         raise ValueError("consensus cooldown cannot be negative")
     if args.min_recovery_elapsed_steps < 0:
         raise ValueError("minimum recovery elapsed steps cannot be negative")
+    if args.option_value_margin < 0.0:
+        raise ValueError("option value margin cannot be negative")
     recovery_audit, recovery_provenance = inspect_recovery_checkpoint(args.recovery_checkpoint)
     metrics = recovery_provenance["development_metrics"]
     threshold_key = {
@@ -110,12 +115,16 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         consensus_hypotheses=args.consensus_hypotheses,
         max_recovery_attempts=args.max_recovery_attempts,
         min_recovery_elapsed_steps=args.min_recovery_elapsed_steps,
+        use_option_values=args.use_option_values,
+        option_value_margin=args.option_value_margin,
         failure_threshold=args.failure_threshold,
         consensus_cooldown_decisions=args.consensus_cooldown_decisions,
         force_boundary_steps=boundary_steps,
     )
     manifest_extensions = {
-        "decision_schedule": OURS_DECISION_SCHEDULE,
+        "decision_schedule": (
+            OURS_OPTION_DECISION_SCHEDULE if args.use_option_values else OURS_DECISION_SCHEDULE
+        ),
         "recovery_checkpoint": str(recovery_audit.checkpoint_dir),
         "recovery_weights_sha256": recovery_audit.weights_sha256,
         "recovery_provenance_sha256": recovery_audit.provenance_sha256,
@@ -130,6 +139,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "consensus_hypotheses": args.consensus_hypotheses,
         "max_recovery_attempts": args.max_recovery_attempts,
         "min_recovery_elapsed_steps": args.min_recovery_elapsed_steps,
+        "use_option_values": args.use_option_values,
+        "option_value_margin": args.option_value_margin,
         "failure_threshold": args.failure_threshold,
         "consensus_cooldown_decisions": args.consensus_cooldown_decisions,
         "recovery_checkpoint_stage": recovery_provenance["stage"],
