@@ -4,7 +4,10 @@ import numpy as np
 import pytest
 
 from unitree_gr00t.ours import OursContractError, RecoveryOption
-from unitree_gr00t.ours_counterfactual import evaluate_counterfactual_options
+from unitree_gr00t.ours_counterfactual import (
+    evaluate_counterfactual_options,
+    evaluate_counterfactual_rollouts,
+)
 
 
 class _State:
@@ -79,6 +82,7 @@ def test_counterfactual_options_branch_and_restore_exact_state() -> None:
     )
     assert [branch.option for branch in branches] == ["ACCEPT_B", "CONSENSUS_PREFIX"]
     assert branches[1].return_value > branches[0].return_value
+    assert branches[1].policy_calls == 0
     assert env.sim.value.tolist() == [0.0, 0.0]
     assert env.timestep == 0
 
@@ -94,3 +98,26 @@ def test_counterfactual_options_reject_final_seed() -> None:
             state_index=0,
             np=np,
         )
+
+
+def test_counterfactual_policy_rollouts_restore_same_state() -> None:
+    env = _Env()
+
+    def advance(_observation: object, _seed: int) -> tuple[int, int]:
+        env.step(np.asarray([2.0], dtype=np.float32))
+        return 1, 3
+
+    branches = evaluate_counterfactual_rollouts(
+        env,
+        goal={"object": [["reached", "target"]]},
+        option_rollouts={RecoveryOption.RETRY_CURRENT: advance},
+        completed_subtasks_before=0,
+        base_seed=10007,
+        state_index=4,
+        np=np,
+    )
+
+    assert env.sim.get_state().flatten().tolist() == [0.0, 0.0]
+    assert branches[0].executed_steps == 1
+    assert branches[0].policy_calls == 3
+    assert branches[0].return_value > 0.0

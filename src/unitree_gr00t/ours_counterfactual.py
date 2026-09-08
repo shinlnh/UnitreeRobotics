@@ -27,6 +27,7 @@ class CounterfactualBranch:
     option: str
     branch_seed: int
     executed_steps: int
+    policy_calls: int
     completed_subtasks_before: int
     completed_subtasks_after: int
     predicate_count_before: int
@@ -174,6 +175,7 @@ def evaluate_counterfactual_options(
                     option=option.value,
                     branch_seed=branch_seed,
                     executed_steps=executed_steps,
+                    policy_calls=0,
                     completed_subtasks_before=completed_subtasks_before,
                     completed_subtasks_after=int(completed_after),
                     predicate_count_before=predicate_before,
@@ -189,7 +191,79 @@ def evaluate_counterfactual_options(
     mismatches = snapshot_mismatches(snapshot, restored, np)
     if mismatches:
         raise OursContractError(
-            "counterfactual simulator restore did not replay exactly: " + ", ".join(mismatches)
+            "counterfactual simulator restore exceeded tolerance: " + ", ".join(mismatches)
+        )
+    return tuple(branches)
+
+
+def evaluate_counterfactual_rollouts(
+    env: Any,
+    *,
+    goal: dict[str, list[list[str]]],
+    option_rollouts: dict[RecoveryOption | str, Any],
+    completed_subtasks_before: int,
+    base_seed: int,
+    state_index: int,
+    np: Any,
+) -> tuple[CounterfactualBranch, ...]:
+    """Evaluate closed-loop option callbacks from one restored training state."""
+
+    if base_seed not in {10007, 11007, 12007}:
+        raise OursContractError("counterfactual branches are restricted to frozen train seeds")
+    if state_index < 0 or completed_subtasks_before < 0 or not option_rollouts:
+        raise OursContractError("counterfactual rollout state is invalid")
+    snapshot = capture_simulator_snapshot(env)
+    predicate_before = _predicate_count(env, goal)
+    branches: list[CounterfactualBranch] = []
+    try:
+        for option_index, (raw_option, rollout) in enumerate(option_rollouts.items()):
+            option = RecoveryOption(raw_option)
+            branch_seed = counterfactual_branch_seed(
+                base_seed,
+                state_index,
+                option,
+                option_index,
+            )
+            random.seed(branch_seed)
+            np.random.seed(branch_seed)
+            observation = restore_simulator_snapshot(env, snapshot)
+            result = rollout(observation, branch_seed)
+            if not isinstance(result, tuple) or len(result) != 2 or min(result) < 0:
+                raise OursContractError("counterfactual rollout returned invalid cost counts")
+            executed_steps, policy_calls = (int(value) for value in result)
+            _, completed_after, final_success = env._check_success(goal)
+            predicate_after = _predicate_count(env, goal)
+            state_after = capture_simulator_snapshot(env)
+            progress_gain = int(completed_after) - completed_subtasks_before
+            predicate_gain = predicate_after - predicate_before
+            return_value = (
+                8.0 * progress_gain
+                + 16.0 * int(bool(final_success))
+                + float(predicate_gain)
+                - 0.002 * executed_steps
+                - 0.01 * policy_calls
+            )
+            branches.append(
+                CounterfactualBranch(
+                    option=option.value,
+                    branch_seed=branch_seed,
+                    executed_steps=executed_steps,
+                    policy_calls=policy_calls,
+                    completed_subtasks_before=completed_subtasks_before,
+                    completed_subtasks_after=int(completed_after),
+                    predicate_count_before=predicate_before,
+                    predicate_count_after=predicate_after,
+                    final_success=bool(final_success),
+                    return_value=return_value,
+                    final_state_sha256=snapshot_sha256(state_after, np),
+                )
+            )
+    finally:
+        restore_simulator_snapshot(env, snapshot)
+    mismatches = snapshot_mismatches(snapshot, capture_simulator_snapshot(env), np)
+    if mismatches:
+        raise OursContractError(
+            "counterfactual simulator restore exceeded tolerance: " + ", ".join(mismatches)
         )
     return tuple(branches)
 
