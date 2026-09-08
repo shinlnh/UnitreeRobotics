@@ -1,11 +1,36 @@
 import warnings
+from hashlib import sha256
 
 import numpy as np
 
 from unitree_gr00t.ours_option_audit import (
+    bound_counterfactual_datasets,
     summarize_option_predictions,
     summarize_residual_predictions,
 )
+
+
+def test_option_audit_binds_counterfactual_manifest_hashes(tmp_path) -> None:
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    manifest = corpus / "manifest.json"
+    manifest.write_text("{}", encoding="utf-8")
+    provenance = {
+        "additional_train_datasets": [str(corpus)],
+        "additional_train_dataset_manifests_sha256": [
+            sha256(manifest.read_bytes()).hexdigest()
+        ],
+    }
+
+    assert bound_counterfactual_datasets(provenance) == [corpus.resolve()]
+    manifest.write_text('{"mutated": true}', encoding="utf-8")
+    with np.testing.assert_raises_regex(ValueError, "manifest hash mismatch"):
+        bound_counterfactual_datasets(provenance)
+
+
+def test_option_audit_rejects_incomplete_dataset_provenance() -> None:
+    with np.testing.assert_raises_regex(ValueError, "provenance is incomplete"):
+        bound_counterfactual_datasets({"additional_train_datasets": ["missing"]})
 
 
 def test_option_audit_reports_multiclass_and_accept_recover_errors() -> None:

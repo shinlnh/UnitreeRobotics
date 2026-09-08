@@ -8,7 +8,9 @@ import os
 from pathlib import Path
 from typing import Any
 
+from .a1 import sha256_file
 from .ours import RECOVERY_OPTIONS
+from .ours_data import OURS_CORPUS_MANIFEST
 from .ours_model import TemporalRecoveryModelConfig, build_temporal_recovery_model
 
 
@@ -24,6 +26,39 @@ def _parser() -> argparse.ArgumentParser:
         help="Calibrate alternatives against RETRY_CURRENT on confirmed STOPs",
     )
     return parser
+
+
+def bound_counterfactual_datasets(provenance: dict[str, Any]) -> list[Path]:
+    """Resolve only counterfactual corpora byte-bound by checkpoint provenance."""
+
+    raw_paths = provenance.get("additional_train_datasets") or (
+        [provenance["additional_train_dataset"]]
+        if provenance.get("additional_train_dataset")
+        else []
+    )
+    expected_hashes = provenance.get("additional_train_dataset_manifests_sha256") or (
+        [provenance["additional_train_dataset_manifest_sha256"]]
+        if provenance.get("additional_train_dataset_manifest_sha256")
+        else []
+    )
+    paths = [Path(path).expanduser().resolve() for path in raw_paths]
+    if (
+        not paths
+        or len(paths) != len(expected_hashes)
+        or len(set(paths)) != len(paths)
+    ):
+        raise ValueError("checkpoint counterfactual dataset provenance is incomplete")
+    for path, expected_hash in zip(paths, expected_hashes, strict=True):
+        manifest_path = path / OURS_CORPUS_MANIFEST
+        if (
+            not isinstance(expected_hash, str)
+            or not manifest_path.is_file()
+            or sha256_file(manifest_path) != expected_hash
+        ):
+            raise ValueError(
+                f"checkpoint counterfactual manifest hash mismatch: {manifest_path}"
+            )
+    return paths
 
 
 def summarize_option_predictions(
@@ -383,13 +418,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     for checkpoint in checkpoints:
         audit, provenance = inspect_recovery_checkpoint(checkpoint)
         config = TemporalRecoveryModelConfig(**provenance["model"])
-        additional_paths = provenance.get("additional_train_datasets") or []
-        if not additional_paths and provenance.get("additional_train_dataset"):
-            additional_paths = [provenance["additional_train_dataset"]]
-        if not additional_paths:
-            raise ValueError(f"checkpoint lacks counterfactual training data: {checkpoint}")
+        additional_paths = bound_counterfactual_datasets(provenance)
         additional_corpora = [
-            load_corpus(Path(path), config.history_length, np) for path in additional_paths
+            load_corpus(path, config.history_length, np) for path in additional_paths
         ]
         model = build_temporal_recovery_model(config).to(args.device)
         model.load_state_dict(load_file(checkpoint / "model.safetensors", device=args.device))
