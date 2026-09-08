@@ -1,0 +1,497 @@
+{"step": 1, "learning_rate": 9.999975326009293e-07, "train_loss": 3.078223705291748, "train_completion_loss": 0.7771933674812317, "train_progress_loss": 0.09498422592878342, "train_failure_loss": 0.6979525089263916, "train_option_value_loss": 0.21737512946128845, "train_option_rank_loss": 0.2922225296497345, "train_option_classification_loss": 1.7622767686843872, "gradient_norm": 10.602295875549316, "development": {"samples": 19980, "completion_threshold": 0.80859375, "completion": {"false_positive_rate": 0.048446374874707654, "true_positive_rate": 0.024192526915769473, "precision": 0.3970893970893971, "accuracy": 0.4241048915784165}, "progress_gate_threshold": 0.67578125, "progress_completion": {"false_positive_rate": 0.048446374874707654, "true_positive_rate": 0.02089930335655478, "precision": 0.3626373626373626, "accuracy": 0.4222318276781212}, "maximum_gate_threshold": 0.80859375, "maximum_completion": {"false_positive_rate": 0.04861343133979285, "true_positive_rate": 0.024445851804939835, "precision": 0.3987603305785124, "accuracy": 0.42417693249765864}, "brier": 0.2947421669960022, "ece_15": 0.2068886706197226, "progress_mae": 0.39241403341293335, "failure_threshold": null, "failure": null, "b_stop_proposals": 13881, "b_false_stop_proposals": 5986, "b_true_stop_proposals": 7895, "gated_false_stops": 290, "gated_true_stops": 191}, "residual_option_validation": {"labeled_states": 29, "strict_states": 4, "baseline_option": "RETRY_CURRENT", "override_options": ["REOBSERVE", "BACKTRACK_ONE", "ADVANCE", "CONSENSUS_PREFIX"], "target_retry_states": 25, "target_tie_states": 25, "target_override_states": 4, "raw_false_recovery_rate": 0.56, "raw_recovery_rate": 0.75, "selective_recovery": {"max_false_recovery_rate": 0.05, "option_value_margin": 1.2412110567092896, "false_recovery_rate": 0.0, "true_recovery_rate": 0.0, "beneficial_recovery_rate": 0.0, "accuracy": 0.8620689655172413, "mean_decision_regret": 0.4137931168079376}}, "elapsed_seconds": 0.9233538490079809}
+{"step": 250, "learning_rate": 8.535533905932738e-05, "train_loss": 1.014230489730835, "train_completion_loss": 0.37776219844818115, "train_progress_loss": 0.05237044394016266, "train_failure_loss": 0.4243399202823639, "train_option_value_loss": 0.26466768980026245, "train_option_rank_loss": 0.04320277273654938, "train_option_classification_loss": 0.33466047048568726, "gradient_norm": 1.7514207363128662, "development": {"samples": 19980, "completion_threshold": 0.77734375, "completion": {"false_positive_rate": 0.046608753758770466, "true_positive_rate": 0.16719442685243824, "precision": 0.8255159474671669, "accuracy": 0.5062315395144442}, "progress_gate_threshold": 0.8671875, "progress_completion": {"false_positive_rate": 0.040928833945873704, "true_positive_rate": 0.037112096263457885, "precision": 0.5446096654275093, "accuracy": 0.43469490670700955}, "maximum_gate_threshold": 0.8671875, "maximum_completion": {"false_positive_rate": 0.04276645506181089, "true_positive_rate": 0.048258391386953765, "precision": 0.598116169544741, "accuracy": 0.4402420574886536}, "brier": 0.16675612330436707, "ece_15": 0.04545275207470965, "progress_mae": 0.27863553166389465, "failure_threshold": null, "failure": null, "b_stop_proposals": 13881, "b_false_stop_proposals": 5986, "b_true_stop_proposals": 7895, "gated_false_stops": 279, "gated_true_stops": 1320}, "residual_option_validation": {"labeled_states": 29, "strict_states": 4, "baseline_option": "RETRY_CURRENT", "override_options": ["REOBSERVE", "BACKTRACK_ONE", "ADVANCE", "CONSENSUS_PREFIX"], "target_retry_states": 25, "target_tie_states": 25, "target_override_states": 4, "raw_false_recovery_rate": 0.92, "raw_recovery_rate": 1.0, "selective_recovery": {"max_false_recovery_rate": 0.05, "option_value_margin": 2.437500238418579, "false_recovery_rate": 0.0, "true_recovery_rate": 0.0, "beneficial_recovery_rate": 0.0, "accuracy": 0.8620689655172413, "mean_decision_regret": 0.4137931168079376}}, "elapsed_seconds": 3.066391830012435}
+{"step": 500, "learning_rate": 5e-05, "train_loss": 0.7555359601974487, "train_completion_loss": 0.29447853565216064, "train_progress_loss": 0.04607465863227844, "train_failure_loss": 0.35557112097740173, "train_option_value_loss": 0.34108594059944153, "train_option_rank_loss": 0.040707413107156754, "train_option_classification_loss": 0.1929117888212204, "gradient_norm": 1.500921368598938, "development": {"samples": 19980, "completion_threshold": 0.83984375, "completion": {"false_positive_rate": 0.04610758436351487, "true_positive_rate": 0.2111462951234959, "precision": 0.8579516212043232, "accuracy": 0.5314458612491896}, "progress_gate_threshold": 0.890625, "progress_completion": {"false_positive_rate": 0.04376879385232209, "true_positive_rate": 0.062317922735908804, "precision": 0.6525198938992043, "accuracy": 0.44780635400907715}, "maximum_gate_threshold": 0.890625, "maximum_completion": {"false_positive_rate": 0.049448713665218844, "true_positive_rate": 0.10120329322355921, "precision": 0.7296803652968037, "accuracy": 0.46747352496217853}, "brier": 0.14427457749843597, "ece_15": 0.0391863168111897, "progress_mae": 0.24728016555309296, "failure_threshold": null, "failure": null, "b_stop_proposals": 13881, "b_false_stop_proposals": 5986, "b_true_stop_proposals": 7895, "gated_false_stops": 276, "gated_true_stops": 1667}, "residual_option_validation": {"labeled_states": 29, "strict_states": 4, "baseline_option": "RETRY_CURRENT", "override_options": ["REOBSERVE", "BACKTRACK_ONE", "ADVANCE", "CONSENSUS_PREFIX"], "target_retry_states": 25, "target_tie_states": 25, "target_override_states": 4, "raw_false_recovery_rate": 0.8, "raw_recovery_rate": 1.0, "selective_recovery": {"max_false_recovery_rate": 0.05, "option_value_margin": 2.662842035293579, "false_recovery_rate": 0.0, "true_recovery_rate": 0.0, "beneficial_recovery_rate": 0.0, "accuracy": 0.8620689655172413, "mean_decision_regret": 0.4137931168079376}}, "elapsed_seconds": 5.680278523999732}
+{"step": 750, "learning_rate": 1.4644660940672627e-05, "train_loss": 0.7653588652610779, "train_completion_loss": 0.3633405864238739, "train_progress_loss": 0.04539927467703819, "train_failure_loss": 0.30951160192489624, "train_option_value_loss": 0.31018388271331787, "train_option_rank_loss": 0.01541055180132389, "train_option_classification_loss": 0.1669921875, "gradient_norm": 1.8322792053222656, "development": {"samples": 19980, "completion_threshold": 0.86328125, "completion": {"false_positive_rate": 0.045940527898429666, "true_positive_rate": 0.21925269157694743, "precision": 0.8629112662013958, "accuracy": 0.5361285209999279}, "progress_gate_threshold": 0.8984375, "progress_completion": {"false_positive_rate": 0.04460407617774808, "true_positive_rate": 0.06383787207093097, "precision": 0.6536964980544747, "accuracy": 0.44831064044377206}, "maximum_gate_threshold": 0.90234375, "maximum_completion": {"false_positive_rate": 0.04543935850317407, "true_positive_rate": 0.10677644078530715, "precision": 0.7560538116591928, "accuracy": 0.47237230747064335}, "brier": 0.14058293402194977, "ece_15": 0.04362279634113545, "progress_mae": 0.23725493252277374, "failure_threshold": null, "failure": null, "b_stop_proposals": 13881, "b_false_stop_proposals": 5986, "b_true_stop_proposals": 7895, "gated_false_stops": 275, "gated_true_stops": 1731}, "residual_option_validation": {"labeled_states": 29, "strict_states": 4, "baseline_option": "RETRY_CURRENT", "override_options": ["REOBSERVE", "BACKTRACK_ONE", "ADVANCE", "CONSENSUS_PREFIX"], "target_retry_states": 25, "target_tie_states": 25, "target_override_states": 4, "raw_false_recovery_rate": 0.88, "raw_recovery_rate": 1.0, "selective_recovery": {"max_false_recovery_rate": 0.05, "option_value_margin": 2.582031488418579, "false_recovery_rate": 0.0, "true_recovery_rate": 0.0, "beneficial_recovery_rate": 0.0, "accuracy": 0.8620689655172413, "mean_decision_regret": 0.4137931168079376}}, "elapsed_seconds": 8.063809753002715}
+{"step": 1000, "learning_rate": 0.0, "train_loss": 0.8020633459091187, "train_completion_loss": 0.32960981130599976, "train_progress_loss": 0.04306897893548012, "train_failure_loss": 0.39255884289741516, "train_option_value_loss": 0.3036500811576843, "train_option_rank_loss": 0.042824484407901764, "train_option_classification_loss": 0.1920340359210968, "gradient_norm": 1.5226995944976807, "development": {"samples": 19980, "completion_threshold": 0.86328125, "completion": {"false_positive_rate": 0.048446374874707654, "true_positive_rate": 0.22495250158328056, "precision": 0.8596321393998064, "accuracy": 0.5382897485771918}, "progress_gate_threshold": 0.8984375, "progress_completion": {"false_positive_rate": 0.046608753758770466, "true_positive_rate": 0.0681443951868271, "precision": 0.6585067319461444, "accuracy": 0.4498955406670989}, "maximum_gate_threshold": 0.90234375, "maximum_completion": {"false_positive_rate": 0.047611092549281656, "true_positive_rate": 0.11336288790373654, "precision": 0.7584745762711864, "accuracy": 0.4751819033210864}, "brier": 0.1395983099937439, "ece_15": 0.04101978787468063, "progress_mae": 0.23586241900920868, "failure_threshold": null, "failure": null, "b_stop_proposals": 13881, "b_false_stop_proposals": 5986, "b_true_stop_proposals": 7895, "gated_false_stops": 290, "gated_true_stops": 1776}, "residual_option_validation": {"labeled_states": 29, "strict_states": 4, "baseline_option": "RETRY_CURRENT", "override_options": ["REOBSERVE", "BACKTRACK_ONE", "ADVANCE", "CONSENSUS_PREFIX"], "target_retry_states": 25, "target_tie_states": 25, "target_override_states": 4, "raw_false_recovery_rate": 0.84, "raw_recovery_rate": 1.0, "selective_recovery": {"max_false_recovery_rate": 0.05, "option_value_margin": 2.508545160293579, "false_recovery_rate": 0.0, "true_recovery_rate": 0.0, "beneficial_recovery_rate": 0.0, "accuracy": 0.8620689655172413, "mean_decision_regret": 0.4137931168079376}}, "elapsed_seconds": 10.715699463005876}
+{
+  "schema_version": 1,
+  "experiment_id": "Ours",
+  "variant": "GR00T-RC-SparkVLA-counterfactual-temporal-recovery",
+  "method": "counterfactual-temporal-recovery",
+  "parent_experiment": "B",
+  "stage": "R0-counterfactual-option-distillation",
+  "model": {
+    "encoder": "linear",
+    "history_length": 4,
+    "context_width": 2048,
+    "action_horizon": 16,
+    "action_dim": 7,
+    "selector_candidates": 17,
+    "scalar_width": 6,
+    "temporal_width": 32,
+    "temporal_layers": 1,
+    "temporal_heads": 4,
+    "feedforward_width": 128,
+    "dropout": 0.25,
+    "option_count": 6
+  },
+  "parameter_count": 145403,
+  "dataset": "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-recovery-v1",
+  "dataset_manifest_sha256": "7c158bdc007cb5ac25995f119894d7457cd4f7ed9bf7bdc7aa850aed41865a1a",
+  "additional_train_dataset": null,
+  "additional_train_dataset_manifest_sha256": null,
+  "additional_train_datasets": [
+    "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-counterfactual-rollout-v9-outcome-first-seed10007",
+    "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-counterfactual-rollout-v9-outcome-first-seed11007",
+    "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-counterfactual-rollout-v9-outcome-first-seed12007"
+  ],
+  "additional_train_dataset_manifests_sha256": [
+    "0ff983b6fdca787a1055220ef3c8e1fb152cf9ed8e41e31fc9451f14fb4032ac",
+    "3206d44b1e3eb53935cdd0668318271bd0105cba63d5ac92816ddef6013732d3",
+    "8a4e374e2872e4f20bc1b2c855961cb85d21f028bf3f78717456318242c96146"
+  ],
+  "live_training_samples": 8550,
+  "counterfactual_training_states": 160,
+  "live_batch_fraction": 0.5,
+  "option_batch_fraction": 0.25,
+  "option_value_weight": 0.1,
+  "option_rank_weight": 0.25,
+  "option_classification_weight": 1.0,
+  "residual_option_advantages": true,
+  "option_value_baseline": "RETRY_CURRENT",
+  "option_sampling": "balanced-residual-override-and-retry-tie-v1",
+  "selector_weights_sha256": "88a05811257384bbba867169b72103d3bc1e118f5813a9d6c4f4713b274e1f16",
+  "a1_checkpoint_weight_shards_sha256": {
+    "model-00001-of-00002.safetensors": "d273ca475107b081cb91ecb4f555b6ac46692ba0d8c337935c00a03dc889b973",
+    "model-00002-of-00002.safetensors": "244a7ea7e7b2510a31cad92a805f59651301277a9e36508f863012bde49ed4aa"
+  },
+  "seed": 10007,
+  "steps": 1000,
+  "batch_size": 128,
+  "learning_rate": 0.0001,
+  "weight_decay": 0.1,
+  "max_false_positive_rate": 0.05,
+  "checkpoint_selection": "residual",
+  "failure_calibration_scope": "held-out episodes from train base seeds",
+  "selection_rule": "max beneficial residual recovery at false override<=limit, then recovery recall, min regret, completion TPR, min Brier, earliest tie",
+  "selected_step": 1000,
+  "development_metrics": {
+    "samples": 19980,
+    "completion_threshold": 0.86328125,
+    "completion": {
+      "false_positive_rate": 0.048446374874707654,
+      "true_positive_rate": 0.22495250158328056,
+      "precision": 0.8596321393998064,
+      "accuracy": 0.5382897485771918
+    },
+    "progress_gate_threshold": 0.8984375,
+    "progress_completion": {
+      "false_positive_rate": 0.046608753758770466,
+      "true_positive_rate": 0.0681443951868271,
+      "precision": 0.6585067319461444,
+      "accuracy": 0.4498955406670989
+    },
+    "maximum_gate_threshold": 0.90234375,
+    "maximum_completion": {
+      "false_positive_rate": 0.047611092549281656,
+      "true_positive_rate": 0.11336288790373654,
+      "precision": 0.7584745762711864,
+      "accuracy": 0.4751819033210864
+    },
+    "brier": 0.1395983099937439,
+    "ece_15": 0.04101978787468063,
+    "progress_mae": 0.23586241900920868,
+    "failure_threshold": 0.671875,
+    "failure": {
+      "false_positive_rate": 0.04892086330935252,
+      "true_positive_rate": 0.5024469820554649,
+      "precision": 0.8191489361702128,
+      "accuracy": 0.8137793310034948
+    },
+    "b_stop_proposals": 13881,
+    "b_false_stop_proposals": 5986,
+    "b_true_stop_proposals": 7895,
+    "gated_false_stops": 290,
+    "gated_true_stops": 1776,
+    "residual_option_validation": {
+      "labeled_states": 29,
+      "strict_states": 4,
+      "baseline_option": "RETRY_CURRENT",
+      "override_options": [
+        "REOBSERVE",
+        "BACKTRACK_ONE",
+        "ADVANCE",
+        "CONSENSUS_PREFIX"
+      ],
+      "target_retry_states": 25,
+      "target_tie_states": 25,
+      "target_override_states": 4,
+      "raw_false_recovery_rate": 0.84,
+      "raw_recovery_rate": 1.0,
+      "selective_recovery": {
+        "max_false_recovery_rate": 0.05,
+        "option_value_margin": 2.508545160293579,
+        "false_recovery_rate": 0.0,
+        "true_recovery_rate": 0.0,
+        "beneficial_recovery_rate": 0.0,
+        "accuracy": 0.8620689655172413,
+        "mean_decision_regret": 0.4137931168079376
+      }
+    },
+    "failure_calibration_samples": 2003
+  },
+  "training_log": [
+    {
+      "step": 1,
+      "learning_rate": 9.999975326009293e-07,
+      "train_loss": 3.078223705291748,
+      "train_completion_loss": 0.7771933674812317,
+      "train_progress_loss": 0.09498422592878342,
+      "train_failure_loss": 0.6979525089263916,
+      "train_option_value_loss": 0.21737512946128845,
+      "train_option_rank_loss": 0.2922225296497345,
+      "train_option_classification_loss": 1.7622767686843872,
+      "gradient_norm": 10.602295875549316,
+      "development": {
+        "samples": 19980,
+        "completion_threshold": 0.80859375,
+        "completion": {
+          "false_positive_rate": 0.048446374874707654,
+          "true_positive_rate": 0.024192526915769473,
+          "precision": 0.3970893970893971,
+          "accuracy": 0.4241048915784165
+        },
+        "progress_gate_threshold": 0.67578125,
+        "progress_completion": {
+          "false_positive_rate": 0.048446374874707654,
+          "true_positive_rate": 0.02089930335655478,
+          "precision": 0.3626373626373626,
+          "accuracy": 0.4222318276781212
+        },
+        "maximum_gate_threshold": 0.80859375,
+        "maximum_completion": {
+          "false_positive_rate": 0.04861343133979285,
+          "true_positive_rate": 0.024445851804939835,
+          "precision": 0.3987603305785124,
+          "accuracy": 0.42417693249765864
+        },
+        "brier": 0.2947421669960022,
+        "ece_15": 0.2068886706197226,
+        "progress_mae": 0.39241403341293335,
+        "failure_threshold": null,
+        "failure": null,
+        "b_stop_proposals": 13881,
+        "b_false_stop_proposals": 5986,
+        "b_true_stop_proposals": 7895,
+        "gated_false_stops": 290,
+        "gated_true_stops": 191
+      },
+      "residual_option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.56,
+        "raw_recovery_rate": 0.75,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 1.2412110567092896,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "elapsed_seconds": 0.9233538490079809
+    },
+    {
+      "step": 250,
+      "learning_rate": 8.535533905932738e-05,
+      "train_loss": 1.014230489730835,
+      "train_completion_loss": 0.37776219844818115,
+      "train_progress_loss": 0.05237044394016266,
+      "train_failure_loss": 0.4243399202823639,
+      "train_option_value_loss": 0.26466768980026245,
+      "train_option_rank_loss": 0.04320277273654938,
+      "train_option_classification_loss": 0.33466047048568726,
+      "gradient_norm": 1.7514207363128662,
+      "development": {
+        "samples": 19980,
+        "completion_threshold": 0.77734375,
+        "completion": {
+          "false_positive_rate": 0.046608753758770466,
+          "true_positive_rate": 0.16719442685243824,
+          "precision": 0.8255159474671669,
+          "accuracy": 0.5062315395144442
+        },
+        "progress_gate_threshold": 0.8671875,
+        "progress_completion": {
+          "false_positive_rate": 0.040928833945873704,
+          "true_positive_rate": 0.037112096263457885,
+          "precision": 0.5446096654275093,
+          "accuracy": 0.43469490670700955
+        },
+        "maximum_gate_threshold": 0.8671875,
+        "maximum_completion": {
+          "false_positive_rate": 0.04276645506181089,
+          "true_positive_rate": 0.048258391386953765,
+          "precision": 0.598116169544741,
+          "accuracy": 0.4402420574886536
+        },
+        "brier": 0.16675612330436707,
+        "ece_15": 0.04545275207470965,
+        "progress_mae": 0.27863553166389465,
+        "failure_threshold": null,
+        "failure": null,
+        "b_stop_proposals": 13881,
+        "b_false_stop_proposals": 5986,
+        "b_true_stop_proposals": 7895,
+        "gated_false_stops": 279,
+        "gated_true_stops": 1320
+      },
+      "residual_option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.92,
+        "raw_recovery_rate": 1.0,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 2.437500238418579,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "elapsed_seconds": 3.066391830012435
+    },
+    {
+      "step": 500,
+      "learning_rate": 5e-05,
+      "train_loss": 0.7555359601974487,
+      "train_completion_loss": 0.29447853565216064,
+      "train_progress_loss": 0.04607465863227844,
+      "train_failure_loss": 0.35557112097740173,
+      "train_option_value_loss": 0.34108594059944153,
+      "train_option_rank_loss": 0.040707413107156754,
+      "train_option_classification_loss": 0.1929117888212204,
+      "gradient_norm": 1.500921368598938,
+      "development": {
+        "samples": 19980,
+        "completion_threshold": 0.83984375,
+        "completion": {
+          "false_positive_rate": 0.04610758436351487,
+          "true_positive_rate": 0.2111462951234959,
+          "precision": 0.8579516212043232,
+          "accuracy": 0.5314458612491896
+        },
+        "progress_gate_threshold": 0.890625,
+        "progress_completion": {
+          "false_positive_rate": 0.04376879385232209,
+          "true_positive_rate": 0.062317922735908804,
+          "precision": 0.6525198938992043,
+          "accuracy": 0.44780635400907715
+        },
+        "maximum_gate_threshold": 0.890625,
+        "maximum_completion": {
+          "false_positive_rate": 0.049448713665218844,
+          "true_positive_rate": 0.10120329322355921,
+          "precision": 0.7296803652968037,
+          "accuracy": 0.46747352496217853
+        },
+        "brier": 0.14427457749843597,
+        "ece_15": 0.0391863168111897,
+        "progress_mae": 0.24728016555309296,
+        "failure_threshold": null,
+        "failure": null,
+        "b_stop_proposals": 13881,
+        "b_false_stop_proposals": 5986,
+        "b_true_stop_proposals": 7895,
+        "gated_false_stops": 276,
+        "gated_true_stops": 1667
+      },
+      "residual_option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.8,
+        "raw_recovery_rate": 1.0,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 2.662842035293579,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "elapsed_seconds": 5.680278523999732
+    },
+    {
+      "step": 750,
+      "learning_rate": 1.4644660940672627e-05,
+      "train_loss": 0.7653588652610779,
+      "train_completion_loss": 0.3633405864238739,
+      "train_progress_loss": 0.04539927467703819,
+      "train_failure_loss": 0.30951160192489624,
+      "train_option_value_loss": 0.31018388271331787,
+      "train_option_rank_loss": 0.01541055180132389,
+      "train_option_classification_loss": 0.1669921875,
+      "gradient_norm": 1.8322792053222656,
+      "development": {
+        "samples": 19980,
+        "completion_threshold": 0.86328125,
+        "completion": {
+          "false_positive_rate": 0.045940527898429666,
+          "true_positive_rate": 0.21925269157694743,
+          "precision": 0.8629112662013958,
+          "accuracy": 0.5361285209999279
+        },
+        "progress_gate_threshold": 0.8984375,
+        "progress_completion": {
+          "false_positive_rate": 0.04460407617774808,
+          "true_positive_rate": 0.06383787207093097,
+          "precision": 0.6536964980544747,
+          "accuracy": 0.44831064044377206
+        },
+        "maximum_gate_threshold": 0.90234375,
+        "maximum_completion": {
+          "false_positive_rate": 0.04543935850317407,
+          "true_positive_rate": 0.10677644078530715,
+          "precision": 0.7560538116591928,
+          "accuracy": 0.47237230747064335
+        },
+        "brier": 0.14058293402194977,
+        "ece_15": 0.04362279634113545,
+        "progress_mae": 0.23725493252277374,
+        "failure_threshold": null,
+        "failure": null,
+        "b_stop_proposals": 13881,
+        "b_false_stop_proposals": 5986,
+        "b_true_stop_proposals": 7895,
+        "gated_false_stops": 275,
+        "gated_true_stops": 1731
+      },
+      "residual_option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.88,
+        "raw_recovery_rate": 1.0,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 2.582031488418579,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "elapsed_seconds": 8.063809753002715
+    },
+    {
+      "step": 1000,
+      "learning_rate": 0.0,
+      "train_loss": 0.8020633459091187,
+      "train_completion_loss": 0.32960981130599976,
+      "train_progress_loss": 0.04306897893548012,
+      "train_failure_loss": 0.39255884289741516,
+      "train_option_value_loss": 0.3036500811576843,
+      "train_option_rank_loss": 0.042824484407901764,
+      "train_option_classification_loss": 0.1920340359210968,
+      "gradient_norm": 1.5226995944976807,
+      "development": {
+        "samples": 19980,
+        "completion_threshold": 0.86328125,
+        "completion": {
+          "false_positive_rate": 0.048446374874707654,
+          "true_positive_rate": 0.22495250158328056,
+          "precision": 0.8596321393998064,
+          "accuracy": 0.5382897485771918
+        },
+        "progress_gate_threshold": 0.8984375,
+        "progress_completion": {
+          "false_positive_rate": 0.046608753758770466,
+          "true_positive_rate": 0.0681443951868271,
+          "precision": 0.6585067319461444,
+          "accuracy": 0.4498955406670989
+        },
+        "maximum_gate_threshold": 0.90234375,
+        "maximum_completion": {
+          "false_positive_rate": 0.047611092549281656,
+          "true_positive_rate": 0.11336288790373654,
+          "precision": 0.7584745762711864,
+          "accuracy": 0.4751819033210864
+        },
+        "brier": 0.1395983099937439,
+        "ece_15": 0.04101978787468063,
+        "progress_mae": 0.23586241900920868,
+        "failure_threshold": null,
+        "failure": null,
+        "b_stop_proposals": 13881,
+        "b_false_stop_proposals": 5986,
+        "b_true_stop_proposals": 7895,
+        "gated_false_stops": 290,
+        "gated_true_stops": 1776
+      },
+      "residual_option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.84,
+        "raw_recovery_rate": 1.0,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 2.508545160293579,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "elapsed_seconds": 10.715699463005876
+    }
+  ],
+  "elapsed_seconds": 10.749354991014116,
+  "weights_sha256": "ad45e08261f575dd1363f996062bc9c987d01331ecd643a94c7b26e9fc93ad2e"
+}

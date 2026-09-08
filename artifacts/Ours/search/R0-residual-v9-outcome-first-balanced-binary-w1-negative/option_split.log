@@ -1,0 +1,42 @@
+{
+  "scope": "train-seed episode holdout; not rollout development or final",
+  "rule": "sha256 rank within physical-override episode strata",
+  "modulus": 5,
+  "remainder": 4,
+  "train_episodes": 48,
+  "validation_episodes": 12,
+  "stratified_residual_overrides": true,
+  "positive_episodes": 5,
+  "negative_episodes": 55,
+  "validation_positive_episodes": 1,
+  "validation_negative_episodes": 11,
+  "hash_salt": "ctr-residual-stratified-v1"
+}
+{
+  "scope": "train-seed episode holdout; not rollout development or final",
+  "rule": "sha256 rank within physical-override episode strata",
+  "modulus": 5,
+  "remainder": 4,
+  "train_episodes": 48,
+  "validation_episodes": 12,
+  "stratified_residual_overrides": true,
+  "positive_episodes": 5,
+  "negative_episodes": 55,
+  "validation_positive_episodes": 1,
+  "validation_negative_episodes": 11,
+  "hash_salt": "ctr-residual-stratified-v1"
+}
+{
+  "scope": "train-seed episode holdout; not rollout development or final",
+  "rule": "sha256 rank within physical-override episode strata",
+  "modulus": 5,
+  "remainder": 4,
+  "train_episodes": 47,
+  "validation_episodes": 13,
+  "stratified_residual_overrides": true,
+  "positive_episodes": 7,
+  "negative_episodes": 53,
+  "validation_positive_episodes": 2,
+  "validation_negative_episodes": 11,
+  "hash_salt": "ctr-residual-stratified-v1"
+}

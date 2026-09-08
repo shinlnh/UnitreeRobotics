@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "experiment_id": "Ours",
+  "stage": "R0-counterfactual-residual-fit-audit",
+  "scope": "train-only diagnostic; rollout development seeds were not consumed",
+  "selection_rule": "max beneficial recovery at calibrated false-recovery<=5%, then recovery recall, regret, registered id; RETRY_CURRENT is the abstention baseline",
+  "residual_retry_baseline": true,
+  "selected_variant": "v00-linear-h4-w32-d025",
+  "selected_option_value_margin": 0.5263672471046448,
+  "variants": [
+    {
+      "labeled_states": 160,
+      "strict_states": 15,
+      "baseline_option": "RETRY_CURRENT",
+      "override_options": [
+        "REOBSERVE",
+        "BACKTRACK_ONE",
+        "ADVANCE",
+        "CONSENSUS_PREFIX"
+      ],
+      "target_retry_states": 145,
+      "target_tie_states": 145,
+      "target_override_states": 15,
+      "raw_false_recovery_rate": 0.0,
+      "raw_recovery_rate": 1.0,
+      "selective_recovery": {
+        "max_false_recovery_rate": 0.05,
+        "option_value_margin": 0.0,
+        "false_recovery_rate": 0.0,
+        "true_recovery_rate": 1.0,
+        "beneficial_recovery_rate": 1.0,
+        "accuracy": 1.0,
+        "mean_decision_regret": 0.0
+      },
+      "option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.04,
+        "raw_recovery_rate": 0.0,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 0.5263672471046448,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "variant_id": "v00-linear-h4-w32-d025",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-residual-v9-outcome-first-balanced-binary/v00-linear-h4-w32-d025",
+      "weights_sha256": "82539ae7186872fb3cc18f2bed5101ebafe336c70662fe6d6486fdb5c229e6f1",
+      "selected_step": 1000,
+      "scope": "train-seed counterfactual fit plus held-out episodes; no rollout development seed",
+      "offline_option_rank": 1
+    },
+    {
+      "labeled_states": 160,
+      "strict_states": 15,
+      "baseline_option": "RETRY_CURRENT",
+      "override_options": [
+        "REOBSERVE",
+        "BACKTRACK_ONE",
+        "ADVANCE",
+        "CONSENSUS_PREFIX"
+      ],
+      "target_retry_states": 145,
+      "target_tie_states": 145,
+      "target_override_states": 15,
+      "raw_false_recovery_rate": 0.0,
+      "raw_recovery_rate": 1.0,
+      "selective_recovery": {
+        "max_false_recovery_rate": 0.05,
+        "option_value_margin": 0.0,
+        "false_recovery_rate": 0.0,
+        "true_recovery_rate": 1.0,
+        "beneficial_recovery_rate": 1.0,
+        "accuracy": 1.0,
+        "mean_decision_regret": 0.0
+      },
+      "option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.04,
+        "raw_recovery_rate": 0.0,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 1.2636719942092896,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "variant_id": "v01-linear-h8-w64-d025",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-residual-v9-outcome-first-balanced-binary/v01-linear-h8-w64-d025",
+      "weights_sha256": "2a96ff5dd7ec6103d8a0b6521fddb381d4985ba8c1c0b43fe3fa9628eaeb37f0",
+      "selected_step": 1500,
+      "scope": "train-seed counterfactual fit plus held-out episodes; no rollout development seed",
+      "offline_option_rank": 2
+    },
+    {
+      "labeled_states": 160,
+      "strict_states": 15,
+      "baseline_option": "RETRY_CURRENT",
+      "override_options": [
+        "REOBSERVE",
+        "BACKTRACK_ONE",
+        "ADVANCE",
+        "CONSENSUS_PREFIX"
+      ],
+      "target_retry_states": 145,
+      "target_tie_states": 145,
+      "target_override_states": 15,
+      "raw_false_recovery_rate": 0.0,
+      "raw_recovery_rate": 1.0,
+      "selective_recovery": {
+        "max_false_recovery_rate": 0.05,
+        "option_value_margin": 0.0,
+        "false_recovery_rate": 0.0,
+        "true_recovery_rate": 1.0,
+        "beneficial_recovery_rate": 1.0,
+        "accuracy": 1.0,
+        "mean_decision_regret": 0.0
+      },
+      "option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.0,
+        "raw_recovery_rate": 0.0,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 0.0,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "variant_id": "v02-mlp-h4-w32-d050",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-residual-v9-outcome-first-balanced-binary/v02-mlp-h4-w32-d050",
+      "weights_sha256": "18d8e0ab5760becf486241d580f585e980f0ff737bc0cfb87ef3c41241b72f2f",
+      "selected_step": 1000,
+      "scope": "train-seed counterfactual fit plus held-out episodes; no rollout development seed",
+      "offline_option_rank": 3
+    },
+    {
+      "labeled_states": 160,
+      "strict_states": 15,
+      "baseline_option": "RETRY_CURRENT",
+      "override_options": [
+        "REOBSERVE",
+        "BACKTRACK_ONE",
+        "ADVANCE",
+        "CONSENSUS_PREFIX"
+      ],
+      "target_retry_states": 145,
+      "target_tie_states": 145,
+      "target_override_states": 15,
+      "raw_false_recovery_rate": 0.0,
+      "raw_recovery_rate": 1.0,
+      "selective_recovery": {
+        "max_false_recovery_rate": 0.05,
+        "option_value_margin": 0.0,
+        "false_recovery_rate": 0.0,
+        "true_recovery_rate": 1.0,
+        "beneficial_recovery_rate": 1.0,
+        "accuracy": 1.0,
+        "mean_decision_regret": 0.0
+      },
+      "option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.0,
+        "raw_recovery_rate": 0.0,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 0.0,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "variant_id": "v03-mlp-h8-w64-d025",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-residual-v9-outcome-first-balanced-binary/v03-mlp-h8-w64-d025",
+      "weights_sha256": "85ca02f6459a51afdfdcde0f35bb0f2e3b958e7cf5673b2af676c1b4bd03a3c6",
+      "selected_step": 1250,
+      "scope": "train-seed counterfactual fit plus held-out episodes; no rollout development seed",
+      "offline_option_rank": 4
+    },
+    {
+      "labeled_states": 160,
+      "strict_states": 15,
+      "baseline_option": "RETRY_CURRENT",
+      "override_options": [
+        "REOBSERVE",
+        "BACKTRACK_ONE",
+        "ADVANCE",
+        "CONSENSUS_PREFIX"
+      ],
+      "target_retry_states": 145,
+      "target_tie_states": 145,
+      "target_override_states": 15,
+      "raw_false_recovery_rate": 0.0,
+      "raw_recovery_rate": 1.0,
+      "selective_recovery": {
+        "max_false_recovery_rate": 0.05,
+        "option_value_margin": 0.0,
+        "false_recovery_rate": 0.0,
+        "true_recovery_rate": 1.0,
+        "beneficial_recovery_rate": 1.0,
+        "accuracy": 1.0,
+        "mean_decision_regret": 0.0
+      },
+      "option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.0,
+        "raw_recovery_rate": 0.0,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 0.0,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "variant_id": "v04-gru-h8-w64-d025",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-residual-v9-outcome-first-balanced-binary/v04-gru-h8-w64-d025",
+      "weights_sha256": "ae5f9f0a91ed99091738c89b5b755a331b3aeaa7fe446602f884e8361c5c9e1d",
+      "selected_step": 1500,
+      "scope": "train-seed counterfactual fit plus held-out episodes; no rollout development seed",
+      "offline_option_rank": 5
+    },
+    {
+      "labeled_states": 160,
+      "strict_states": 15,
+      "baseline_option": "RETRY_CURRENT",
+      "override_options": [
+        "REOBSERVE",
+        "BACKTRACK_ONE",
+        "ADVANCE",
+        "CONSENSUS_PREFIX"
+      ],
+      "target_retry_states": 145,
+      "target_tie_states": 145,
+      "target_override_states": 15,
+      "raw_false_recovery_rate": 0.0,
+      "raw_recovery_rate": 1.0,
+      "selective_recovery": {
+        "max_false_recovery_rate": 0.05,
+        "option_value_margin": 0.0,
+        "false_recovery_rate": 0.0,
+        "true_recovery_rate": 1.0,
+        "beneficial_recovery_rate": 1.0,
+        "accuracy": 1.0,
+        "mean_decision_regret": 0.0
+      },
+      "option_validation": {
+        "labeled_states": 29,
+        "strict_states": 4,
+        "baseline_option": "RETRY_CURRENT",
+        "override_options": [
+          "REOBSERVE",
+          "BACKTRACK_ONE",
+          "ADVANCE",
+          "CONSENSUS_PREFIX"
+        ],
+        "target_retry_states": 25,
+        "target_tie_states": 25,
+        "target_override_states": 4,
+        "raw_false_recovery_rate": 0.0,
+        "raw_recovery_rate": 0.0,
+        "selective_recovery": {
+          "max_false_recovery_rate": 0.05,
+          "option_value_margin": 0.0,
+          "false_recovery_rate": 0.0,
+          "true_recovery_rate": 0.0,
+          "beneficial_recovery_rate": 0.0,
+          "accuracy": 0.8620689655172413,
+          "mean_decision_regret": 0.4137931168079376
+        }
+      },
+      "variant_id": "v05-transformer-h8-w64-d025",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-residual-v9-outcome-first-balanced-binary/v05-transformer-h8-w64-d025",
+      "weights_sha256": "e9136efeffaa241e56879e14f23b2c25f9490646fdd7e2911b93d69659ded63a",
+      "selected_step": 1500,
+      "scope": "train-seed counterfactual fit plus held-out episodes; no rollout development seed",
+      "offline_option_rank": 6
+    }
+  ],
+  "complete": true
+}

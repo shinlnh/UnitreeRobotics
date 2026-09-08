@@ -438,6 +438,18 @@ of physically beneficial held-out decisions, then its all-state rate, recall,
 regret, and registered id. This exhaustive mask audit adds no fitted parameters
 and prevents a post-hoc choice of a favored recovery primitive.
 
+The completed exhaustive audit selected
+`w005-v03-mlp-h8-w64-d025-advance+consensus`: binary override weight `0.05`,
+margin `0.3125`, and the fixed library `{ADVANCE, CONSENSUS_PREFIX}`. On the 29
+eligible held-out states for that library it makes one physically beneficial
+override and one false override (3.70% of 27 retry/tie negatives), recovering
+one of two strict positive states. Rank 2 is the consensus-only library on the
+same checkpoint with identical decisions; ranks 3--4 add backtrack and recover
+one of three positives with one false override. These are sparse offline
+signals, not benchmark improvements. The complete 360-row registry and its
+selection rule are frozen before seed `22007`; R1b is the first test of whether
+the signal transfers to closed-loop task success.
+
 The six low-capacity R0 architectures and all optimizer settings remain
 identical to v5.  V8 models are diagnostic ablations; the R1b registry is ranked
 only from episode-held-out residual-v9 advantage against `RETRY_CURRENT`.
