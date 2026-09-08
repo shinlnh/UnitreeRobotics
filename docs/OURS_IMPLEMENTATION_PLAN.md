@@ -53,7 +53,10 @@ The search is informed by, but must remain distinguishable from:
 - [FLARE](https://arxiv.org/abs/2608.26645), which combines retry augmentation,
   an online MLLM monitor, and a reset-skill library; and
 - [SparkVLA](https://arxiv.org/abs/2608.16172), whose unified STOP/prefix
-  execution is already isolated as B.
+  execution is already isolated as B; and
+- [LIBERO-RECOVER](https://arxiv.org/abs/2609.05178), a complementary benchmark
+  of naturally occurring recovery scenarios whose published model scores are
+  not directly comparable to this repository's RoboCerebra protocol.
 
 CTR's intended distinction is simulator-privileged counterfactual option
 distillation into an outcome-blind temporal executive. It uses no online MLLM,

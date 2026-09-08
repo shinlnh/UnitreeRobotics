@@ -1,6 +1,6 @@
 # Ours related-work and claim audit
 
-Audit date: 2026-09-08. This note fixes the nearest-method comparison before
+Audit date: 2026-09-09. This note fixes the nearest-method comparison before
 the final Ours benchmark. It is a claim boundary, not a leaderboard claim.
 
 ## Pinned primary sources
@@ -19,6 +19,13 @@ the final Ours benchmark. It is a claim boundary, not a leaderboard claim.
 - [Dream2Fix v1](https://arxiv.org/abs/2603.13528v1) generates more than 120,000
   paired failure/correction samples with a learned world model and fine-tunes a
   VLM to emit recovery trajectories.
+- [LIBERO-RECOVER v1](https://arxiv.org/abs/2609.05178v1) is a newly released
+  benchmark of 2,178 naturally occurring failure scenarios across action retry,
+  action adaptation, object-state recovery, and environmental recovery.  It
+  reports recovery success, degradation, and cross-task consistency.  Its
+  initial-state, task, time-limit, and recovery-scenario protocol differs from
+  this repository's RoboCerebra continuous/no-restore protocol, so its model
+  numbers are context rather than comparable baselines.
 
 ## Distinction of the working method
 
@@ -44,6 +51,9 @@ alone. It is the combination of:
 - “Better than a paper” is permitted only for a genuinely matched public
   protocol. Otherwise paper numbers are contextual and the report must state
   the mismatch.
+- LIBERO-RECOVER's recovery success/degradation/consistency metrics may be
+  reproduced on this repository's outcomes, but their names do not make the
+  resulting values cross-benchmark comparable.
 - A large point estimate is insufficient: the primary comparison uses the
   paired task-macro delta and its 95% bootstrap interval, plus recovery safety,
   compute, and stability metrics.
