@@ -49,6 +49,9 @@ from .ours_rollout_prepare import (
 RESIDUAL_SOURCE_DECISION_SCHEDULE = "counterfactual-residual-over-b-retry-v1"
 RESIDUAL_SOURCE_ABSTENTION_MARGIN = 1_000_000.0
 RESIDUAL_SOURCE_SEEDS = frozenset({10007, 11007, 12007})
+GLOBAL_STEP_BUDGET_CONTRACT = (
+    "min-configured-rollout-and-source-global-steps-remaining-v1"
+)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -105,6 +108,21 @@ def _fresh_consensus_count(total_hypotheses: int) -> int:
     if total_hypotheses < 1:
         raise OursContractError("counterfactual consensus count must be positive")
     return total_hypotheses - 1
+
+
+def _bounded_rollout_steps(
+    configured_steps: int, *, source_step_before: int, source_max_steps: int
+) -> int:
+    """Prevent a training branch from observing states past the runtime budget."""
+
+    if (
+        configured_steps < 1
+        or source_step_before < 0
+        or source_max_steps < 1
+        or source_step_before >= source_max_steps
+    ):
+        raise OursContractError("counterfactual source global-step budget is invalid")
+    return min(configured_steps, source_max_steps - source_step_before)
 
 
 def _validate_residual_source(
@@ -473,6 +491,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     state_count = 0
     replay_rows = 0
     replay_mismatches = 0
+    effective_rollout_horizons: list[int] = []
+    global_budget_truncated_states = 0
     option_counts = {option.value: 0 for option in RECOVERY_OPTIONS}
     client = RemotePolicyClient(args.policy_host, args.policy_port)
     try:
@@ -542,6 +562,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     if position in selected_positions and replay_match:
                         completed_before = int(row["completed_subtasks_before"])
                         active_subgoal = int(row["active_subgoal_index_before"])
+                        source_step_before = int(row["step_before"])
+                        source_max_steps = int(episodes[key]["max_steps"])
+                        effective_rollout_steps = _bounded_rollout_steps(
+                            args.rollout_steps,
+                            source_step_before=source_step_before,
+                            source_max_steps=source_max_steps,
+                        )
                         complete = completed_before > active_subgoal + int(
                             episodes[key]["excluded_subtasks"]
                         )
@@ -572,7 +599,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                     np.asarray(row["selector_valid"], dtype=np.bool_),
                                 ),
                                 client=client,
-                                rollout_steps=args.rollout_steps,
+                                rollout_steps=effective_rollout_steps,
                                 max_policy_calls=args.max_policy_calls,
                                 consensus_hypotheses=args.consensus_hypotheses,
                                 residual_retry_baseline=args.residual_retry_baseline,
@@ -613,6 +640,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                             "trial": key[2],
                                             "policy_call": int(row["policy_call"]),
                                             "source_stop_pending": stop_pending_before,
+                                            "source_step_before": source_step_before,
+                                            "source_max_steps": source_max_steps,
+                                            "effective_rollout_steps": (
+                                                effective_rollout_steps
+                                            ),
                                             "source_context_sha256": row[
                                                 "selector_context_sha256"
                                             ],
@@ -623,6 +655,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                     + "\n"
                                 )
                             branch_count += 1
+                        effective_rollout_horizons.append(effective_rollout_steps)
+                        global_budget_truncated_states += int(
+                            effective_rollout_steps < args.rollout_steps
+                        )
                         state_count += 1
                     transitions = row["transitions"]
                     if transitions:
@@ -691,6 +727,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "branch_count": branch_count,
                 "options": option_counts,
                 "rollout_steps": args.rollout_steps,
+                "global_step_budget_contract": GLOBAL_STEP_BUDGET_CONTRACT,
+                "global_budget_truncated_states": global_budget_truncated_states,
+                "minimum_effective_rollout_steps": (
+                    min(effective_rollout_horizons)
+                    if effective_rollout_horizons
+                    else None
+                ),
                 "max_policy_calls": args.max_policy_calls,
                 "consensus_hypotheses": args.consensus_hypotheses,
                 "consensus_source_proposal_included": True,

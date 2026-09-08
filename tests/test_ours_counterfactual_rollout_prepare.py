@@ -6,12 +6,24 @@ from unitree_gr00t.ours_counterfactual_rollout_prepare import (
     _apply_residual_stop_confirmation,
     _apply_stop_confirmation,
     _best_nonstop,
+    _bounded_rollout_steps,
     _fresh_consensus_count,
     _medoid_index,
     _selected_rollout_positions,
     _valid_options,
     _validate_residual_source,
 )
+
+
+def test_counterfactual_horizon_respects_source_global_budget() -> None:
+    assert _bounded_rollout_steps(
+        150, source_step_before=400, source_max_steps=900
+    ) == 150
+    assert _bounded_rollout_steps(
+        150, source_step_before=895, source_max_steps=900
+    ) == 5
+    with pytest.raises(OursContractError, match="global-step budget"):
+        _bounded_rollout_steps(150, source_step_before=900, source_max_steps=900)
 
 
 def test_counterfactual_stop_confirmation_continues_into_next_subgoal() -> None:

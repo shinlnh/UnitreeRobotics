@@ -43,6 +43,10 @@ def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
             "option": option,
             "source_stop_pending": True,
             "branch_seed": 1234,
+            "source_step_before": 890,
+            "source_max_steps": 900,
+            "effective_rollout_steps": 10,
+            "executed_steps": 10,
         }
         for option in ("REOBSERVE", "RETRY_CURRENT", "ADVANCE", "CONSENSUS_PREFIX")
     ]
@@ -64,6 +68,12 @@ def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
             "consensus_source_proposal_included": True,
             "randomness_coupling": "common-random-numbers-per-state-v1",
             "rollouts_per_option": 1,
+            "rollout_steps": 150,
+            "global_step_budget_contract": (
+                "min-configured-rollout-and-source-global-steps-remaining-v1"
+            ),
+            "global_budget_truncated_states": 1,
+            "minimum_effective_rollout_steps": 10,
             "state_count": 1,
             "branch_count": 4,
             "options": {
@@ -112,6 +122,12 @@ def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
         branches,
         branches_sha256="branches",
     )["residual_return_target"]
+    branches[0]["executed_steps"] = 11
+    assert not residual_contract_checks(
+        manifest,
+        branches,
+        branches_sha256="branches",
+    )["residual_global_step_budget"]
 
 
 def test_residual_mechanism_audit_separates_physical_and_efficiency_gains() -> None:

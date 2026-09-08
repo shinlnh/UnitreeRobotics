@@ -15,6 +15,8 @@ This ranking is not promoted to R1b. The underlying v8 corpus audit shows that
 metrics measure efficiency-target prediction rather than physical recovery.
 The checkpoints and registries are retained as the frozen 75-step/24-call,
 efficiency-shaped ablation. No rollout development or final seed was consumed.
+They are additionally ineligible because a later audit found three training
+states whose fixed rollout crossed the source episode's remaining global budget.
 
 ## Integrity
 

@@ -24,6 +24,12 @@ not consume the frozen development seeds. It remains an ablation for testing
 whether efficiency-shaped counterfactual supervision learns the wrong control
 objective.
 
+A later global-budget audit found a second disqualifying issue: three
+seed-11007 selected states had only 4--5 episode steps remaining, while the v8
+generator evaluated fixed 75-step branches. The immutable v8 files are retained
+as negative provenance, but their historical `valid=true` audit predates this
+new invariant and must not be interpreted as candidate eligibility.
+
 The prospective successor is outcome-first residual supervision: remove
 call/step costs from option targets, keep those quantities as evaluation-only
 overhead metrics, and use a longer continuation horizon so delayed physical

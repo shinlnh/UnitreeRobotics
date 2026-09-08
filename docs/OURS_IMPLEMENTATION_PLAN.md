@@ -315,6 +315,9 @@ override, only 8 states (4.2328%) improved final success, completed subtasks, or
 success predicates; 72 apparent gains came only from executing fewer steps or
 policy calls.  V8 is therefore retained as a negative, efficiency-shaped
 ablation and does not determine an R1b candidate.
+Subsequent budget audit also found three seed-11007 v8 states with only 4--5
+global episode steps remaining; their fixed 75-step labels crossed the runtime
+budget. This independently makes v8 inadmissible for candidate selection.
 
 This train-only diagnosis motivates a prospective **outcome-first residual-v9**
 amendment before any seed `22007` result exists.  V9 keeps the exact source
@@ -326,6 +329,10 @@ branch horizon increases prospectively from 75 steps / 24 calls to 150 steps /
 setting remains the horizon ablation.  V9 uses fresh empty destinations and
 records `return_target=outcome-first-physical-v1` plus
 `cost_terms_in_target=false` in every manifest.
+Every v9 branch is capped at
+`min(150, source_max_steps - source_step_before)`; the effective horizon and
+source budget are stored per branch and independently audited. Thus label
+generation cannot observe physical outcomes unavailable to the runtime policy.
 Because the runtime decision is an override of B-retry, v9 also centers every
 valid option target on the same state's `RETRY_CURRENT` return before value
 regression. Pairwise ranks and winning classes are unchanged, while the value

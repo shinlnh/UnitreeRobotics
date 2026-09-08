@@ -104,10 +104,38 @@ def residual_contract_checks(
     }
     states: dict[tuple[int, int], set[str]] = {}
     state_seeds: dict[tuple[int, int], set[int]] = {}
+    state_horizons: dict[tuple[int, int], set[tuple[int, int, int]]] = {}
+    budget_rows_valid = bool(branches)
     for row in branches:
         key = (int(row.get("episode_index", -1)), int(row.get("sample_index", -1)))
         states.setdefault(key, set()).add(str(row.get("option")))
         state_seeds.setdefault(key, set()).add(int(row.get("branch_seed", -1)))
+        try:
+            source_step = int(row["source_step_before"])
+            source_max = int(row["source_max_steps"])
+            effective = int(row["effective_rollout_steps"])
+            executed = int(row["executed_steps"])
+        except (KeyError, TypeError, ValueError):
+            budget_rows_valid = False
+            continue
+        state_horizons.setdefault(key, set()).add(
+            (source_step, source_max, effective)
+        )
+        budget_rows_valid &= (
+            0 <= source_step < source_max
+            and 0 < effective <= int(sampling.get("rollout_steps", 0))
+            and source_step + effective <= source_max
+            and 0 <= executed <= effective
+        )
+    unique_horizons = [
+        next(iter(values))
+        for values in state_horizons.values()
+        if len(values) == 1
+    ]
+    truncated_states = sum(
+        effective < int(sampling.get("rollout_steps", 0))
+        for _, _, effective in unique_horizons
+    )
     return {
         "residual_source_is_abstaining_b_retry": source_contract
         == {
@@ -146,6 +174,15 @@ def residual_contract_checks(
             )
         )
         == (return_target == EFFICIENCY_SHAPED_RETURN_TARGET),
+        "residual_global_step_budget": sampling.get("global_step_budget_contract")
+        == "min-configured-rollout-and-source-global-steps-remaining-v1"
+        and budget_rows_valid
+        and len(state_horizons) == len(states)
+        and all(len(values) == 1 for values in state_horizons.values())
+        and int(sampling.get("global_budget_truncated_states", -1))
+        == truncated_states
+        and sampling.get("minimum_effective_rollout_steps")
+        == (min(value[2] for value in unique_horizons) if unique_horizons else None),
     }
 
 
