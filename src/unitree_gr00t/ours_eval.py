@@ -13,7 +13,7 @@ from .ours_policy import SelectiveConsensusRecovery
 from .ours_train import inspect_recovery_checkpoint
 
 OURS_PAPER = "working-method-before-final-freeze"
-OURS_DECISION_SCHEDULE = "temporal-completion-gate-selective-consensus-v1"
+OURS_DECISION_SCHEDULE = "temporal-completion-gate-bounded-consensus-v2"
 OURS_EVALUATION = EvaluationIdentity(
     experiment_id=OURS_ID,
     variant=OURS_VARIANT,
@@ -52,6 +52,7 @@ def _parser() -> argparse.ArgumentParser:
         help="Bounded outcome-blind ADVANCE fallback searched only on development runs",
     )
     parser.add_argument("--failure-threshold", type=float, default=0.5)
+    parser.add_argument("--max-recovery-attempts", type=int, choices=(1, 2), default=1)
     parser.add_argument("--consensus-cooldown-decisions", type=int, default=16)
     parser.add_argument("--capture-training-context", action="store_true")
     parser.add_argument("--collection-force-boundary-steps", type=int)
@@ -104,6 +105,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         gate_signal=args.gate_signal,
         gate_threshold=gate_threshold,
         consensus_hypotheses=args.consensus_hypotheses,
+        max_recovery_attempts=args.max_recovery_attempts,
         failure_threshold=args.failure_threshold,
         consensus_cooldown_decisions=args.consensus_cooldown_decisions,
         force_boundary_steps=boundary_steps,
@@ -122,6 +124,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "checkpoint_gate_threshold": checkpoint_gate_threshold,
         "gate_threshold_override": args.gate_threshold_override,
         "consensus_hypotheses": args.consensus_hypotheses,
+        "max_recovery_attempts": args.max_recovery_attempts,
         "failure_threshold": args.failure_threshold,
         "consensus_cooldown_decisions": args.consensus_cooldown_decisions,
         "recovery_checkpoint_stage": recovery_provenance["stage"],

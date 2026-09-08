@@ -30,6 +30,7 @@ class SelectiveConsensusRecovery:
         gate_threshold: float | None = None,
         completion_threshold: float | None = None,
         consensus_hypotheses: int,
+        max_recovery_attempts: int = 1,
         failure_threshold: float = 0.5,
         consensus_cooldown_decisions: int = 16,
         force_boundary_steps: int | None = None,
@@ -43,6 +44,8 @@ class SelectiveConsensusRecovery:
             raise OursContractError("gate threshold must be inside [0, 1]")
         if consensus_hypotheses < 1:
             raise OursContractError("consensus hypotheses must be positive")
+        if max_recovery_attempts not in {1, 2}:
+            raise OursContractError("max recovery attempts must be one or two")
         if not 0.0 <= failure_threshold <= 1.0:
             raise OursContractError("failure threshold must be inside [0, 1]")
         if consensus_cooldown_decisions < 0:
@@ -52,15 +55,20 @@ class SelectiveConsensusRecovery:
         self.gate_signal = gate_signal
         self.gate_threshold = selected_threshold
         self.consensus_hypotheses = consensus_hypotheses
+        self.max_recovery_attempts = max_recovery_attempts
         self.failure_threshold = failure_threshold
         self.consensus_cooldown_decisions = consensus_cooldown_decisions
         self.force_boundary_steps = force_boundary_steps
         self._proposals: list[tuple[Any, Any, Any]] = []
         self._cooldown_remaining = 0
+        self._recovery_attempts = 0
+        self._active_subgoal: int | None = None
 
     def reset(self) -> None:
         self._proposals.clear()
         self._cooldown_remaining = 0
+        self._recovery_attempts = 0
+        self._active_subgoal = None
 
     def _clear_proposals(self) -> None:
         self._proposals.clear()
@@ -95,8 +103,15 @@ class SelectiveConsensusRecovery:
         progress_probability: float,
         failure_probability: float = 0.0,
         subgoal_elapsed_steps: int = 0,
+        subgoal_index: int = 0,
         np: Any,
     ) -> RecoveryDirective:
+        if subgoal_index < 0:
+            raise OursContractError("subgoal index cannot be negative")
+        if self._active_subgoal != subgoal_index:
+            self._active_subgoal = subgoal_index
+            self._recovery_attempts = 0
+            self._clear_proposals()
         cooldown_active = self._cooldown_remaining > 0
         if cooldown_active:
             self._cooldown_remaining -= 1
@@ -158,18 +173,28 @@ class SelectiveConsensusRecovery:
                 progress_probability=progress_probability,
             )
 
-        if (
-            self.consensus_hypotheses == 1
-            or failure_probability < self.failure_threshold
-            or cooldown_active
-        ):
+        if self._recovery_attempts >= self.max_recovery_attempts:
             self._clear_proposals()
+            return RecoveryDirective(
+                candidate=0,
+                action_chunk=action_chunk,
+                suppress_stop_confirmation=False,
+                option=RecoveryOption.ADVANCE.value,
+                recovery_triggered=False,
+                hypothesis_count=1,
+                completion_probability=completion_probability,
+                progress_probability=progress_probability,
+            )
+
+        if failure_probability < self.failure_threshold or cooldown_active:
+            self._clear_proposals()
+            self._recovery_attempts += 1
             return RecoveryDirective(
                 candidate=self._best_nonstop(scores, valid, np),
                 action_chunk=action_chunk,
                 suppress_stop_confirmation=False,
                 option=RecoveryOption.CONSENSUS_PREFIX.value,
-                recovery_triggered=False,
+                recovery_triggered=True,
                 hypothesis_count=1,
                 completion_probability=completion_probability,
                 progress_probability=progress_probability,
@@ -193,6 +218,7 @@ class SelectiveConsensusRecovery:
         count = len(self._proposals)
         self._clear_proposals()
         self._cooldown_remaining = self.consensus_cooldown_decisions
+        self._recovery_attempts += 1
         return RecoveryDirective(
             candidate=chosen_candidate,
             action_chunk=chosen_chunk,

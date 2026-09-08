@@ -80,10 +80,10 @@ def test_low_failure_stop_uses_one_prefix_without_extra_policy_call() -> None:
     assert directive.option == "CONSENSUS_PREFIX"
     assert directive.candidate == 2
     assert directive.hypothesis_count == 1
-    assert not directive.recovery_triggered
+    assert directive.recovery_triggered
 
 
-def test_single_hypothesis_never_claims_a_recovery_trigger() -> None:
+def test_single_hypothesis_is_a_bounded_recovery_intervention() -> None:
     controller = SelectiveConsensusRecovery(
         completion_threshold=0.8,
         consensus_hypotheses=1,
@@ -101,7 +101,42 @@ def test_single_hypothesis_never_claims_a_recovery_trigger() -> None:
     )
     assert directive.option == "CONSENSUS_PREFIX"
     assert directive.hypothesis_count == 1
-    assert not directive.recovery_triggered
+    assert directive.recovery_triggered
+
+    exhausted = controller.decide(
+        candidate=0,
+        action_chunk=np.ones((16, 7), dtype=np.float32),
+        scores=np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        valid=np.asarray([True, True, True] + [False] * 14),
+        completion_probability=0.1,
+        progress_probability=0.2,
+        failure_probability=0.9,
+        np=np,
+    )
+    assert exhausted.candidate == 0
+    assert exhausted.option == "ADVANCE"
+    assert not exhausted.recovery_triggered
+
+
+def test_recovery_budget_resets_only_when_subgoal_changes() -> None:
+    controller = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        max_recovery_attempts=1,
+    )
+    kwargs = {
+        "candidate": 0,
+        "action_chunk": np.ones((16, 7), dtype=np.float32),
+        "scores": np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        "valid": np.asarray([True, True, True] + [False] * 14),
+        "completion_probability": 0.1,
+        "progress_probability": 0.2,
+        "failure_probability": 0.1,
+        "np": np,
+    }
+    assert controller.decide(subgoal_index=0, **kwargs).recovery_triggered
+    assert not controller.decide(subgoal_index=0, **kwargs).recovery_triggered
+    assert controller.decide(subgoal_index=1, **kwargs).recovery_triggered
 
 
 def test_selective_consensus_accepts_action_and_high_confidence_stop() -> None:

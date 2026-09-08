@@ -284,6 +284,7 @@ def _run_episode(
                 progress_probability=float(recovery_info["progress_probability"]),
                 failure_probability=failure_probability,
                 subgoal_elapsed_steps=step - subgoal_start_step,
+                subgoal_index=active_subgoal,
                 np=np,
             )
             candidate = int(recovery_directive.candidate)
