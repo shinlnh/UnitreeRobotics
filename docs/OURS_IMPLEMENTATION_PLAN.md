@@ -379,6 +379,25 @@ validation for every seed without choosing a modulo remainder from observed
 performance. The old split remains the v8 provenance; no rollout development
 or final seed informed this amendment.
 
+The first v9 R0 training attempt then exposed a separate sampler error before
+any rollout-development seed was used. Its option quota balanced only unique
+strict winners and omitted retry/tie negatives; the five completed models
+predicted an override on 96--100% of held-out negative states before margin
+calibration. Four models recovered none of four held-out positives at their
+safe margin; one linear model recovered one positive while also spending the
+single false override permitted by the empirical 5% cap. The sixth model was
+interrupted, and all logs plus the five checkpoints are retained under
+`R0-residual-v9-outcome-first-positive-only-sampler-negative`.
+
+The corrected v9-balanced sampler allocates half of the option-supervised quota
+to true physical overrides, balanced by train seed and winning option, and half
+to states where retry is tied or better, balanced by train seed. Ordinary live
+rows remain seed-balanced in the rest of the batch. Checkpoint provenance now
+records `option_sampling=balanced-residual-override-and-retry-tie-v1`; the
+fresh R0 destination is `R0-residual-v9-outcome-first-balanced`. This correction
+changes sampling only—not labels, architectures, optimizer settings, or any
+development/final evaluation choice.
+
 The six low-capacity R0 architectures and all optimizer settings remain
 identical to v5.  V8 models are diagnostic ablations; the R1b registry is ranked
 only from episode-held-out residual-v9 advantage against `RETRY_CURRENT`.
