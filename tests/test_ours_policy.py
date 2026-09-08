@@ -192,8 +192,88 @@ def test_learned_option_values_veto_harmful_recovery() -> None:
         option_values=np.asarray([0.0, 0.0, 2.0, -1.0, 0.0, 1.0]),
         **kwargs,
     )
-    assert recover.candidate > 0
+    assert recover.option == "RETRY_CURRENT"
     assert recover.recovery_triggered
+    assert recover.apply_subgoal_transition
+    assert recover.subgoal_delta == 0
+    assert recover.reanchor
+
+
+def test_learned_option_values_apply_backtrack_and_confirmed_advance() -> None:
+    kwargs = {
+        "candidate": 0,
+        "action_chunk": np.ones((16, 7), dtype=np.float32),
+        "scores": np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        "valid": np.asarray([True, True, True] + [False] * 14),
+        "completion_probability": 0.1,
+        "progress_probability": 0.2,
+        "failure_probability": 0.9,
+        "subgoal_elapsed_steps": 75,
+        "np": np,
+    }
+    backtrack = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        use_option_values=True,
+    ).decide(
+        subgoal_index=2,
+        option_values=np.asarray([0.0, -1.0, 1.0, 3.0, 2.0, -2.0]),
+        **kwargs,
+    )
+    assert backtrack.option == "BACKTRACK_ONE"
+    assert backtrack.apply_subgoal_transition
+    assert backtrack.subgoal_delta == -1
+
+    controller = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        use_option_values=True,
+    )
+    values = np.asarray([0.0, -2.0, -1.0, -3.0, 3.0, -4.0])
+    unconfirmed = controller.decide(
+        subgoal_index=1,
+        stop_pending=False,
+        option_values=values,
+        **kwargs,
+    )
+    assert unconfirmed.option == "ACCEPT_B"
+    assert not unconfirmed.apply_subgoal_transition
+    confirmed = controller.decide(
+        subgoal_index=1,
+        stop_pending=True,
+        option_values=values,
+        **kwargs,
+    )
+    assert confirmed.option == "ADVANCE"
+    assert confirmed.apply_subgoal_transition
+    assert confirmed.subgoal_delta == 1
+
+
+def test_consensus_finishes_after_nonstop_followup_hypotheses() -> None:
+    controller = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=4,
+    )
+    kwargs = {
+        "action_chunk": np.ones((16, 7), dtype=np.float32),
+        "scores": np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        "valid": np.asarray([True, True, True] + [False] * 14),
+        "completion_probability": 0.1,
+        "progress_probability": 0.2,
+        "failure_probability": 0.9,
+        "subgoal_elapsed_steps": 75,
+        "np": np,
+    }
+    first = controller.decide(candidate=0, **kwargs)
+    second = controller.decide(candidate=2, **kwargs)
+    third = controller.decide(candidate=2, **kwargs)
+    fourth = controller.decide(candidate=2, **kwargs)
+    assert first.suppress_stop_confirmation
+    assert second.suppress_stop_confirmation
+    assert third.suppress_stop_confirmation
+    assert fourth.option == "CONSENSUS_PREFIX"
+    assert fourth.candidate == 2
+    assert fourth.hypothesis_count == 4
 
 
 def test_selective_consensus_accepts_action_and_high_confidence_stop() -> None:

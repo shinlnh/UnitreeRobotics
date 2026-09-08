@@ -18,6 +18,9 @@ class RecoveryDirective:
     hypothesis_count: int
     completion_probability: float
     progress_probability: float
+    apply_subgoal_transition: bool = False
+    subgoal_delta: int = 0
+    reanchor: bool = False
 
 
 class SelectiveConsensusRecovery:
@@ -115,6 +118,7 @@ class SelectiveConsensusRecovery:
         option_values: Any | None = None,
         subgoal_elapsed_steps: int = 0,
         subgoal_index: int = 0,
+        stop_pending: bool = False,
         np: Any,
     ) -> RecoveryDirective:
         if subgoal_index < 0:
@@ -140,6 +144,44 @@ class SelectiveConsensusRecovery:
             raise OursContractError("B proposed an invalid candidate to Ours")
         if subgoal_elapsed_steps < 0:
             raise OursContractError("subgoal elapsed steps cannot be negative")
+        if not isinstance(stop_pending, bool):
+            raise OursContractError("STOP pending state must be boolean")
+
+        # Once selected, consensus consumes the registered number of fresh
+        # hypotheses from the same live observation even when a later B sample
+        # proposes a non-STOP prefix. No simulator step is consumed until the
+        # medoid prefix is selected.
+        if self._proposals:
+            self._proposals.append((action_chunk.copy(), scores.copy(), valid.copy()))
+            if len(self._proposals) < self.consensus_hypotheses:
+                return RecoveryDirective(
+                    candidate=0,
+                    action_chunk=action_chunk,
+                    suppress_stop_confirmation=True,
+                    option=RecoveryOption.REOBSERVE.value,
+                    recovery_triggered=True,
+                    hypothesis_count=len(self._proposals),
+                    completion_probability=completion_probability,
+                    progress_probability=progress_probability,
+                )
+            chosen = self._medoid(self._proposals, np)
+            chosen_chunk, chosen_scores, chosen_valid = self._proposals[chosen]
+            chosen_candidate = self._best_nonstop(chosen_scores, chosen_valid, np)
+            count = len(self._proposals)
+            self._clear_proposals()
+            self._cooldown_remaining = self.consensus_cooldown_decisions
+            self._recovery_attempts += 1
+            return RecoveryDirective(
+                candidate=chosen_candidate,
+                action_chunk=chosen_chunk,
+                suppress_stop_confirmation=False,
+                option=RecoveryOption.CONSENSUS_PREFIX.value,
+                recovery_triggered=True,
+                hypothesis_count=count,
+                completion_probability=completion_probability,
+                progress_probability=progress_probability,
+            )
+
         if (
             self.force_boundary_steps is not None
             and subgoal_elapsed_steps >= self.force_boundary_steps
@@ -215,15 +257,15 @@ class SelectiveConsensusRecovery:
                 progress_probability=progress_probability,
             )
 
+        selected_option = RecoveryOption.CONSENSUS_PREFIX
         if self.use_option_values:
             values = np.asarray(option_values, dtype=np.float32)
             if values.shape != (len(RECOVERY_OPTIONS),) or not np.isfinite(values).all():
                 raise OursContractError("learned recovery option values are invalid")
             index = {option: RECOVERY_OPTIONS.index(option) for option in RECOVERY_OPTIONS}
-            accept_value = max(
-                float(values[index[RecoveryOption.ACCEPT_B]]),
-                float(values[index[RecoveryOption.ADVANCE]]),
-            )
+            accept_options = [RecoveryOption.ACCEPT_B]
+            if stop_pending:
+                accept_options.append(RecoveryOption.ADVANCE)
             recover_options = [
                 RecoveryOption.REOBSERVE,
                 RecoveryOption.RETRY_CURRENT,
@@ -231,9 +273,26 @@ class SelectiveConsensusRecovery:
             ]
             if subgoal_index > 0:
                 recover_options.append(RecoveryOption.BACKTRACK_ONE)
-            recover_value = max(float(values[index[option]]) for option in recover_options)
+            best_accept = max(accept_options, key=lambda option: float(values[index[option]]))
+            best_recover = max(recover_options, key=lambda option: float(values[index[option]]))
+            accept_value = float(values[index[best_accept]])
+            recover_value = float(values[index[best_recover]])
             if recover_value < accept_value + self.option_value_margin:
                 self._clear_proposals()
+                if best_accept is RecoveryOption.ADVANCE:
+                    return RecoveryDirective(
+                        candidate=0,
+                        action_chunk=action_chunk,
+                        suppress_stop_confirmation=True,
+                        option=best_accept.value,
+                        recovery_triggered=True,
+                        hypothesis_count=1,
+                        completion_probability=completion_probability,
+                        progress_probability=progress_probability,
+                        apply_subgoal_transition=True,
+                        subgoal_delta=1,
+                        reanchor=True,
+                    )
                 return RecoveryDirective(
                     candidate=0,
                     action_chunk=action_chunk,
@@ -244,6 +303,32 @@ class SelectiveConsensusRecovery:
                     completion_probability=completion_probability,
                     progress_probability=progress_probability,
                 )
+            selected_option = best_recover
+
+        if selected_option in {
+            RecoveryOption.REOBSERVE,
+            RecoveryOption.RETRY_CURRENT,
+            RecoveryOption.BACKTRACK_ONE,
+        }:
+            self._recovery_attempts += 1
+            self._cooldown_remaining = self.consensus_cooldown_decisions
+            transition = selected_option in {
+                RecoveryOption.RETRY_CURRENT,
+                RecoveryOption.BACKTRACK_ONE,
+            }
+            return RecoveryDirective(
+                candidate=0,
+                action_chunk=action_chunk,
+                suppress_stop_confirmation=True,
+                option=selected_option.value,
+                recovery_triggered=True,
+                hypothesis_count=1,
+                completion_probability=completion_probability,
+                progress_probability=progress_probability,
+                apply_subgoal_transition=transition,
+                subgoal_delta=(-1 if selected_option is RecoveryOption.BACKTRACK_ONE else 0),
+                reanchor=transition,
+            )
 
         self._proposals.append((action_chunk.copy(), scores.copy(), valid.copy()))
         if len(self._proposals) < self.consensus_hypotheses:

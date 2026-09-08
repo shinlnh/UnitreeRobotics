@@ -286,6 +286,7 @@ def _run_episode(
                 option_values=option_values,
                 subgoal_elapsed_steps=step - subgoal_start_step,
                 subgoal_index=active_subgoal,
+                stop_pending=confirmation_state.streak > 0,
                 np=np,
             )
             candidate = int(recovery_directive.candidate)
@@ -304,7 +305,16 @@ def _run_episode(
             if recovery_directive.option == "CONSENSUS_PREFIX":
                 recovery_consensus_executions += 1
 
-        if recovery_directive is not None and recovery_directive.suppress_stop_confirmation:
+        if recovery_directive is not None and recovery_directive.apply_subgoal_transition:
+            confirmation_state = StopConfirmationState()
+            selection = ConfirmedSelection(
+                proposed_candidate=0,
+                executed_prefix_length=0,
+                stop_pending=False,
+                stop_committed=False,
+                state=confirmation_state,
+            )
+        elif recovery_directive is not None and recovery_directive.suppress_stop_confirmation:
             confirmation_state = StopConfirmationState()
             selection = ConfirmedSelection(
                 proposed_candidate=0,
@@ -341,7 +351,18 @@ def _run_episode(
         transitions: list[dict[str, Any]] = []
         injections: list[dict[str, Any]] = []
 
-        if selection.stop_committed:
+        if recovery_directive is not None and recovery_directive.apply_subgoal_transition:
+            active_subgoal += recovery_directive.subgoal_delta
+            if not 0 <= active_subgoal <= len(plan.subgoals):
+                raise RuntimeError("Ours selected an invalid live subgoal transition")
+            subgoal_advanced = recovery_directive.subgoal_delta > 0
+            subgoal_start = recovery_directive.reanchor and active_subgoal < len(plan.subgoals)
+            if subgoal_start:
+                subgoal_start_step = step
+            zero_progress_decisions += 1
+            if active_subgoal >= len(plan.subgoals):
+                termination_reason = "recovery_option_final_advance"
+        elif selection.stop_committed:
             selector_stop_commits += 1
             if stop_transition is None:
                 active_subgoal += 1
@@ -454,6 +475,11 @@ def _run_episode(
                         "recovery_failure_probability": failure_probability,
                         "recovery_option_values": option_values.tolist(),
                         "recovery_suppressed_stop": (recovery_directive.suppress_stop_confirmation),
+                        "recovery_applied_subgoal_transition": (
+                            recovery_directive.apply_subgoal_transition
+                        ),
+                        "recovery_subgoal_delta": recovery_directive.subgoal_delta,
+                        "recovery_reanchor": recovery_directive.reanchor,
                         **(
                             {
                                 "recovery_training_context": np.asarray(

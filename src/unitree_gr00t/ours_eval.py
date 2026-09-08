@@ -14,7 +14,7 @@ from .ours_train import inspect_recovery_checkpoint
 
 OURS_PAPER = "working-method-before-final-freeze"
 OURS_DECISION_SCHEDULE = "temporal-completion-gate-onset-bounded-consensus-v4"
-OURS_OPTION_DECISION_SCHEDULE = "counterfactual-value-selective-bounded-consensus-v5"
+OURS_OPTION_DECISION_SCHEDULE = "counterfactual-value-direct-option-bounded-v6"
 OURS_EVALUATION = EvaluationIdentity(
     experiment_id=OURS_ID,
     variant=OURS_VARIANT,
