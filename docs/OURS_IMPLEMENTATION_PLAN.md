@@ -427,6 +427,17 @@ selection rule remains beneficial held-out recovery at false override at most
 5%, then recovery recall, regret, and registered id; no development rollout
 seed is consumed by this weight search.
 
+A train-seed diagnostic also showed that an unrestricted library can suppress a
+correctly valued action: another alternative may receive the largest predicted
+value even when it is not the physically beneficial one. Before the formal
+library result is computed, R0 therefore registers all 15 non-empty subsets of
+the four residual overrides. Each of the 24 frozen weight/architecture
+checkpoints is audited under every subset with a newly calibrated 5%-safe
+margin (360 train-seed-only configurations). Ranking first maximizes the number
+of physically beneficial held-out decisions, then its all-state rate, recall,
+regret, and registered id. This exhaustive mask audit adds no fitted parameters
+and prevents a post-hoc choice of a favored recovery primitive.
+
 The six low-capacity R0 architectures and all optimizer settings remain
 identical to v5.  V8 models are diagnostic ablations; the R1b registry is ranked
 only from episode-held-out residual-v9 advantage against `RETRY_CURRENT`.
