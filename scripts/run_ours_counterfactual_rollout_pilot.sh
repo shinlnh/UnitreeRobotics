@@ -7,14 +7,25 @@ cd "${ROOT}"
 SERVER_PYTHON="${SERVER_PYTHON:-.upstream/Isaac-GR00T-N1.7/.venv/bin/python}"
 EVAL_PYTHON="${EVAL_PYTHON:-.venv-a0/bin/python}"
 PORT="${PORT:-5551}"
-DESTINATION="${DESTINATION:-outputs/robocerebra/ctr-counterfactual-rollout-v3-pilot}"
-ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/counterfactual/R0-rollforward-v3-pilot}"
+BASE_SEED="${BASE_SEED:-10007}"
+SOURCE_ROLLOUT="${SOURCE_ROLLOUT:-outputs/robocerebra/ctr-live-rollouts-v1/train-seed${BASE_SEED}-full-c1-H16}"
+SOURCE_CORPUS="${SOURCE_CORPUS:-outputs/robocerebra/ctr-live-corpus-v2/train-seed${BASE_SEED}-full-c1-H16}"
+DESTINATION="${DESTINATION:-outputs/robocerebra/ctr-counterfactual-rollout-v3-seed${BASE_SEED}}"
+ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/counterfactual/R0-rollforward-v3-seed${BASE_SEED}}"
 STOP_STRIDE="${STOP_STRIDE:-128}"
 MAX_STATES_PER_EPISODE="${MAX_STATES_PER_EPISODE:-1}"
 MIN_SOURCE_ELAPSED_STEPS="${MIN_SOURCE_ELAPSED_STEPS:-75}"
 ROLLOUT_STEPS="${ROLLOUT_STEPS:-75}"
 MAX_POLICY_CALLS="${MAX_POLICY_CALLS:-24}"
 CONSENSUS_HYPOTHESES="${CONSENSUS_HYPOTHESES:-4}"
+
+case "${BASE_SEED}" in
+  10007|11007|12007) ;;
+  *)
+    echo "Counterfactual generation is restricted to frozen train seeds" >&2
+    exit 1
+    ;;
+esac
 mkdir -p "${ARTIFACT_ROOT}"
 
 if pgrep -f 'python .*unitree_gr00t\.(ours_server|b_server)' >/dev/null; then
@@ -43,7 +54,7 @@ PYTHONPATH=src "${SERVER_PYTHON}" -m unitree_gr00t.b_server \
   --device cuda:0 \
   --host 0.0.0.0 \
   --port "${PORT}" \
-  --seed 10007 \
+  --seed "${BASE_SEED}" \
   >"${ARTIFACT_ROOT}/server.log" 2>&1 &
 server_pid="$!"
 for _ in $(seq 1 90); do
@@ -61,8 +72,8 @@ if ! ss -ltn | grep -q ":${PORT} "; then
 fi
 
 PYTHONPATH=src "${EVAL_PYTHON}" -m unitree_gr00t.ours_counterfactual_rollout_prepare \
-  --rollout outputs/robocerebra/ctr-live-rollouts-v1/train-seed10007-full-c1-H16 \
-  --source-corpus outputs/robocerebra/ctr-live-corpus-v2/train-seed10007-full-c1-H16 \
+  --rollout "${SOURCE_ROLLOUT}" \
+  --source-corpus "${SOURCE_CORPUS}" \
   --robocerebra-source .upstream/RoboCerebra \
   --benchmark-dir .cache/robocerebra/bench \
   --destination "${DESTINATION}" \
@@ -78,5 +89,5 @@ PYTHONPATH=src "${EVAL_PYTHON}" -m unitree_gr00t.ours_counterfactual_rollout_pre
 
 PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_audit \
   --corpus "${DESTINATION}" \
-  --output "${ARTIFACT_ROOT}/pilot_audit.json" \
-  | tee "${ARTIFACT_ROOT}/pilot_audit.log"
+  --output "${ARTIFACT_ROOT}/corpus_audit.json" \
+  | tee "${ARTIFACT_ROOT}/corpus_audit.log"

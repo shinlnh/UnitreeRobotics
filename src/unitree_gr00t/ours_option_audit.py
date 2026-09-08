@@ -80,7 +80,12 @@ def summarize_option_predictions(
     for left in range(len(RECOVERY_OPTIONS)):
         for right in range(left + 1, len(RECOVERY_OPTIONS)):
             valid_pair = target_valid[labeled, left] & target_valid[labeled, right]
-            difference = target[:, left] - target[:, right]
+            # Invalid options are represented by -inf.  Subtract only where
+            # both options are valid so the audit never evaluates -inf - -inf.
+            difference = np.zeros(len(target), dtype=target.dtype)
+            difference[valid_pair] = (
+                target[valid_pair, left] - target[valid_pair, right]
+            )
             pair = valid_pair & (np.abs(difference) > 1e-6)
             pair_total += int(pair.sum())
             pair_correct += int(
