@@ -102,6 +102,8 @@ def summarize_option_predictions(
     strict_target_accept = strict_group & ~target_recover
     strict_target_recover = strict_group & target_recover
     recovery_gap = predicted_recovery - predicted_accept
+    predicted_recovery_id = recovery_ids[prediction[:, recovery_ids].argmax(axis=1)]
+    predicted_accept_id = accept_ids[prediction[:, accept_ids].argmax(axis=1)]
     nonnegative_gaps = recovery_gap[
         np.isfinite(recovery_gap) & (recovery_gap >= 0.0)
     ]
@@ -127,21 +129,30 @@ def summarize_option_predictions(
             if strict_target_recover.any()
             else 0.0
         )
+        beneficial_recovery = calibrated_recover & (
+            target[np.arange(len(target)), predicted_recovery_id] > target_accept + 1e-6
+        )
+        beneficial_recovery_rate = float(
+            beneficial_recovery[strict_target_recover].mean()
+            if strict_target_recover.any()
+            else 0.0
+        )
         accuracy = float(
             (calibrated_recover[strict_group] == target_recover[strict_group]).mean()
         )
         selected = np.where(
             calibrated_recover,
-            recovery_ids[prediction[:, recovery_ids].argmax(axis=1)],
-            accept_ids[prediction[:, accept_ids].argmax(axis=1)],
+            predicted_recovery_id,
+            predicted_accept_id,
         )
         regret = float((target_best - target[np.arange(len(target)), selected]).mean())
-        key = (true_recovery_rate, accuracy, -float(margin))
+        key = (beneficial_recovery_rate, true_recovery_rate, accuracy, -float(margin))
         payload = {
             "max_false_recovery_rate": max_false_recovery_rate,
             "option_value_margin": float(margin),
             "false_recovery_rate": false_recovery_rate,
             "true_recovery_rate": true_recovery_rate,
+            "beneficial_recovery_rate": beneficial_recovery_rate,
             "accuracy": accuracy,
             "mean_decision_regret": regret,
         }
@@ -293,11 +304,33 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if args.device.startswith("cuda"):
             torch.cuda.empty_cache()
 
+    ranked = sorted(
+        results,
+        key=lambda result: (
+            -result["option_validation"]["selective_recovery"][
+                "beneficial_recovery_rate"
+            ],
+            -result["option_validation"]["selective_recovery"]["true_recovery_rate"],
+            result["option_validation"]["selective_recovery"]["mean_decision_regret"],
+            -result["option_validation"]["balanced_recall_strict"],
+            result["variant_id"],
+        ),
+    )
+    for rank, result in enumerate(ranked, start=1):
+        result["offline_option_rank"] = rank
     payload = {
         "schema_version": 1,
         "experiment_id": "Ours",
         "stage": "R0-counterfactual-option-fit-audit",
         "scope": "train-only diagnostic; rollout development seeds were not consumed",
+        "selection_rule": (
+            "max beneficial recovery at calibrated false-recovery<=5%, then recovery "
+            "recall, regret, balanced recall, registered id"
+        ),
+        "selected_variant": ranked[0]["variant_id"],
+        "selected_option_value_margin": ranked[0]["option_validation"][
+            "selective_recovery"
+        ]["option_value_margin"],
         "variants": results,
         "complete": True,
     }

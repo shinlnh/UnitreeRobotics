@@ -78,3 +78,4 @@ def test_option_audit_calibrates_a_safe_recovery_margin() -> None:
     assert np.isclose(calibration["option_value_margin"], 0.2)
     assert calibration["false_recovery_rate"] == 0.0
     assert calibration["true_recovery_rate"] == 1.0
+    assert calibration["beneficial_recovery_rate"] == 1.0

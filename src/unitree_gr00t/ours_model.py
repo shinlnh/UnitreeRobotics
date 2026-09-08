@@ -83,7 +83,13 @@ def build_temporal_recovery_model(config: TemporalRecoveryModelConfig) -> Any:
             self.scalar_projection = nn.Sequential(
                 nn.LayerNorm(config.scalar_width), nn.Linear(config.scalar_width, width)
             )
-            self.fusion = nn.Sequential(nn.LayerNorm(width), nn.GELU())
+            # Applying dropout after multimodal fusion regularizes every
+            # encoder family, including the low-capacity linear and MLP heads.
+            self.fusion = nn.Sequential(
+                nn.LayerNorm(width),
+                nn.GELU(),
+                nn.Dropout(config.dropout),
+            )
             if config.encoder == "linear":
                 self.temporal = nn.Identity()
             elif config.encoder == "mlp":
@@ -243,7 +249,9 @@ def completion_progress_loss(
             & target_option_valid[:, None, :]
             & (target_difference.abs() > 1e-4)
         )
-        pair_losses = functional.relu(0.1 - prediction_difference * target_difference.sign())
+        pair_losses = functional.relu(
+            0.1 - prediction_difference * target_difference.sign()
+        )
         pair_weight = pair_mask.to(pair_losses.dtype)
         option_rank = (pair_losses * pair_weight).sum() / pair_weight.sum().clamp_min(1.0)
     total = (

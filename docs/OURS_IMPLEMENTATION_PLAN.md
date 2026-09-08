@@ -180,6 +180,17 @@ at most four temporal layers, eight attention heads, and at most 15 million new
 parameters. The A1 and B parameters remain frozen. Mixed precision and cached
 float16 contexts are required on the 16 GiB GPU.
 
+After the corrected single-seed v3 search exposed episode memorization, the
+multi-seed v4 R0 search is pre-registered as six lower-capacity models: linear
+H4/W32, linear H8/W64, MLP H4/W32, MLP H8/W64, GRU H8/W64, and Transformer
+H8/W64. They use fusion dropout 0.25--0.50, weight decay 0.05--0.10, and
+1,000--1,500 steps. All three train seeds are pooled, while the modulo-5
+episode holdout from every seed remains excluded from fitting. A recovery
+margin is calibrated on that holdout at false-recovery rate at most 5%. R0
+ranks models by beneficial recovery rate at that operating point, then recovery
+recall, decision regret, balanced option recall, and registered id. This matrix
+is fixed before any v4 result is observed.
+
 ## Trial-and-error protocol
 
 Search uses deterministic successive halving:
