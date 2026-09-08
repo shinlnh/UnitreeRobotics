@@ -13,7 +13,7 @@ from .b_retry import (
     B_RETRY_TRIGGER,
     confirmed_stop_transition,
 )
-from .ours import OURS_ID, OURS_METHOD, OURS_VARIANT
+from .ours import OURS_ID, OURS_METHOD, OURS_VARIANT, RecoveryOption
 from .ours_policy import SelectiveConsensusRecovery
 from .ours_train import inspect_recovery_checkpoint
 
@@ -83,6 +83,17 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Abstain to frozen B-retry and learn only a confirmed-STOP override",
     )
+    parser.add_argument(
+        "--allowed-recovery-option",
+        action="append",
+        choices=(
+            RecoveryOption.REOBSERVE.value,
+            RecoveryOption.BACKTRACK_ONE.value,
+            RecoveryOption.ADVANCE.value,
+            RecoveryOption.CONSENSUS_PREFIX.value,
+        ),
+        help="Repeat to freeze a residual override library; defaults to all four options",
+    )
     parser.add_argument("--consensus-cooldown-decisions", type=int, default=16)
     parser.add_argument("--capture-training-context", action="store_true")
     parser.add_argument("--collection-force-boundary-steps", type=int)
@@ -117,6 +128,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         raise ValueError("option value margin cannot be negative")
     if args.residual_retry_baseline and not args.use_option_values:
         raise ValueError("residual B-retry mode requires --use-option-values")
+    if args.allowed_recovery_option and not args.residual_retry_baseline:
+        raise ValueError("a recovery-option library requires --residual-retry-baseline")
     recovery_audit, recovery_provenance = inspect_recovery_checkpoint(args.recovery_checkpoint)
     metrics = recovery_provenance["development_metrics"]
     threshold_key = {
@@ -157,6 +170,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         consensus_cooldown_decisions=args.consensus_cooldown_decisions,
         force_boundary_steps=boundary_steps,
         residual_retry_baseline=args.residual_retry_baseline,
+        allowed_recovery_options=(
+            tuple(args.allowed_recovery_option)
+            if args.allowed_recovery_option is not None
+            else None
+        ),
     )
     manifest_extensions = {
         "decision_schedule": (
@@ -185,6 +203,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "residual_retry_baseline": args.residual_retry_baseline,
         "residual_abstention_option": (
             "RETRY_CURRENT" if args.residual_retry_baseline else None
+        ),
+        "allowed_recovery_options": (
+            [option.value for option in controller.allowed_recovery_options]
+            if args.residual_retry_baseline
+            else None
         ),
         "failure_threshold": failure_threshold,
         "checkpoint_failure_threshold": checkpoint_failure_threshold,

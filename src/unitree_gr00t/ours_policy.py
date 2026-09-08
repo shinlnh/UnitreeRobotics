@@ -47,6 +47,7 @@ class SelectiveConsensusRecovery:
         consensus_cooldown_decisions: int = 16,
         force_boundary_steps: int | None = None,
         residual_retry_baseline: bool = False,
+        allowed_recovery_options: tuple[str, ...] | None = None,
     ):
         # completion_threshold remains an explicit compatibility alias for the
         # first recorded smoke artifact.
@@ -71,6 +72,35 @@ class SelectiveConsensusRecovery:
             raise OursContractError("forced collection boundary must be positive")
         if residual_retry_baseline and not use_option_values:
             raise OursContractError("residual B-retry mode requires learned option values")
+        residual_overrides = (
+            RecoveryOption.REOBSERVE,
+            RecoveryOption.BACKTRACK_ONE,
+            RecoveryOption.ADVANCE,
+            RecoveryOption.CONSENSUS_PREFIX,
+        )
+        if allowed_recovery_options is not None:
+            if not residual_retry_baseline:
+                raise OursContractError(
+                    "a recovery-option library is restricted to residual B-retry mode"
+                )
+            try:
+                selected_overrides = tuple(
+                    RecoveryOption(option) for option in allowed_recovery_options
+                )
+            except ValueError as error:
+                raise OursContractError(
+                    "residual recovery-option library contains an unknown option"
+                ) from error
+            if (
+                not selected_overrides
+                or len(set(selected_overrides)) != len(selected_overrides)
+                or any(option not in residual_overrides for option in selected_overrides)
+            ):
+                raise OursContractError(
+                    "residual recovery-option library must be a nonempty unique override subset"
+                )
+        else:
+            selected_overrides = residual_overrides
         self.gate_signal = gate_signal
         self.gate_threshold = selected_threshold
         self.consensus_hypotheses = consensus_hypotheses
@@ -82,6 +112,7 @@ class SelectiveConsensusRecovery:
         self.consensus_cooldown_decisions = consensus_cooldown_decisions
         self.force_boundary_steps = force_boundary_steps
         self.residual_retry_baseline = residual_retry_baseline
+        self.allowed_recovery_options = selected_overrides
         self._proposals: list[tuple[Any, Any, Any]] = []
         self._cooldown_remaining = 0
         self._recovery_attempts = 0
@@ -301,12 +332,10 @@ class SelectiveConsensusRecovery:
             if self.residual_retry_baseline:
                 accept_options = [RecoveryOption.RETRY_CURRENT]
                 recover_options = [
-                    RecoveryOption.REOBSERVE,
-                    RecoveryOption.ADVANCE,
-                    RecoveryOption.CONSENSUS_PREFIX,
+                    option
+                    for option in self.allowed_recovery_options
+                    if option is not RecoveryOption.BACKTRACK_ONE or subgoal_index > 0
                 ]
-                if subgoal_index > 0:
-                    recover_options.append(RecoveryOption.BACKTRACK_ONE)
             else:
                 accept_options = [RecoveryOption.ACCEPT_B]
                 if stop_pending:
@@ -319,6 +348,18 @@ class SelectiveConsensusRecovery:
                 if subgoal_index > 0:
                     recover_options.append(RecoveryOption.BACKTRACK_ONE)
             best_accept = max(accept_options, key=lambda option: float(values[index[option]]))
+            if not recover_options:
+                self._clear_proposals()
+                return RecoveryDirective(
+                    candidate=0,
+                    action_chunk=action_chunk,
+                    suppress_stop_confirmation=False,
+                    option=RecoveryOption.ACCEPT_B.value,
+                    recovery_triggered=False,
+                    hypothesis_count=1,
+                    completion_probability=completion_probability,
+                    progress_probability=progress_probability,
+                )
             best_recover = max(recover_options, key=lambda option: float(values[index[option]]))
             accept_value = float(values[index[best_accept]])
             recover_value = float(values[index[best_recover]])

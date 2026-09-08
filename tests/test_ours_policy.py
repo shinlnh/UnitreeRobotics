@@ -354,6 +354,81 @@ def test_residual_mode_requires_option_values() -> None:
         )
 
 
+def test_residual_mode_restricts_decisions_to_registered_option_library() -> None:
+    controller = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        use_option_values=True,
+        option_value_margin=0.2,
+        residual_retry_baseline=True,
+        allowed_recovery_options=("ADVANCE", "CONSENSUS_PREFIX"),
+    )
+    directive = controller.decide(
+        candidate=0,
+        action_chunk=np.ones((16, 7), dtype=np.float32),
+        scores=np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        valid=np.asarray([True, True, True] + [False] * 14),
+        completion_probability=0.1,
+        progress_probability=0.2,
+        failure_probability=0.9,
+        # REOBSERVE has the global maximum but is outside the frozen library.
+        option_values=np.asarray([0.0, 9.0, 1.0, -1.0, 3.0, 2.0]),
+        subgoal_elapsed_steps=75,
+        subgoal_index=1,
+        stop_pending=True,
+        np=np,
+    )
+    assert directive.option == "ADVANCE"
+    assert directive.recovery_triggered
+
+
+def test_residual_backtrack_only_library_abstains_on_first_subgoal() -> None:
+    controller = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        use_option_values=True,
+        residual_retry_baseline=True,
+        allowed_recovery_options=("BACKTRACK_ONE",),
+    )
+    directive = controller.decide(
+        candidate=0,
+        action_chunk=np.ones((16, 7), dtype=np.float32),
+        scores=np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        valid=np.asarray([True, True, True] + [False] * 14),
+        completion_probability=0.1,
+        progress_probability=0.2,
+        failure_probability=0.9,
+        option_values=np.asarray([0.0, 0.0, 1.0, 9.0, 0.0, 0.0]),
+        subgoal_elapsed_steps=75,
+        subgoal_index=0,
+        stop_pending=True,
+        np=np,
+    )
+    assert directive.option == "ACCEPT_B"
+    assert not directive.recovery_triggered
+
+
+@pytest.mark.parametrize(
+    "options, message",
+    [
+        ((), "nonempty unique override subset"),
+        (("ADVANCE", "ADVANCE"), "nonempty unique override subset"),
+        (("RETRY_CURRENT",), "nonempty unique override subset"),
+    ],
+)
+def test_residual_option_library_rejects_invalid_subsets(
+    options: tuple[str, ...], message: str
+) -> None:
+    with pytest.raises(OursContractError, match=message):
+        SelectiveConsensusRecovery(
+            completion_threshold=0.8,
+            consensus_hypotheses=1,
+            use_option_values=True,
+            residual_retry_baseline=True,
+            allowed_recovery_options=options,
+        )
+
+
 def test_consensus_finishes_after_nonstop_followup_hypotheses() -> None:
     controller = SelectiveConsensusRecovery(
         completion_threshold=0.8,

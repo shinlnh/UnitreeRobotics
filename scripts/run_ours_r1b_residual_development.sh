@@ -7,8 +7,7 @@ cd "${ROOT}"
 SERVER_PYTHON="${SERVER_PYTHON:-.upstream/Isaac-GR00T-N1.7/.venv/bin/python}"
 EVAL_PYTHON="${EVAL_PYTHON:-.venv-a0/bin/python}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-artifacts/Ours/development/R1b-residual-v9-outcome-first}"
-CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/R0-residual-v9-outcome-first-balanced-binary}"
-OPTION_REGISTRY="${OPTION_REGISTRY:-artifacts/Ours/search/R0-residual-v9-outcome-first-balanced-binary/residual_registry.json}"
+OPTION_REGISTRY="${OPTION_REGISTRY:-artifacts/Ours/search/R0-residual-v9-option-mask/registry.json}"
 BASELINE="${BASELINE:-artifacts/Ours/development/control/B-retry-seed22007-H16}"
 PORT="${PORT:-5550}"
 BASE_SEED="${BASE_SEED:-22007}"
@@ -26,23 +25,30 @@ import sys
 payload = json.load(open(sys.argv[1], encoding="utf-8"))
 if (
     not payload.get("complete")
-    or not payload.get("residual_retry_baseline")
-    or len(payload.get("variants", [])) != 6
+    or payload.get("registered_masks") != 15
+    or payload.get("registered_checkpoints") != 24
+    or len(payload.get("variants", [])) != 360
+    or not payload.get("offline_positive_candidate")
 ):
-    raise SystemExit("R0 residual registry is incomplete")
+    raise SystemExit("R0 residual option-library registry is incomplete")
 for result in sorted(payload["variants"], key=lambda row: row["offline_option_rank"])[:4]:
     margin = result["option_validation"]["selective_recovery"]["option_value_margin"]
-    print(result["variant_id"], format(float(margin), ".9g"))
+    print("\t".join((
+        result["variant_id"],
+        result["checkpoint"],
+        format(float(margin), ".9g"),
+        ",".join(result["allowed_override_options"]),
+    )))
 PY
 )
 if [[ "${#ranked[@]}" -ne 4 ]]; then
   echo "R1b requires the top four completed residual models" >&2
   exit 1
 fi
-read -r rank1 margin1 <<<"${ranked[0]}"
-read -r rank2 margin2 <<<"${ranked[1]}"
-read -r rank3 margin3 <<<"${ranked[2]}"
-read -r rank4 margin4 <<<"${ranked[3]}"
+IFS=$'\t' read -r rank1 checkpoint1 margin1 options1 <<<"${ranked[0]}"
+IFS=$'\t' read -r rank2 checkpoint2 margin2 options2 <<<"${ranked[1]}"
+IFS=$'\t' read -r rank3 checkpoint3 margin3 options3 <<<"${ranked[2]}"
+IFS=$'\t' read -r rank4 checkpoint4 margin4 options4 <<<"${ranked[3]}"
 safer_margin1=$(PYTHONPATH=src .venv/bin/python - "${margin1}" <<'PY'
 import sys
 print(format(float(sys.argv[1]) + 0.05, ".9g"))
@@ -156,11 +162,11 @@ fi
 
 run_variant() {
   local variant_id="$1"
-  local checkpoint_name="$2"
+  local checkpoint="$2"
   local hypotheses="$3"
   local option_margin="$4"
   local failure_mode="$5"
-  local checkpoint="${CHECKPOINT_ROOT}/${checkpoint_name}"
+  local allowed_options_csv="$6"
   local output="${OUTPUT_ROOT}/${variant_id}"
   if [[ -f "${output}/summary.json" ]] && \
     "${EVAL_PYTHON}" -c 'import json,sys; raise SystemExit(not json.load(open(sys.argv[1]))["complete"])' "${output}/summary.json"; then
@@ -168,8 +174,13 @@ run_variant() {
   fi
   local resume=()
   local failure_args=()
+  local recovery_option_args=()
   [[ -f "${output}/run_manifest.json" ]] && resume=(--resume)
   [[ "${failure_mode}" == "option-only" ]] && failure_args=(--failure-threshold 0)
+  IFS=',' read -r -a allowed_options <<<"${allowed_options_csv}"
+  for option in "${allowed_options[@]}"; do
+    recovery_option_args+=(--allowed-recovery-option "${option}")
+  done
   PYTHONPATH=src "${EVAL_PYTHON}" -m unitree_gr00t.ours_eval \
     "${common_eval_args[@]}" \
     --recovery-checkpoint "${checkpoint}" \
@@ -182,6 +193,7 @@ run_variant() {
     --use-option-values \
     --option-value-margin "${option_margin}" \
     --residual-retry-baseline \
+    "${recovery_option_args[@]}" \
     "${failure_args[@]}" \
     "${resume[@]}" \
     >"${OUTPUT_ROOT}/${variant_id}.log" 2>&1
@@ -195,26 +207,26 @@ run_variant() {
 # use four hypotheses, so C4 is the matched primary setting and C1 is an
 # explicit ablation.  The option-only variants trust the held-out residual
 # margin; the checkpoint failure gate is tested separately for rank 1.
-# id checkpoint hypotheses margin failure-gate
+# id|checkpoint|hypotheses|margin|failure-gate|allowed-options
 variants=(
-  "r1b-00-rank1-option-c4 ${rank1} 4 ${margin1} option-only"
-  "r1b-01-rank2-option-c4 ${rank2} 4 ${margin2} option-only"
-  "r1b-02-rank3-option-c4 ${rank3} 4 ${margin3} option-only"
-  "r1b-03-rank4-option-c4 ${rank4} 4 ${margin4} option-only"
-  "r1b-04-rank1-gated-c4 ${rank1} 4 ${margin1} checkpoint"
-  "r1b-05-rank1-option-c1 ${rank1} 1 ${margin1} option-only"
-  "r1b-06-rank1-safe-c4 ${rank1} 4 ${safer_margin1} option-only"
+  "r1b-00-rank1-option-c4|${checkpoint1}|4|${margin1}|option-only|${options1}"
+  "r1b-01-rank2-option-c4|${checkpoint2}|4|${margin2}|option-only|${options2}"
+  "r1b-02-rank3-option-c4|${checkpoint3}|4|${margin3}|option-only|${options3}"
+  "r1b-03-rank4-option-c4|${checkpoint4}|4|${margin4}|option-only|${options4}"
+  "r1b-04-rank1-gated-c4|${checkpoint1}|4|${margin1}|checkpoint|${options1}"
+  "r1b-05-rank1-option-c1|${checkpoint1}|1|${margin1}|option-only|${options1}"
+  "r1b-06-rank1-safe-c4|${checkpoint1}|4|${safer_margin1}|option-only|${options1}"
 )
 
 current_checkpoint=""
 for specification in "${variants[@]}"; do
-  read -r variant_id checkpoint_name hypotheses option_margin failure_mode <<<"${specification}"
-  if [[ "${checkpoint_name}" != "${current_checkpoint}" ]]; then
+  IFS='|' read -r variant_id checkpoint hypotheses option_margin failure_mode allowed_options_csv <<<"${specification}"
+  if [[ "${checkpoint}" != "${current_checkpoint}" ]]; then
     stop_server
-    start_ours_server "${CHECKPOINT_ROOT}/${checkpoint_name}" "${checkpoint_name}"
-    current_checkpoint="${checkpoint_name}"
+    start_ours_server "${checkpoint}" "${variant_id}"
+    current_checkpoint="${checkpoint}"
   fi
-  run_variant "${variant_id}" "${checkpoint_name}" "${hypotheses}" "${option_margin}" "${failure_mode}"
+  run_variant "${variant_id}" "${checkpoint}" "${hypotheses}" "${option_margin}" "${failure_mode}" "${allowed_options_csv}"
 done
 stop_server
 
