@@ -24,3 +24,8 @@ for specification in "${weights[@]}"; do
   MIN_STRICT_PREFERENCE_RATE="0.05" \
     scripts/run_ours_r0_residual_sweep.sh
 done
+
+PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_weight_search \
+  --search-root artifacts/Ours/search/R0-residual-v9-override-weight \
+  --output artifacts/Ours/search/R0-residual-v9-override-weight/aggregate_registry.json \
+  --expected-variants-per-weight 6
