@@ -191,7 +191,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
     baseline_calls = sum(int(row["policy_calls"]) for row in baseline) / len(baseline)
     baseline_steps = sum(int(row["steps"]) for row in baseline) / len(baseline)
-    for variant_index, root in enumerate(run_dirs):
+    for root in run_dirs:
         manifest, rows = _complete_run(root, expected_experiment=OURS_ID)
         identity = (manifest.get("variant"), manifest.get("method"), int(manifest["base_seed"]))
         if identity != (OURS_VARIANT, OURS_METHOD, args.seed):
@@ -203,7 +203,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             baseline,
             rows,
             resamples=args.bootstrap_resamples,
-            seed=args.seed + variant_index,
+            # Couple bootstrap resamples across variants so identical paired
+            # outcomes receive identical intervals and rankings are not driven
+            # by Monte Carlo draws.
+            seed=args.seed,
             np=np,
         )
         mean_calls = sum(int(row["policy_calls"]) for row in rows) / len(rows)
@@ -278,6 +281,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "round": "R1",
         "base_seed": args.seed,
         "bootstrap_resamples": args.bootstrap_resamples,
+        "bootstrap_seed": args.seed,
+        "bootstrap_coupling": "common-resamples-across-variants-v1",
         "baseline": {
             "rollout": str(baseline_root),
             "task_macro_subtask_rate": task_macro_subtask_rate(baseline),
