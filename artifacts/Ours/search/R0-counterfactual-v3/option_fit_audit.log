@@ -1,0 +1,373 @@
+{
+  "schema_version": 1,
+  "experiment_id": "Ours",
+  "stage": "R0-counterfactual-option-fit-audit",
+  "scope": "train-only diagnostic; rollout development seeds were not consumed",
+  "variants": [
+    {
+      "labeled_states": 251,
+      "strict_states": 234,
+      "top1_accuracy_strict": 0.9658119658119658,
+      "balanced_recall_strict": 0.9393675364882796,
+      "per_option": {
+        "ACCEPT_B": {
+          "support": 140,
+          "recall": 0.9785714285714285
+        },
+        "REOBSERVE": {
+          "support": 19,
+          "recall": 0.8947368421052632
+        },
+        "RETRY_CURRENT": {
+          "support": 17,
+          "recall": 0.8235294117647058
+        },
+        "BACKTRACK_ONE": {
+          "support": 46,
+          "recall": 1.0
+        },
+        "ADVANCE": {
+          "support": 0,
+          "recall": null
+        },
+        "CONSENSUS_PREFIX": {
+          "support": 12,
+          "recall": 1.0
+        }
+      },
+      "pairwise_ranking_accuracy": 0.9622988505747126,
+      "pairwise_comparisons": 2175,
+      "mean_decision_regret": 0.03028685599565506,
+      "accept_recover": {
+        "strict_states": 241,
+        "accuracy": 0.970954356846473,
+        "target_accept_states": 140,
+        "false_recovery_rate": 0.02142857142857143,
+        "target_recovery_states": 101,
+        "missed_recovery_rate": 0.039603960396039604
+      },
+      "option_validation": {
+        "labeled_states": 71,
+        "strict_states": 66,
+        "top1_accuracy_strict": 0.30303030303030304,
+        "balanced_recall_strict": 0.19904761904761906,
+        "per_option": {
+          "ACCEPT_B": {
+            "support": 30,
+            "recall": 0.5666666666666667
+          },
+          "REOBSERVE": {
+            "support": 6,
+            "recall": 0.0
+          },
+          "RETRY_CURRENT": {
+            "support": 6,
+            "recall": 0.0
+          },
+          "BACKTRACK_ONE": {
+            "support": 21,
+            "recall": 0.09523809523809523
+          },
+          "ADVANCE": {
+            "support": 0,
+            "recall": null
+          },
+          "CONSENSUS_PREFIX": {
+            "support": 3,
+            "recall": 0.3333333333333333
+          }
+        },
+        "pairwise_ranking_accuracy": 0.6606851549755302,
+        "pairwise_comparisons": 613,
+        "mean_decision_regret": 0.2380281686782837,
+        "accept_recover": {
+          "strict_states": 70,
+          "accuracy": 0.4857142857142857,
+          "target_accept_states": 30,
+          "false_recovery_rate": 0.43333333333333335,
+          "target_recovery_states": 40,
+          "missed_recovery_rate": 0.575
+        }
+      },
+      "variant_id": "v00-mlp-h16-live025-opt0125",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v3/v00-mlp-h16-live025-opt0125",
+      "weights_sha256": "821a32c1b36a2de57f436e47078e33e28962fce0920f0d0ffb91dc97bd1c6e89",
+      "selected_step": 1750,
+      "scope": "train-seed counterfactual fit plus held-out episodes; no rollout development seed"
+    },
+    {
+      "labeled_states": 251,
+      "strict_states": 234,
+      "top1_accuracy_strict": 0.9700854700854701,
+      "balanced_recall_strict": 0.9511322423706325,
+      "per_option": {
+        "ACCEPT_B": {
+          "support": 140,
+          "recall": 0.9785714285714285
+        },
+        "REOBSERVE": {
+          "support": 19,
+          "recall": 0.8947368421052632
+        },
+        "RETRY_CURRENT": {
+          "support": 17,
+          "recall": 0.8823529411764706
+        },
+        "BACKTRACK_ONE": {
+          "support": 46,
+          "recall": 1.0
+        },
+        "ADVANCE": {
+          "support": 0,
+          "recall": null
+        },
+        "CONSENSUS_PREFIX": {
+          "support": 12,
+          "recall": 1.0
+        }
+      },
+      "pairwise_ranking_accuracy": 0.9563218390804598,
+      "pairwise_comparisons": 2175,
+      "mean_decision_regret": 0.030557770282030106,
+      "accept_recover": {
+        "strict_states": 241,
+        "accuracy": 0.9585062240663901,
+        "target_accept_states": 140,
+        "false_recovery_rate": 0.02142857142857143,
+        "target_recovery_states": 101,
+        "missed_recovery_rate": 0.06930693069306931
+      },
+      "option_validation": {
+        "labeled_states": 71,
+        "strict_states": 66,
+        "top1_accuracy_strict": 0.36363636363636365,
+        "balanced_recall_strict": 0.24952380952380948,
+        "per_option": {
+          "ACCEPT_B": {
+            "support": 30,
+            "recall": 0.7
+          },
+          "REOBSERVE": {
+            "support": 6,
+            "recall": 0.16666666666666666
+          },
+          "RETRY_CURRENT": {
+            "support": 6,
+            "recall": 0.0
+          },
+          "BACKTRACK_ONE": {
+            "support": 21,
+            "recall": 0.047619047619047616
+          },
+          "ADVANCE": {
+            "support": 0,
+            "recall": null
+          },
+          "CONSENSUS_PREFIX": {
+            "support": 3,
+            "recall": 0.3333333333333333
+          }
+        },
+        "pairwise_ranking_accuracy": 0.6818923327895595,
+        "pairwise_comparisons": 613,
+        "mean_decision_regret": 0.23853519558906555,
+        "accept_recover": {
+          "strict_states": 70,
+          "accuracy": 0.4857142857142857,
+          "target_accept_states": 30,
+          "false_recovery_rate": 0.3,
+          "target_recovery_states": 40,
+          "missed_recovery_rate": 0.675
+        }
+      },
+      "variant_id": "v01-mlp-h16-live050-opt0250",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v3/v01-mlp-h16-live050-opt0250",
+      "weights_sha256": "d0bc0b86841603a6ee3a806085bce1c18106dffc33f153243db95bfe0e8b2e42",
+      "selected_step": 1750,
+      "scope": "train-seed counterfactual fit plus held-out episodes; no rollout development seed"
+    },
+    {
+      "labeled_states": 251,
+      "strict_states": 234,
+      "top1_accuracy_strict": 0.9529914529914529,
+      "balanced_recall_strict": 0.9338434321096859,
+      "per_option": {
+        "ACCEPT_B": {
+          "support": 140,
+          "recall": 0.9571428571428572
+        },
+        "REOBSERVE": {
+          "support": 19,
+          "recall": 0.9473684210526315
+        },
+        "RETRY_CURRENT": {
+          "support": 17,
+          "recall": 0.7647058823529411
+        },
+        "BACKTRACK_ONE": {
+          "support": 46,
+          "recall": 1.0
+        },
+        "ADVANCE": {
+          "support": 0,
+          "recall": null
+        },
+        "CONSENSUS_PREFIX": {
+          "support": 12,
+          "recall": 1.0
+        }
+      },
+      "pairwise_ranking_accuracy": 0.9622988505747126,
+      "pairwise_comparisons": 2175,
+      "mean_decision_regret": 0.03134661540389061,
+      "accept_recover": {
+        "strict_states": 241,
+        "accuracy": 0.9543568464730291,
+        "target_accept_states": 140,
+        "false_recovery_rate": 0.04285714285714286,
+        "target_recovery_states": 101,
+        "missed_recovery_rate": 0.04950495049504951
+      },
+      "option_validation": {
+        "labeled_states": 71,
+        "strict_states": 66,
+        "top1_accuracy_strict": 0.3939393939393939,
+        "balanced_recall_strict": 0.24095238095238095,
+        "per_option": {
+          "ACCEPT_B": {
+            "support": 30,
+            "recall": 0.6333333333333333
+          },
+          "REOBSERVE": {
+            "support": 6,
+            "recall": 0.16666666666666666
+          },
+          "RETRY_CURRENT": {
+            "support": 6,
+            "recall": 0.16666666666666666
+          },
+          "BACKTRACK_ONE": {
+            "support": 21,
+            "recall": 0.23809523809523808
+          },
+          "ADVANCE": {
+            "support": 0,
+            "recall": null
+          },
+          "CONSENSUS_PREFIX": {
+            "support": 3,
+            "recall": 0.0
+          }
+        },
+        "pairwise_ranking_accuracy": 0.6313213703099511,
+        "pairwise_comparisons": 613,
+        "mean_decision_regret": 0.2614084780216217,
+        "accept_recover": {
+          "strict_states": 70,
+          "accuracy": 0.6142857142857143,
+          "target_accept_states": 30,
+          "false_recovery_rate": 0.36666666666666664,
+          "target_recovery_states": 40,
+          "missed_recovery_rate": 0.4
+        }
+      },
+      "variant_id": "v02-gru-h16-live050-opt0250",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v3/v02-gru-h16-live050-opt0250",
+      "weights_sha256": "51e0cff455ea459c7a2bf9a6185d1c18121a95ea59b5aaa1c642f70f99b912c4",
+      "selected_step": 1750,
+      "scope": "train-seed counterfactual fit plus held-out episodes; no rollout development seed"
+    },
+    {
+      "labeled_states": 251,
+      "strict_states": 234,
+      "top1_accuracy_strict": 0.9572649572649573,
+      "balanced_recall_strict": 0.9365103936311368,
+      "per_option": {
+        "ACCEPT_B": {
+          "support": 140,
+          "recall": 0.9642857142857143
+        },
+        "REOBSERVE": {
+          "support": 19,
+          "recall": 0.8947368421052632
+        },
+        "RETRY_CURRENT": {
+          "support": 17,
+          "recall": 0.8235294117647058
+        },
+        "BACKTRACK_ONE": {
+          "support": 46,
+          "recall": 1.0
+        },
+        "ADVANCE": {
+          "support": 0,
+          "recall": null
+        },
+        "CONSENSUS_PREFIX": {
+          "support": 12,
+          "recall": 1.0
+        }
+      },
+      "pairwise_ranking_accuracy": 0.9535632183908046,
+      "pairwise_comparisons": 2175,
+      "mean_decision_regret": 0.03155378997325897,
+      "accept_recover": {
+        "strict_states": 241,
+        "accuracy": 0.9626556016597511,
+        "target_accept_states": 140,
+        "false_recovery_rate": 0.03571428571428571,
+        "target_recovery_states": 101,
+        "missed_recovery_rate": 0.039603960396039604
+      },
+      "option_validation": {
+        "labeled_states": 71,
+        "strict_states": 66,
+        "top1_accuracy_strict": 0.2727272727272727,
+        "balanced_recall_strict": 0.2333333333333333,
+        "per_option": {
+          "ACCEPT_B": {
+            "support": 30,
+            "recall": 0.5
+          },
+          "REOBSERVE": {
+            "support": 6,
+            "recall": 0.16666666666666666
+          },
+          "RETRY_CURRENT": {
+            "support": 6,
+            "recall": 0.16666666666666666
+          },
+          "BACKTRACK_ONE": {
+            "support": 21,
+            "recall": 0.0
+          },
+          "ADVANCE": {
+            "support": 0,
+            "recall": null
+          },
+          "CONSENSUS_PREFIX": {
+            "support": 3,
+            "recall": 0.3333333333333333
+          }
+        },
+        "pairwise_ranking_accuracy": 0.6623164763458401,
+        "pairwise_comparisons": 613,
+        "mean_decision_regret": 0.11442254483699799,
+        "accept_recover": {
+          "strict_states": 70,
+          "accuracy": 0.4714285714285714,
+          "target_accept_states": 30,
+          "false_recovery_rate": 0.5,
+          "target_recovery_states": 40,
+          "missed_recovery_rate": 0.55
+        }
+      },
+      "variant_id": "v03-transformer-h8-live025-opt0125",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v3/v03-transformer-h8-live025-opt0125",
+      "weights_sha256": "40579b7ea495d6fe8766e3c039fd2e7d62af349d01473a66658b5bb7b83e7f07",
+      "selected_step": 1750,
+      "scope": "train-seed counterfactual fit plus held-out episodes; no rollout development seed"
+    }
+  ],
+  "complete": true
+}

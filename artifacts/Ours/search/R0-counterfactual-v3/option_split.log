@@ -1,0 +1,8 @@
+{
+  "scope": "train-seed episode holdout; not rollout development or final",
+  "rule": "episode_index modulo modulus equals remainder",
+  "modulus": 5,
+  "remainder": 4,
+  "train_episodes": 48,
+  "validation_episodes": 12
+}
