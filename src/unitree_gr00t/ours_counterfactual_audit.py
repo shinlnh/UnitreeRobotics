@@ -134,6 +134,60 @@ def residual_contract_checks(
     }
 
 
+def summarize_residual_branch_mechanisms(
+    branches: list[dict[str, Any]], *, tie_tolerance: float = 1e-6
+) -> dict[str, Any]:
+    """Separate physical recovery gains from return gains due only to cost."""
+
+    states: dict[tuple[int, int], list[dict[str, Any]]] = {}
+    for row in branches:
+        key = (int(row.get("episode_index", -1)), int(row.get("sample_index", -1)))
+        states.setdefault(key, []).append(row)
+    physical_benefit = 0
+    return_benefit = 0
+    efficiency_only = 0
+    physical_regression = 0
+    physical_winners: Counter[str] = Counter()
+    for rows in states.values():
+        retry_rows = [row for row in rows if row.get("option") == "RETRY_CURRENT"]
+        alternatives = [row for row in rows if row.get("option") != "RETRY_CURRENT"]
+        if len(retry_rows) != 1 or not alternatives:
+            raise OursContractError("residual mechanism audit has an invalid branch inventory")
+        retry = retry_rows[0]
+
+        def physical_key(row: dict[str, Any]) -> tuple[int, int, int]:
+            return (
+                int(bool(row["final_success"])),
+                int(row["completed_subtasks_after"]),
+                int(row["predicate_count_after"]),
+            )
+
+        retry_physical = physical_key(retry)
+        best_physical = max(physical_key(row) for row in alternatives)
+        if best_physical > retry_physical:
+            physical_benefit += 1
+            for row in alternatives:
+                if physical_key(row) == best_physical:
+                    physical_winners[str(row["option"])] += 1
+        best_return = max(alternatives, key=lambda row: float(row["return_value"]))
+        if float(best_return["return_value"]) > float(retry["return_value"]) + tie_tolerance:
+            return_benefit += 1
+            if physical_key(best_return) == retry_physical:
+                efficiency_only += 1
+            elif physical_key(best_return) < retry_physical:
+                physical_regression += 1
+    count = len(states)
+    return {
+        "states": count,
+        "physical_beneficial_override_states": physical_benefit,
+        "physical_beneficial_override_rate": physical_benefit / count if count else 0.0,
+        "return_beneficial_override_states": return_benefit,
+        "efficiency_only_return_override_states": efficiency_only,
+        "return_override_with_physical_regression_states": physical_regression,
+        "physical_winning_options": dict(sorted(physical_winners.items())),
+    }
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     if (
         min(args.min_labeled_states, args.min_winning_options) < 1
@@ -165,6 +219,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             values.append(episode["target_option_values"].astype(np.float32, copy=False))
             masks.append(episode["target_option_valid"].astype(np.bool_, copy=False))
     summary = summarize_option_targets(np.concatenate(values), np.concatenate(masks), np=np)
+    residual_mechanisms = (
+        summarize_residual_branch_mechanisms(branches)
+        if manifest.get("counterfactual_sampling", {}).get("residual_retry_baseline")
+        else None
+    )
     checks = {
         "minimum_labeled_states": summary["labeled_states"] >= args.min_labeled_states,
         "multiple_winning_options": (
@@ -190,6 +249,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "min_strict_preference_rate": args.min_strict_preference_rate,
         },
         "option_targets": summary,
+        "residual_branch_mechanisms": residual_mechanisms,
         "checks": checks,
         "valid": all(checks.values()),
     }
