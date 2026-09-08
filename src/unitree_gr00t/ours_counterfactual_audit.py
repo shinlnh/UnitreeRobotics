@@ -13,6 +13,7 @@ from .ours import RECOVERY_OPTIONS, OursContractError
 from .ours_counterfactual import (
     COUNTERFACTUAL_RETURN_TARGETS,
     EFFICIENCY_SHAPED_RETURN_TARGET,
+    OUTCOME_FIRST_RETURN_TARGET,
 )
 from .ours_data import OURS_CORPUS_MANIFEST, audit_recovery_corpus
 
@@ -240,6 +241,24 @@ def summarize_residual_branch_mechanisms(
     }
 
 
+def outcome_first_alignment_check(
+    manifest: dict[str, Any], mechanisms: dict[str, Any] | None
+) -> bool:
+    """Require every claimed outcome-first return gain to be physically real."""
+
+    sampling = manifest.get("counterfactual_sampling", {})
+    if sampling.get("return_target") != OUTCOME_FIRST_RETURN_TARGET:
+        return True
+    if mechanisms is None:
+        return False
+    return (
+        mechanisms["return_beneficial_override_states"]
+        == mechanisms["physical_beneficial_override_states"]
+        and mechanisms["efficiency_only_return_override_states"] == 0
+        and mechanisms["return_override_with_physical_regression_states"] == 0
+    )
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     if (
         min(args.min_labeled_states, args.min_winning_options) < 1
@@ -290,6 +309,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             branches_sha256=(sha256_file(branch_path) if branch_path.is_file() else ""),
         ),
     }
+    if manifest.get("counterfactual_sampling", {}).get("residual_retry_baseline"):
+        checks["residual_outcome_first_physical_alignment"] = (
+            outcome_first_alignment_check(manifest, residual_mechanisms)
+        )
     result = {
         "schema_version": 1,
         "corpus": str(root),

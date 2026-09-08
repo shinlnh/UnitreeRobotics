@@ -1,6 +1,7 @@
 import numpy as np
 
 from unitree_gr00t.ours_counterfactual_audit import (
+    outcome_first_alignment_check,
     residual_contract_checks,
     summarize_option_targets,
     summarize_residual_branch_mechanisms,
@@ -157,3 +158,27 @@ def test_residual_mechanism_audit_separates_physical_and_efficiency_gains() -> N
     assert result["efficiency_only_return_override_states"] == 1
     assert result["return_override_with_physical_regression_states"] == 0
     assert result["physical_winning_options"] == {"ADVANCE": 1}
+
+
+def test_outcome_first_alignment_rejects_nonphysical_return_gain() -> None:
+    manifest = {
+        "counterfactual_sampling": {"return_target": "outcome-first-physical-v1"}
+    }
+    mechanisms = {
+        "physical_beneficial_override_states": 1,
+        "return_beneficial_override_states": 2,
+        "efficiency_only_return_override_states": 1,
+        "return_override_with_physical_regression_states": 0,
+    }
+
+    assert not outcome_first_alignment_check(manifest, mechanisms)
+    mechanisms["return_beneficial_override_states"] = 1
+    mechanisms["efficiency_only_return_override_states"] = 0
+    assert outcome_first_alignment_check(manifest, mechanisms)
+
+
+def test_legacy_return_does_not_claim_outcome_first_alignment() -> None:
+    manifest = {
+        "counterfactual_sampling": {"return_target": "efficiency-shaped-v1"}
+    }
+    assert outcome_first_alignment_check(manifest, None)
