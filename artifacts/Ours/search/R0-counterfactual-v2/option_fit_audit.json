@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "experiment_id": "Ours",
+  "stage": "R0-counterfactual-option-fit-audit",
+  "scope": "train-only diagnostic; rollout development seeds were not consumed",
+  "variants": [
+    {
+      "labeled_states": 322,
+      "strict_states": 320,
+      "top1_accuracy_strict": 0.9875,
+      "balanced_recall_strict": 0.9977924944812363,
+      "per_option": {
+        "ACCEPT_B": {
+          "support": 302,
+          "recall": 0.9867549668874173
+        },
+        "REOBSERVE": {
+          "support": 1,
+          "recall": 1.0
+        },
+        "RETRY_CURRENT": {
+          "support": 3,
+          "recall": 1.0
+        },
+        "BACKTRACK_ONE": {
+          "support": 4,
+          "recall": 1.0
+        },
+        "ADVANCE": {
+          "support": 7,
+          "recall": 1.0
+        },
+        "CONSENSUS_PREFIX": {
+          "support": 3,
+          "recall": 1.0
+        }
+      },
+      "pairwise_ranking_accuracy": 0.9898605830164765,
+      "pairwise_comparisons": 3945,
+      "mean_decision_regret": 0.0001242250291397795,
+      "accept_recover": {
+        "strict_states": 321,
+        "accuracy": 0.9875389408099688,
+        "target_accept_states": 309,
+        "false_recovery_rate": 0.012944983818770227,
+        "target_recovery_states": 12,
+        "missed_recovery_rate": 0.0
+      },
+      "variant_id": "v00-mlp-h16-live025-opt0125",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v2/v00-mlp-h16-live025-opt0125",
+      "weights_sha256": "f51a4f2bab79d025be1568af828fd3ad232001539bb82abc1a6f318d2431fe03",
+      "selected_step": 1750,
+      "scope": "train-only counterfactual fit audit; not development selection"
+    },
+    {
+      "labeled_states": 322,
+      "strict_states": 320,
+      "top1_accuracy_strict": 0.98125,
+      "balanced_recall_strict": 0.9966887417218544,
+      "per_option": {
+        "ACCEPT_B": {
+          "support": 302,
+          "recall": 0.9801324503311258
+        },
+        "REOBSERVE": {
+          "support": 1,
+          "recall": 1.0
+        },
+        "RETRY_CURRENT": {
+          "support": 3,
+          "recall": 1.0
+        },
+        "BACKTRACK_ONE": {
+          "support": 4,
+          "recall": 1.0
+        },
+        "ADVANCE": {
+          "support": 7,
+          "recall": 1.0
+        },
+        "CONSENSUS_PREFIX": {
+          "support": 3,
+          "recall": 1.0
+        }
+      },
+      "pairwise_ranking_accuracy": 0.9931558935361217,
+      "pairwise_comparisons": 3945,
+      "mean_decision_regret": 0.00018012707005254924,
+      "accept_recover": {
+        "strict_states": 321,
+        "accuracy": 0.9813084112149533,
+        "target_accept_states": 309,
+        "false_recovery_rate": 0.019417475728155338,
+        "target_recovery_states": 12,
+        "missed_recovery_rate": 0.0
+      },
+      "variant_id": "v01-mlp-h16-live050-opt0250",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v2/v01-mlp-h16-live050-opt0250",
+      "weights_sha256": "6f2655b2ea43beb63ce43b72f2607383e66456cb1a1277f342ecf0cc6e3e1ad1",
+      "selected_step": 2000,
+      "scope": "train-only counterfactual fit audit; not development selection"
+    },
+    {
+      "labeled_states": 322,
+      "strict_states": 320,
+      "top1_accuracy_strict": 0.971875,
+      "balanced_recall_strict": 0.9950331125827815,
+      "per_option": {
+        "ACCEPT_B": {
+          "support": 302,
+          "recall": 0.9701986754966887
+        },
+        "REOBSERVE": {
+          "support": 1,
+          "recall": 1.0
+        },
+        "RETRY_CURRENT": {
+          "support": 3,
+          "recall": 1.0
+        },
+        "BACKTRACK_ONE": {
+          "support": 4,
+          "recall": 1.0
+        },
+        "ADVANCE": {
+          "support": 7,
+          "recall": 1.0
+        },
+        "CONSENSUS_PREFIX": {
+          "support": 3,
+          "recall": 1.0
+        }
+      },
+      "pairwise_ranking_accuracy": 0.9918884664131813,
+      "pairwise_comparisons": 3945,
+      "mean_decision_regret": 0.0002795080654323101,
+      "accept_recover": {
+        "strict_states": 321,
+        "accuracy": 0.9719626168224299,
+        "target_accept_states": 309,
+        "false_recovery_rate": 0.02912621359223301,
+        "target_recovery_states": 12,
+        "missed_recovery_rate": 0.0
+      },
+      "variant_id": "v02-gru-h16-live050-opt0250",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v2/v02-gru-h16-live050-opt0250",
+      "weights_sha256": "2761206c91bbab52896e29ab469613f99de5af0181d94e3e2b61c10ab1dbca12",
+      "selected_step": 1750,
+      "scope": "train-only counterfactual fit audit; not development selection"
+    },
+    {
+      "labeled_states": 322,
+      "strict_states": 320,
+      "top1_accuracy_strict": 0.946875,
+      "balanced_recall_strict": 0.9906181015452539,
+      "per_option": {
+        "ACCEPT_B": {
+          "support": 302,
+          "recall": 0.9437086092715232
+        },
+        "REOBSERVE": {
+          "support": 1,
+          "recall": 1.0
+        },
+        "RETRY_CURRENT": {
+          "support": 3,
+          "recall": 1.0
+        },
+        "BACKTRACK_ONE": {
+          "support": 4,
+          "recall": 1.0
+        },
+        "ADVANCE": {
+          "support": 7,
+          "recall": 1.0
+        },
+        "CONSENSUS_PREFIX": {
+          "support": 3,
+          "recall": 1.0
+        }
+      },
+      "pairwise_ranking_accuracy": 0.9845373891001268,
+      "pairwise_comparisons": 3945,
+      "mean_decision_regret": 0.0005279559409245849,
+      "accept_recover": {
+        "strict_states": 321,
+        "accuracy": 0.9470404984423676,
+        "target_accept_states": 309,
+        "false_recovery_rate": 0.05501618122977346,
+        "target_recovery_states": 12,
+        "missed_recovery_rate": 0.0
+      },
+      "variant_id": "v03-transformer-h8-live025-opt0125",
+      "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v2/v03-transformer-h8-live025-opt0125",
+      "weights_sha256": "db0b846dbd7be90cc75c201b1475cb1e4d19f1e9ac9f97a08f907d224cc6a4a8",
+      "selected_step": 1500,
+      "scope": "train-only counterfactual fit audit; not development selection"
+    }
+  ],
+  "complete": true
+}

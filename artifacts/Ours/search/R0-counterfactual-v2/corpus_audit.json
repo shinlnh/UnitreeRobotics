@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "corpus": "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-counterfactual-rollout-v2",
+  "corpus_files": 60,
+  "corpus_samples": 25369,
+  "thresholds": {
+    "min_labeled_states": 32,
+    "min_winning_options": 2,
+    "min_strict_preference_rate": 0.1
+  },
+  "option_targets": {
+    "labeled_states": 322,
+    "valid_option_targets": 1868,
+    "strict_preferences": 320,
+    "strict_preference_rate": 0.9937888198757764,
+    "ties": 2,
+    "winning_options": {
+      "ACCEPT_B": 302,
+      "ADVANCE": 7,
+      "BACKTRACK_ONE": 4,
+      "CONSENSUS_PREFIX": 3,
+      "REOBSERVE": 1,
+      "RETRY_CURRENT": 3
+    },
+    "distinct_winning_options": 6,
+    "mean_best_margin": 0.2178385320888913,
+    "per_option": {
+      "ACCEPT_B": {
+        "count": 322,
+        "mean": -0.7774348258972168,
+        "standard_deviation": 2.892352342605591,
+        "minimum": -16.010000228881836,
+        "maximum": 1.7999999523162842
+      },
+      "REOBSERVE": {
+        "count": 322,
+        "mean": -0.7686151266098022,
+        "standard_deviation": 2.928938627243042,
+        "minimum": -16.020000457763672,
+        "maximum": 7.895999908447266
+      },
+      "RETRY_CURRENT": {
+        "count": 322,
+        "mean": -0.7660002112388611,
+        "standard_deviation": 2.9381368160247803,
+        "minimum": -16.020000457763672,
+        "maximum": 8.854000091552734
+      },
+      "BACKTRACK_ONE": {
+        "count": 258,
+        "mean": -1.0567985773086548,
+        "standard_deviation": 3.203829765319824,
+        "minimum": -16.200000762939453,
+        "maximum": 0.800000011920929
+      },
+      "ADVANCE": {
+        "count": 322,
+        "mean": -8.504838943481445,
+        "standard_deviation": 3.7374491691589355,
+        "minimum": -24.200000762939453,
+        "maximum": 7.980000019073486
+      },
+      "CONSENSUS_PREFIX": {
+        "count": 322,
+        "mean": -0.831608772277832,
+        "standard_deviation": 2.891977548599243,
+        "minimum": -16.062000274658203,
+        "maximum": 0.9380000233650208
+      }
+    }
+  },
+  "checks": {
+    "minimum_labeled_states": true,
+    "multiple_winning_options": true,
+    "strict_preference_rate": true
+  },
+  "valid": true
+}
