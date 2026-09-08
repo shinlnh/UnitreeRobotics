@@ -1,5 +1,9 @@
 # Ours R0 counterfactual option distillation
 
+> Retired after the first option-aware R1 rollout exposed a continuation
+> mismatch in its label generator. These checkpoints are preserved for
+> provenance but cannot be selected in later rounds.
+
 This round trains compact temporal completion, failure, progress, and option
 value heads. Model selection in R0 uses the pre-registered completion
 calibration objective only. Option metrics below are measured on the train-only
@@ -26,8 +30,10 @@ counterfactual states and therefore establish fit, not rollout efficacy.
 The audit contains 322 labeled states, 320 strict multiclass preferences, and
 321 strict accept-versus-recover preferences. Only 12 strict states favor a
 recovery option, so rare-option recall is not interpreted as a generalization
-claim. `v00` is the first rollout candidate because it ranks first under the
-registered calibration rule and has the lowest train-only decision regret.
+claim. `v00` was the first rollout candidate because it ranked first under the
+registered calibration rule and had the lowest train-only decision regret. Its
+negative rollout motivated the generator audit above; train-only fit did not
+establish a valid option policy.
 
 Registry SHA-256:
 `3f5ada492bcbc41bb0f236726f76f28be7676247098eaf511faa3905c5cb6132`.

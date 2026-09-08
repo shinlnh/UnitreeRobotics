@@ -20,8 +20,11 @@ in the Hugging Face commit messages.
 | B | `06ae5d385ad55415332e4f1688b7cd59f868ac96` | `34235eed4ad8cf2724a691a22dd28b93d0eb64a8` | `be9e12b06599e5916c582fe8e86ab62c2699e1b6` | 7,258,466,080 B |
 | Ours R0 | `b69ec837d088709f59015f46ee7742475b429022` | `ab8f52158020041eb36d4cf91924ea2c5c1232ce` | `dd29f40bfe20c13e107ed4fe3e4557d22e3431d3` | 86,859,304 B |
 
-The Ours entry is an intermediate, train-only R0 mirror. Development and final
-rollout artifacts are added only after their respective protocol gates.
+The Ours entry is an intermediate, train-only R0 mirror. That R0 corpus and its
+checkpoints were subsequently retired after a counterfactual continuation
+mismatch was found; the immutable mirror is retained as negative-result
+provenance. Development and final rollout artifacts are added only after their
+respective protocol gates.
 
 ## Branches
 

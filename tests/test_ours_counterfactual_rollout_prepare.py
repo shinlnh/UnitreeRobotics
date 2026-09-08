@@ -3,11 +3,30 @@ import pytest
 
 from unitree_gr00t.ours import OursContractError
 from unitree_gr00t.ours_counterfactual_rollout_prepare import (
+    _apply_stop_confirmation,
     _best_nonstop,
     _medoid_index,
     _selected_rollout_positions,
     _valid_options,
 )
+
+
+def test_counterfactual_stop_confirmation_continues_into_next_subgoal() -> None:
+    assert _apply_stop_confirmation(
+        target_subgoal=1,
+        subgoal_count=3,
+        stop_streak=0,
+    ) == (1, 1, False)
+    assert _apply_stop_confirmation(
+        target_subgoal=1,
+        subgoal_count=3,
+        stop_streak=1,
+    ) == (2, 0, True)
+    assert _apply_stop_confirmation(
+        target_subgoal=2,
+        subgoal_count=3,
+        stop_streak=1,
+    ) == (3, 0, True)
 
 
 def test_rollout_options_respect_backtrack_boundary() -> None:

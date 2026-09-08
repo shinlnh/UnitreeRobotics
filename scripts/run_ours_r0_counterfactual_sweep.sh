@@ -6,9 +6,9 @@ cd "${ROOT}"
 
 PYTHON_BIN="${PYTHON_BIN:-.upstream/Isaac-GR00T-N1.7/.venv/bin/python}"
 DEMO_DATASET="${DEMO_DATASET:-outputs/robocerebra/ctr-recovery-v1}"
-COUNTERFACTUAL_DATASET="${COUNTERFACTUAL_DATASET:-outputs/robocerebra/ctr-counterfactual-rollout-v2}"
-CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v2}"
-ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-counterfactual-v2}"
+COUNTERFACTUAL_DATASET="${COUNTERFACTUAL_DATASET:-outputs/robocerebra/ctr-counterfactual-rollout-v3}"
+CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/R0-counterfactual-v3}"
+ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-counterfactual-v3}"
 
 mkdir -p "${CHECKPOINT_ROOT}" "${ARTIFACT_ROOT}"
 PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_audit \

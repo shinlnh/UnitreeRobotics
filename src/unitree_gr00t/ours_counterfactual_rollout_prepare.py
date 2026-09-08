@@ -86,6 +86,19 @@ def _valid_options(active_subgoal: int, subgoal_count: int) -> tuple[RecoveryOpt
     return tuple(options)
 
 
+def _apply_stop_confirmation(
+    *, target_subgoal: int, subgoal_count: int, stop_streak: int
+) -> tuple[int, int, bool]:
+    """Advance exactly once when a second consecutive STOP is observed."""
+
+    if not 0 <= target_subgoal < subgoal_count or stop_streak < 0:
+        raise OursContractError("counterfactual STOP confirmation state is invalid")
+    next_streak = stop_streak + 1
+    if next_streak < 2:
+        return target_subgoal, next_streak, False
+    return target_subgoal + 1, 0, True
+
+
 def _selected_rollout_positions(
     rows: list[dict[str, Any]],
     *,
@@ -227,9 +240,14 @@ def _roll_option(
         first_proposal = False
         subgoal_start = False
         if candidate == 0:
-            stop_streak += 1
-            if stop_streak >= 2:
+            target_subgoal, stop_streak, advanced = _apply_stop_confirmation(
+                target_subgoal=target_subgoal,
+                subgoal_count=len(subgoals),
+                stop_streak=stop_streak,
+            )
+            if advanced and target_subgoal >= len(subgoals):
                 break
+            subgoal_start = advanced
             continue
         stop_streak = 0
         selected = min(candidate, remaining)
@@ -296,7 +314,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     expected_runtime = {
         "selector_weights_sha256": source_manifest["selector_weights_sha256"],
-        "a1_checkpoint_weight_shards_sha256": source_manifest["a1_checkpoint_weight_shards_sha256"],
+        "a1_checkpoint_weight_shards_sha256": source_manifest[
+            "a1_checkpoint_weight_shards_sha256"
+        ],
     }
     feature_dir = destination / "features"
     feature_dir.mkdir(parents=True)
@@ -352,7 +372,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     goal_steps,
                 )
                 if start_event is None:
-                    hold = np.asarray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+                    hold = np.asarray(
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32
+                    )
                     for _ in range(int(run_manifest["initial_wait_steps"])):
                         observation, _, _, _ = env.step(hold)
                 anchors: list[Any] = []
@@ -364,9 +386,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         if anchor.shape != (2048,):
                             raise OursContractError("source rollout contains an invalid anchor")
                         anchors.append(anchor)
-                    replay_match = (
-                        _predicate_snapshot(env, goal) == row["success_predicates_before"]
-                    )
+                    replay_match = _predicate_snapshot(env, goal) == row[
+                        "success_predicates_before"
+                    ]
                     replay_rows += 1
                     replay_mismatches += int(not replay_match)
                     if position in selected_positions and replay_match:
@@ -404,7 +426,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             if branch.option == RecoveryOption.ADVANCE.value:
                                 branch = replace(
                                     branch,
-                                    return_value=branch.return_value + (8.0 if complete else -8.0),
+                                    return_value=branch.return_value
+                                    + (8.0 if complete else -8.0),
                                 )
                             option_index = RECOVERY_OPTIONS.index(RecoveryOption(branch.option))
                             option_values[position, option_index] = branch.return_value
@@ -415,12 +438,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                     json.dumps(
                                         {
                                             "episode_index": episode_index,
-                                            "sample_index": int(arrays["sample_indices"][position]),
+                                            "sample_index": int(
+                                                arrays["sample_indices"][position]
+                                            ),
                                             "task_type": key[0],
                                             "case": key[1],
                                             "trial": key[2],
                                             "policy_call": int(row["policy_call"]),
-                                            "source_context_sha256": row["selector_context_sha256"],
+                                            "source_context_sha256": row[
+                                                "selector_context_sha256"
+                                            ],
                                             **branch_payload(branch),
                                         },
                                         separators=(",", ":"),

@@ -1,5 +1,11 @@
 # Ours closed-loop counterfactual R0 corpus
 
+> Superseded for model selection after the first option-aware R1 rollout. The
+> `ACCEPT_B` branch stopped at confirmed STOP instead of continuing into the
+> next subgoal for the remaining branch horizon. This made its cost
+> incomparable with continuing options and explains the 302/320-class
+> collapse. The corpus and checksums remain as negative-result evidence only.
+
 This is train-only counterfactual supervision, not a development or held-out
 benchmark result.
 

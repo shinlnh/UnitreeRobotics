@@ -31,3 +31,20 @@ The eight remaining R1 slots test failure thresholds 0 and 0.50, option margins
 architectures. All other protocol values stay fixed. The script and exact
 variant IDs are committed before those runs begin. The R1 total remains capped
 at 12, including the three earlier registered controller variants.
+
+## Subsequent generator audit
+
+Before `r1-04` completed, source inspection found that the counterfactual
+`ACCEPT_B` branch terminated on confirmed STOP while continuing recovery
+options used the remaining branch horizon. This rewarded inaction through
+lower step/call penalties and invalidated the option-value comparison. The
+302/320 `ACCEPT_B` winner collapse was therefore causal evidence of a labeling
+bug, not merely class imbalance.
+
+`r1-04` was stopped at 18/60 episodes and is not a completed R1 candidate. Its
+partial files are preserved locally with run-manifest, episode, and decision
+SHA-256 values `2e994567...`, `3e3224e0...`, and `6a543720...`. The completed
+`r1-03` files have corresponding hashes `6f54997d...`, `de516cfb...`, and
+`bab5aab1...`. No final-seed data were inspected. Later R1 slots may use only a
+regenerated corpus in which every option follows identical confirmed-STOP
+continuation semantics.
