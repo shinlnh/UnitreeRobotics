@@ -57,7 +57,7 @@ def paired_task_macro_bootstrap(
     candidate_by_key = {_key(row): row for row in candidate}
     if baseline_by_key.keys() != candidate_by_key.keys() or resamples < 1:
         raise OursContractError("development variants do not share a valid paired inventory")
-    by_task: dict[str, list[float]] = defaultdict(list)
+    by_task: dict[str, list[tuple[int, int]]] = defaultdict(list)
     for key in sorted(baseline_by_key):
         base = baseline_by_key[key]
         current = candidate_by_key[key]
@@ -65,18 +65,24 @@ def paired_task_macro_bootstrap(
             raise OursContractError("paired development episode denominators differ")
         possible = int(base["possible_subtasks"])
         by_task[key[0]].append(
-            (int(current["agent_completed_subtasks"]) - int(base["agent_completed_subtasks"]))
-            / possible
+            (
+                int(current["agent_completed_subtasks"])
+                - int(base["agent_completed_subtasks"]),
+                possible,
+            )
         )
-    observed = sum(sum(values) / len(values) for values in by_task.values()) / len(by_task)
+    observed = sum(
+        sum(delta for delta, _ in values) / sum(possible for _, possible in values)
+        for values in by_task.values()
+    ) / len(by_task)
     generator = np.random.default_rng(seed)
     samples = np.empty(resamples, dtype=np.float64)
-    arrays = [np.asarray(values, dtype=np.float64) for _, values in sorted(by_task.items())]
+    arrays = [np.asarray(values, dtype=np.int64) for _, values in sorted(by_task.items())]
     for index in range(resamples):
-        task_means = [
-            float(generator.choice(values, size=len(values), replace=True).mean())
-            for values in arrays
-        ]
+        task_means = []
+        for values in arrays:
+            selected = values[generator.integers(0, len(values), size=len(values))]
+            task_means.append(float(selected[:, 0].sum() / selected[:, 1].sum()))
         samples[index] = sum(task_means) / len(task_means)
     lower, upper = np.quantile(samples, [0.025, 0.975])
     return {"delta": observed, "ci95_lower": float(lower), "ci95_upper": float(upper)}
