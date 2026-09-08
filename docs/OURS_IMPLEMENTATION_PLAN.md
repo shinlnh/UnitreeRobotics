@@ -416,6 +416,17 @@ adding no parameters or runtime signals. The loss weight and per-step loss are
 recorded in provenance; its fresh destination is
 `R0-residual-v9-outcome-first-balanced-binary`.
 
+The unit-weight binary ablation suppressed every held-out positive: raw false
+override fell to 0--4%, but raw recovery recall was 0% for all six models, so
+safe beneficial recovery remained 0%. It is retained as
+`R0-residual-v9-outcome-first-balanced-binary-w1-negative`. Before training any
+successor, the binary-loss weight search is frozen to `{0.05, 0.10, 0.25,
+0.50}` crossed with the same six architectures (24 train-seed-only models).
+This isolates the safety/recall tradeoff without changing data or runtime. The
+selection rule remains beneficial held-out recovery at false override at most
+5%, then recovery recall, regret, and registered id; no development rollout
+seed is consumed by this weight search.
+
 The six low-capacity R0 architectures and all optimizer settings remain
 identical to v5.  V8 models are diagnostic ablations; the R1b registry is ranked
 only from episode-held-out residual-v9 advantage against `RETRY_CURRENT`.
