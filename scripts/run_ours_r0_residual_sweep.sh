@@ -73,6 +73,7 @@ for specification in "${variants[@]}"; do
     --option-value-weight 0.10 \
     --option-rank-weight 0.25 \
     --option-classification-weight 1.00 \
+    --checkpoint-selection residual \
     --device cuda:0 \
     --seed 10007 \
     >"${ARTIFACT_ROOT}/${variant}.log" 2>&1

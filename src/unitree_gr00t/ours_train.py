@@ -20,6 +20,7 @@ from .ours_model import (
     completion_progress_loss,
     count_trainable_parameters,
 )
+from .ours_option_audit import summarize_residual_predictions
 
 OURS_CHECKPOINT_PROVENANCE = "ours_recovery_provenance.json"
 
@@ -102,6 +103,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--option-value-weight", type=float, default=0.25)
     parser.add_argument("--option-rank-weight", type=float, default=0.25)
     parser.add_argument("--option-classification-weight", type=float, default=0.0)
+    parser.add_argument(
+        "--checkpoint-selection",
+        choices=("completion", "residual"),
+        default="completion",
+        help="Metric family used to select validation checkpoints within one model",
+    )
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=10007)
     return parser
@@ -789,6 +796,50 @@ def evaluate_failure(
     }
 
 
+def evaluate_residual_options(
+    model: Any,
+    corpus: LoadedCorpus,
+    ids: Any,
+    *,
+    batch_size: int,
+    device: str,
+    max_false_recovery_rate: float,
+    np: Any,
+    torch: Any,
+) -> dict[str, Any]:
+    """Evaluate residual option advantages on held-out train-seed episodes."""
+
+    option_ids = ids[corpus.target_option_valid[ids].sum(axis=1) >= 2]
+    if not len(option_ids):
+        raise ValueError("residual checkpoint selection requires held-out option labels")
+    predictions: list[Any] = []
+    model.eval()
+    with torch.inference_mode():
+        for start in range(0, len(option_ids), batch_size):
+            selected = option_ids[start : start + batch_size]
+            batch = _batch(corpus, selected, device=device, np=np, torch=torch)
+            with torch.autocast(
+                device_type="cuda",
+                dtype=torch.bfloat16,
+                enabled=device.startswith("cuda"),
+            ):
+                outputs = model(
+                    batch["contexts"],
+                    batch["anchors"],
+                    batch["actions"],
+                    batch["selector"],
+                    batch["scalars"],
+                )
+            predictions.append(outputs["option_values"].float().cpu().numpy())
+    return summarize_residual_predictions(
+        corpus.target_option_values[option_ids],
+        corpus.target_option_valid[option_ids],
+        np.concatenate(predictions),
+        np=np,
+        max_false_recovery_rate=max_false_recovery_rate,
+    )
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     counts = (
         args.steps,
@@ -858,6 +909,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             raise ValueError("additional Ours corpus is not compatible with the primary corpus")
         additional_manifest_paths.append(additional_manifest_path)
         additional_manifests.append(additional_manifest)
+    if args.checkpoint_selection == "residual":
+        if not additional_manifests or any(
+            not bool(
+                additional_manifest.get("counterfactual_sampling", {}).get(
+                    "residual_retry_baseline"
+                )
+            )
+            for additional_manifest in additional_manifests
+        ):
+            raise ValueError(
+                "residual checkpoint selection requires residual counterfactual corpora"
+            )
 
     # CUDA requires this workspace contract for deterministic CuBLAS kernels.
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
@@ -908,7 +971,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if args.batch_size < 2:
         raise ValueError("Ours batch size must be at least two")
     log: list[dict[str, Any]] = []
-    selected_key: tuple[float, float, float] | None = None
+    selected_key: tuple[float, ...] | None = None
     selected_step = 0
     selected_metrics: dict[str, Any] | None = None
     selected_state: dict[str, Any] | None = None
@@ -967,6 +1030,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 np=np,
                 torch=torch,
             )
+            residual_metrics = None
+            if args.checkpoint_selection == "residual":
+                residual_metrics = evaluate_residual_options(
+                    model,
+                    corpus,
+                    np.concatenate(additional_development_ids),
+                    batch_size=args.batch_size,
+                    device=args.device,
+                    max_false_recovery_rate=args.max_false_positive_rate,
+                    np=np,
+                    torch=torch,
+                )
             record = {
                 "step": step,
                 "learning_rate": learning_rate,
@@ -981,19 +1056,32 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 ),
                 "gradient_norm": float(gradient_norm),
                 "development": dev_metrics,
+                "residual_option_validation": residual_metrics,
                 "elapsed_seconds": time.perf_counter() - started,
             }
             log.append(record)
             print(json.dumps(record), flush=True)
-            candidate_key = (
-                float(dev_metrics["completion"]["true_positive_rate"]),
-                -float(dev_metrics["brier"]),
-                -float(dev_metrics["progress_mae"] or 0.0),
-            )
+            if residual_metrics is not None:
+                selective = residual_metrics["selective_recovery"]
+                candidate_key = (
+                    float(selective["beneficial_recovery_rate"]),
+                    float(selective["true_recovery_rate"]),
+                    -float(selective["mean_decision_regret"]),
+                    float(dev_metrics["completion"]["true_positive_rate"]),
+                    -float(dev_metrics["brier"]),
+                )
+            else:
+                candidate_key = (
+                    float(dev_metrics["completion"]["true_positive_rate"]),
+                    -float(dev_metrics["brier"]),
+                    -float(dev_metrics["progress_mae"] or 0.0),
+                )
             if selected_key is None or candidate_key > selected_key:
                 selected_key = candidate_key
                 selected_step = step
-                selected_metrics = dev_metrics
+                selected_metrics = dict(dev_metrics)
+                if residual_metrics is not None:
+                    selected_metrics["residual_option_validation"] = residual_metrics
                 selected_state = {
                     key: value.detach().cpu().clone() for key, value in model.state_dict().items()
                 }
@@ -1074,12 +1162,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "learning_rate": args.learning_rate,
         "weight_decay": args.weight_decay,
         "max_false_positive_rate": args.max_false_positive_rate,
+        "checkpoint_selection": args.checkpoint_selection,
         "failure_calibration_scope": (
             "held-out episodes from train base seeds"
             if additional_development_ids
             else "primary development split when labels are available"
         ),
-        "selection_rule": "max TPR at FPR<=limit, then min Brier/progress MAE, earliest tie",
+        "selection_rule": (
+            "max beneficial residual recovery at false override<=limit, then recovery "
+            "recall, min regret, completion TPR, min Brier, earliest tie"
+            if args.checkpoint_selection == "residual"
+            else "max TPR at FPR<=limit, then min Brier/progress MAE, earliest tie"
+        ),
         "selected_step": selected_step,
         "development_metrics": selected_metrics,
         "training_log": log,

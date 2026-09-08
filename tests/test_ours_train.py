@@ -6,6 +6,7 @@ import pytest
 from unitree_gr00t.ours_train import (
     calibrate_threshold,
     evaluate_failure,
+    evaluate_residual_options,
     merge_corpora,
     sample_training_ids,
 )
@@ -209,3 +210,63 @@ def test_failure_calibration_uses_valid_heldout_rows() -> None:
     assert result["failure"]["false_positive_rate"] == 0.0
     assert result["failure"]["true_positive_rate"] == 1.0
     assert result["failure_calibration_samples"] == size
+
+
+def test_residual_checkpoint_metric_uses_heldout_option_advantage() -> None:
+    torch = pytest.importorskip("torch")
+
+    targets = np.asarray(
+        [
+            [0.0, 0.0, 3.0, -1.0, 1.0, 0.0],
+            [0.0, 0.0, 3.0, -1.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0, -1.0, 3.0, 0.0],
+            [0.0, 0.0, 1.0, -1.0, 3.0, 0.0],
+        ],
+        dtype=np.float32,
+    )
+    valid = np.ones_like(targets, dtype=np.bool_)
+    predictions = np.asarray(
+        [
+            [0.0, -1.0, 0.0, -1.0, 0.3, -1.0],
+            [0.0, -1.0, 0.0, -1.0, -0.1, -1.0],
+            [0.0, -1.0, 0.0, -1.0, 0.5, -1.0],
+            [0.0, -1.0, 0.0, -1.0, 0.4, -1.0],
+        ],
+        dtype=np.float32,
+    )
+    size = len(targets)
+    corpus = SimpleNamespace(
+        contexts=np.zeros((size, 2), dtype=np.float16),
+        anchor_ids=np.arange(size),
+        action_chunks=np.zeros((size, 1, 1), dtype=np.float16),
+        selector_features=np.zeros((size, 2), dtype=np.float16),
+        scalars=predictions.astype(np.float16),
+        histories=np.arange(size)[:, None],
+        target_progress=np.zeros(size),
+        target_progress_valid=np.ones(size, dtype=np.bool_),
+        target_complete=np.zeros(size, dtype=np.bool_),
+        target_failure=np.zeros(size, dtype=np.bool_),
+        target_failure_valid=np.zeros(size, dtype=np.bool_),
+        target_option_values=targets,
+        target_option_valid=valid,
+    )
+
+    class ScalarOptions(torch.nn.Module):
+        def forward(self, contexts, anchors, actions, selector, scalars):
+            del contexts, anchors, actions, selector
+            return {"option_values": scalars[:, -1, :6]}
+
+    result = evaluate_residual_options(
+        ScalarOptions(),
+        corpus,
+        np.arange(size),
+        batch_size=2,
+        device="cpu",
+        max_false_recovery_rate=0.0,
+        np=np,
+        torch=torch,
+    )
+
+    assert result["baseline_option"] == "RETRY_CURRENT"
+    assert result["selective_recovery"]["false_recovery_rate"] == 0.0
+    assert result["selective_recovery"]["beneficial_recovery_rate"] == 1.0

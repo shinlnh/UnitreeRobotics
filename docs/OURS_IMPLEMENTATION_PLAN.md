@@ -288,7 +288,10 @@ at most eight states per episode, producing a pre-audited upper bound of 426
 states (363 + 41 + 22).  Each valid option gets the same 75-step/24-call
 continuation budget.  The six low-capacity R0 architectures and all optimizer
 settings remain identical to v5; models are reranked only by held-out residual
-advantage against `RETRY_CURRENT`.
+advantage against `RETRY_CURRENT`.  Within each architecture, validation
+checkpoints are selected by beneficial residual recovery under the same 5%
+false-override cap, followed by recovery recall, regret, completion recall, and
+Brier score; exact ties keep the earlier checkpoint.
 
 The seed roles are now fixed as follows.  Seed `20007` is retired after the
 original-family diagnosis.  Seed `22007` is used once for R1b breadth with a new

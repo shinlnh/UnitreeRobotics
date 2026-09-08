@@ -10,7 +10,6 @@ from typing import Any
 
 from .ours import RECOVERY_OPTIONS
 from .ours_model import TemporalRecoveryModelConfig, build_temporal_recovery_model
-from .ours_train import _batch, inspect_recovery_checkpoint, load_corpus
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -316,6 +315,8 @@ def _audit_model_partitions(
     torch: Any,
     residual_retry_baseline: bool = False,
 ) -> dict[str, Any] | None:
+    from .ours_train import _batch
+
     targets: list[Any] = []
     validity: list[Any] = []
     predictions: list[Any] = []
@@ -358,6 +359,8 @@ def _audit_model_partitions(
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    from .ours_train import inspect_recovery_checkpoint, load_corpus
+
     if args.batch_size < 1:
         raise ValueError("option audit batch size must be positive")
     checkpoint_root = args.checkpoint_root.expanduser().resolve()
