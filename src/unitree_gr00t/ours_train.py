@@ -461,6 +461,7 @@ def sample_training_ids(
     batch_size: int,
     live_batch_fraction: float,
     option_batch_fraction: float = 0.0,
+    option_baseline_index: int | None = None,
     generator: Any,
     np: Any,
 ) -> Any:
@@ -485,8 +486,13 @@ def sample_training_ids(
         generator.choice(demo_negative, size=negative_count, replace=True),
     )
     if live_count:
+        if option_baseline_index is not None and not 0 <= option_baseline_index < len(
+            RECOVERY_OPTIONS
+        ):
+            raise ValueError("option baseline index is outside the option head")
         live_groups = getattr(corpus, "live_groups", ()) or (corpus.live_ids,)
         option_groups: list[Any] = []
+        negative_option_groups: list[Any] = []
         option_ids_by_seed: list[Any] = []
         for live_group in live_groups:
             option_ids = live_group[
@@ -500,10 +506,25 @@ def sample_training_ids(
                 corpus.target_option_values[option_ids],
                 -np.inf,
             )
-            ordered_values = np.sort(masked_values, axis=1)
-            strict = ordered_values[:, -1] - ordered_values[:, -2] > 1e-4
-            balanced_ids = option_ids[strict]
-            winners = masked_values[strict].argmax(axis=1)
+            if option_baseline_index is None:
+                ordered_values = np.sort(masked_values, axis=1)
+                positive = ordered_values[:, -1] - ordered_values[:, -2] > 1e-4
+            else:
+                if not corpus.target_option_valid[
+                    option_ids, option_baseline_index
+                ].all():
+                    raise ValueError("option baseline must be valid for residual sampling")
+                alternatives = masked_values.copy()
+                alternatives[:, option_baseline_index] = -np.inf
+                positive = (
+                    alternatives.max(axis=1)
+                    > masked_values[:, option_baseline_index] + 1e-4
+                )
+                negative_ids = option_ids[~positive]
+                if len(negative_ids):
+                    negative_option_groups.append(negative_ids)
+            balanced_ids = option_ids[positive]
+            winners = masked_values[positive].argmax(axis=1)
             option_groups.extend(
                 balanced_ids[winners == winner] for winner in np.unique(winners)
             )
@@ -518,19 +539,32 @@ def sample_training_ids(
             else 0
         )
         if option_count:
-            if not option_groups:
-                option_groups = [option_ids]
-            per_group, remainder = divmod(option_count, len(option_groups))
-            sampled_options = [
-                generator.choice(
-                    group,
-                    size=per_group + int(index < remainder),
-                    replace=True,
+            def sample_groups(groups: list[Any], count: int) -> Any:
+                per_group, remainder = divmod(count, len(groups))
+                return np.concatenate(
+                    [
+                        generator.choice(
+                            group,
+                            size=per_group + int(index < remainder),
+                            replace=True,
+                        )
+                        for index, group in enumerate(groups)
+                        if per_group + int(index < remainder)
+                    ]
                 )
-                for index, group in enumerate(option_groups)
-                if per_group + int(index < remainder)
-            ]
-            parts += (np.concatenate(sampled_options),)
+
+            if option_groups and negative_option_groups:
+                positive_count = (option_count + 1) // 2
+                negative_count = option_count - positive_count
+                sampled_options = [sample_groups(option_groups, positive_count)]
+                if negative_count:
+                    sampled_options.append(
+                        sample_groups(negative_option_groups, negative_count)
+                    )
+                parts += tuple(sampled_options)
+            else:
+                fallback_groups = option_groups or negative_option_groups or [option_ids]
+                parts += (sample_groups(fallback_groups, option_count),)
         remaining_live = live_count - option_count
         if remaining_live:
             per_seed, seed_remainder = divmod(remaining_live, len(live_groups))
@@ -1005,6 +1039,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     torch.cuda.manual_seed_all(args.seed)
     torch.use_deterministic_algorithms(True, warn_only=True)
     corpus = load_corpus(dataset, args.history_length, np)
+    option_baseline_index = (
+        RECOVERY_OPTIONS.index(RecoveryOption.RETRY_CURRENT)
+        if residual_option_advantages
+        else None
+    )
     additional_development_ids: list[Any] = []
     for additional_dataset in additional_datasets:
         live_corpus = load_corpus(
@@ -1054,6 +1093,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             batch_size=args.batch_size,
             live_batch_fraction=args.live_batch_fraction,
             option_batch_fraction=args.option_batch_fraction,
+            option_baseline_index=option_baseline_index,
             generator=generator,
             np=np,
         )
@@ -1086,11 +1126,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 option_value_weight=args.option_value_weight,
                 option_rank_weight=args.option_rank_weight,
                 option_classification_weight=args.option_classification_weight,
-                option_baseline_index=(
-                    RECOVERY_OPTIONS.index(RecoveryOption.RETRY_CURRENT)
-                    if residual_option_advantages
-                    else None
-                ),
+                option_baseline_index=option_baseline_index,
             )
         loss.backward()
         gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.gradient_clip_norm)
@@ -1235,6 +1271,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             RecoveryOption.RETRY_CURRENT.value
             if residual_option_advantages
             else None
+        ),
+        "option_sampling": (
+            "balanced-residual-override-and-retry-tie-v1"
+            if residual_option_advantages
+            else "balanced-strict-winner-v1"
         ),
         "selector_weights_sha256": manifest["selector_weights_sha256"],
         "a1_checkpoint_weight_shards_sha256": manifest["a1_checkpoint_weight_shards_sha256"],

@@ -166,6 +166,35 @@ def test_training_sampler_does_not_treat_ties_as_first_class_wins() -> None:
     assert {12, 13}.issubset(set(ids.tolist()))
 
 
+def test_residual_sampler_balances_overrides_with_retry_and_ties() -> None:
+    option_valid = np.zeros((16, 6), dtype=np.bool_)
+    option_valid[12:16, 1:6] = True
+    option_values = np.zeros((16, 6), dtype=np.float32)
+    option_values[12, 1] = 1.0
+    option_values[13, 5] = 1.0
+    corpus = SimpleNamespace(
+        train_ids=np.arange(16),
+        live_ids=np.arange(8, 16),
+        live_groups=(np.arange(8, 16),),
+        target_complete=np.asarray([True, False] * 8),
+        target_option_valid=option_valid,
+        target_option_values=option_values,
+    )
+
+    ids = sample_training_ids(
+        corpus,
+        batch_size=8,
+        live_batch_fraction=0.5,
+        option_batch_fraction=0.5,
+        option_baseline_index=2,
+        generator=np.random.default_rng(10007),
+        np=np,
+    )
+
+    assert len(set(ids.tolist()) & {12, 13}) == 2
+    assert len(set(ids.tolist()) & {14, 15}) >= 1
+
+
 def test_repeated_corpus_merge_preserves_all_live_training_ids() -> None:
     def corpus(size: int, *, train_ids: list[int], live_ids: list[int]) -> SimpleNamespace:
         return SimpleNamespace(
