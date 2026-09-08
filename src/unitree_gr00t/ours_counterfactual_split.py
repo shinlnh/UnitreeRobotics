@@ -39,7 +39,7 @@ def run(corpus: Path, *, modulus: int, remainder: int) -> dict[str, Any]:
         root,
         verify_hashes=True,
         require_development=False,
-        require_both_completion_classes=True,
+        require_both_completion_classes=False,
     )
     path = root / OURS_CORPUS_MANIFEST
     manifest = json.loads(path.read_text(encoding="utf-8"))
@@ -66,7 +66,7 @@ def run(corpus: Path, *, modulus: int, remainder: int) -> dict[str, Any]:
         root,
         verify_hashes=True,
         require_development=True,
-        require_both_completion_classes=True,
+        require_both_completion_classes=False,
     )
     return manifest
 

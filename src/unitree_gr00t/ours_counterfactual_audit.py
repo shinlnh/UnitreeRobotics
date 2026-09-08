@@ -29,7 +29,9 @@ def summarize_option_targets(
     np: Any,
     tie_tolerance: float = 1e-6,
 ) -> dict[str, Any]:
-    if values.ndim != 2 or valid.shape != values.shape or values.shape[1] != len(RECOVERY_OPTIONS):
+    if values.ndim != 2 or valid.shape != values.shape or values.shape[1] != len(
+        RECOVERY_OPTIONS
+    ):
         raise OursContractError("counterfactual option arrays have the wrong shape")
     if not np.isfinite(values).all():
         raise OursContractError("counterfactual option returns must be finite")
@@ -87,7 +89,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         root,
         verify_hashes=True,
         require_development=False,
-        require_both_completion_classes=True,
+        require_both_completion_classes=False,
     )
     manifest = json.loads((root / OURS_CORPUS_MANIFEST).read_text(encoding="utf-8"))
     values: list[Any] = []

@@ -289,7 +289,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         source_corpus,
         verify_hashes=True,
         require_development=False,
-        require_both_completion_classes=True,
+        # The primary demonstration corpus supplies both completion classes.
+        # A train-only rollout seed may legitimately contain no successful
+        # subgoal while still providing valid STOP states for option branches.
+        require_both_completion_classes=False,
     )
     source_manifest_path = source_corpus / OURS_CORPUS_MANIFEST
     source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
