@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "experiment_id": "Ours",
+  "source_rollout": "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-live-rollouts-v1/train-seed10007-full-c1-H16",
+  "base_seed": 10007,
+  "episodes": 60,
+  "policy_decisions": 25369,
+  "completion_positives": 304,
+  "completion_negatives": 25065,
+  "selector_stop_proposals": 23266,
+  "max_false_positive_rate": 0.05,
+  "gate_calibration_on_stop_proposals": {
+    "completion": {
+      "calibratable": true,
+      "stop_samples": 23266,
+      "completion_negatives": 22971,
+      "completion_positives": 295,
+      "threshold": 1.0,
+      "false_positive_rate": 0.021723042096556528,
+      "true_positive_rate": 0.1423728813559322,
+      "precision": 0.07763401109057301,
+      "accuracy": 0.9676781569672483
+    },
+    "progress": {
+      "calibratable": true,
+      "stop_samples": 23266,
+      "completion_negatives": 22971,
+      "completion_positives": 295,
+      "threshold": 0.97265625,
+      "false_positive_rate": 0.048582995951417005,
+      "true_positive_rate": 0.1016949152542373,
+      "precision": 0.02617801047120419,
+      "accuracy": 0.9406429983667154
+    },
+    "maximum": {
+      "calibratable": true,
+      "stop_samples": 23266,
+      "completion_negatives": 22971,
+      "completion_positives": 295,
+      "threshold": 1.0,
+      "false_positive_rate": 0.021723042096556528,
+      "true_positive_rate": 0.1423728813559322,
+      "precision": 0.07763401109057301,
+      "accuracy": 0.9676781569672483
+    }
+  },
+  "failure_calibration": null,
+  "recovery_triggers": 22321,
+  "false_recovery_triggers": 2433,
+  "false_recovery_rate": 0.10900049280946195,
+  "run_manifest_sha256": "929dea89cb1fdf2aac3f3360f65bb3bbd0adfd8a6e8d382346050756d10532ae",
+  "summary_sha256": "068af46cf211bd2a0ec576156e8d4249118227b12415012e756d638f5ffa171e",
+  "decisions_sha256": "8cd2665bfc5296edc4f0937273aa5eb252a8dfb29567b4fa4dc0e305271ec611",
+  "episodes_sha256": "bc2836e1c049d97547eac36cb7705b0e9d6e50bc9bbf6f0036006611f1e972c1"
+}
