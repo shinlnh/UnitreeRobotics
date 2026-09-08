@@ -31,7 +31,12 @@ Project end-to-end để chạy một policy vision-language-action generalist t
 | A0: GR00T-N1.7-LIBERO original | Có | `gr00t-g1 a0-check` |
 | A1: shared GR00T-RC post-training | Có | `gr00t-g1 a1-check` |
 | A2: GR00T-RC + fixed hierarchy | Có | `gr00t-g1 a2-check` |
+| B: GR00T-RC + SparkVLA-style execution | Có | `gr00t-g1 b-check` |
 | G1 real deployment interlock | Có | `gr00t-g1 deploy --mode real` |
+
+Model, benchmark và cache lớn được lưu theo đúng cây nhánh tại Hugging Face;
+xem [docs/HUGGING_FACE_ARTIFACTS.md](docs/HUGGING_FACE_ARTIFACTS.md) để tra
+branch, commit, layout và checksum.
 
 ## Ba demo Isaac Sim đã chạy thật
 
@@ -425,3 +430,59 @@ Reviewer report ghép từng rollout A2 với A1 theo đúng task/case/trial và
 nhờ đó delta chính là tác động của fixed hierarchy trên checkpoint dùng chung;
 report vẫn ghi riêng cảnh báo rằng diffusion-noise stream không được pair khi các
 simulator worker gọi chung một policy server.
+
+## Experiment B: GR00T-RC + SparkVLA-style execution
+
+B giữ nguyên checkpoint A1 và chuỗi subgoal canonical của A2, nhưng thay anchor
+150 bước bằng một selector học chung trên tập candidate
+`[STOP, prefix-1, ..., prefix-16]`. STOP phải xuất hiện ở hai decision liên tiếp
+mới chuyển subgoal; H8 chỉ mask prefix 9–16, nên H8/H16 dùng cùng trọng số selector.
+Selector không nhận goal predicate, injection label, retry hay recovery signal lúc
+evaluation. Đây là bản chuyển thể/reimplementation cho GR00T-RC từ
+[SparkVLA arXiv:2608.16172v1](https://arxiv.org/abs/2608.16172v1), không phải code
+hay checkpoint SparkVLA chính thức.
+
+Các gate nhỏ B0–B10, sai khác kiến trúc và contract nhãn/loss được freeze tại
+[docs/SPARKVLA_B_IMPLEMENTATION_PLAN.md](docs/SPARKVLA_B_IMPLEMENTATION_PLAN.md).
+Index offline hiện có 967 demonstration hợp lệ, 28 annotation bị loại có audit,
+203.410 sample và không trùng exact prompt với 60 case held-out. Vì nguồn public
+không cung cấp goal-predicate contract đáng tin cậy cho rollout train thất bại, B
+không tạo nhãn failure giả; limitation này được ghi trong manifest/checkpoint.
+
+Chạy từng gate:
+
+```bash
+PYTHONPATH=src python3 -m unitree_gr00t.cli b-check --stage index
+PYTHONPATH=src python3 -m unitree_gr00t.cli b-features --batch-size 64 --execute
+PYTHONPATH=src python3 -m unitree_gr00t.cli b-check --stage features
+PYTHONPATH=src python3 -m unitree_gr00t.cli b-train --execute
+PYTHONPATH=src python3 -m unitree_gr00t.cli b-check --stage checkpoint
+```
+
+Trainer luôn chạy đủ 20.000 step đã freeze và xuất checkpoint có development
+loss thấp nhất (nếu hòa thì chọn step sớm hơn); mọi metric theo từng mốc vẫn nằm
+trong provenance, không dùng held-out outcome để chọn weights.
+
+Pilot dùng `b-server` và `b-eval` giống cách A2 tách server/client. Feature resume
+được khóa bằng hash của index, A1 weights, seed, device và batch size; policy RNG
+cũng được derive từ seed episode + decision index ở mỗi request để kết quả không
+phụ thuộc thứ tự shard/resume.
+Pipeline đầy đủ có resume từ feature episode và benchmark shard:
+
+```bash
+scripts/run_b_pipeline.sh
+```
+
+Mỗi decision B lưu toàn bộ 17 score, validity mask, candidate, context hash,
+anchor-history hash (kèm vector anchor mới một lần), STOP streak/commit, predicted
+H16 chunk, prefix thật sự thực thi và transition vật lý. Reviewer report so khớp B
+với A2 theo task/case/trial/horizon để cô lập tác động của learned execution
+selector.
+
+Run frozen cuối đã hoàn tất 600 episode cho mỗi horizon. Task-macro predicate SR
+là 1,28% ở H16 và 0,52% ở H8; terminal goal-state SR lần lượt là 1,00% và
+0,17%. So với A2, delta task-macro SR là -1,52 điểm phần trăm ở H16 và -2,13
+điểm phần trăm ở H8, với cả hai khoảng tin cậy 95% không cắt zero. Kết quả âm và
+STOP quá mạnh được giữ nguyên, không tuning lại trên held-out outcome. Xem
+[`artifacts/B/full-benchmark/reviewer/REVIEWER_REPORT.md`](artifacts/B/full-benchmark/reviewer/REVIEWER_REPORT.md)
+và [`artifacts/B/preflight/summary.json`](artifacts/B/preflight/summary.json).

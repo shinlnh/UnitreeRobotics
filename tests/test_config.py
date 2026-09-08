@@ -24,6 +24,13 @@ def test_project_config_resolves_paths() -> None:
     assert config.robocerebra_hierarchy.experiment_id == "A2"
     assert config.robocerebra_hierarchy.variant == "GR00T-RC-fixed-hierarchy"
     assert config.robocerebra_hierarchy.subgoal_horizon_steps == 150
+    assert config.robocerebra_selector.experiment_id == "B"
+    assert config.robocerebra_selector.action_horizon == 16
+    assert config.robocerebra_selector.context_width == 2048
+    assert config.robocerebra_selector.stop_confirmation_window == 2
+    assert config.robocerebra_selector.checkpoint_dir == (
+        ROOT / "checkpoints" / "robocerebra" / "GR00T-RC-SparkVLA-selector"
+    )
 
 
 def test_task_catalog_and_selection() -> None:

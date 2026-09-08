@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "experiment_id": "B",
+  "variant": "GR00T-RC-SparkVLA-style-execution",
+  "complete": true,
+  "phase": "preflight_and_full_benchmark_complete",
+  "branch": "feat(B)/implement-GR00T-RC-SparkVLA-style-execution",
+  "implementation_git_commit": "bad34f728645e15d88356b2e9cc64b69cb7614dc",
+  "parent_checkpoint": "checkpoints/robocerebra/GR00T-RC",
+  "parent_checkpoint_source_experiment": "A1",
+  "parent_checkpoint_training_revision": "5d2e1e361bf65aabbe4d18179515f5a10936cc96",
+  "a1_checkpoint_weight_shards_sha256": {
+    "model-00001-of-00002.safetensors": "d273ca475107b081cb91ecb4f555b6ac46692ba0d8c337935c00a03dc889b973",
+    "model-00002-of-00002.safetensors": "244a7ea7e7b2510a31cad92a805f59651301277a9e36508f863012bde49ed4aa"
+  },
+  "method": "SparkVLA-unified-stop-prefix-GR00T-reimplementation",
+  "paper": "arXiv:2608.16172v1",
+  "selector_index": {
+    "source_episodes": 995,
+    "usable_episodes": 967,
+    "annotation_exclusions": 28,
+    "train_episodes": 871,
+    "development_episodes": 96,
+    "train_samples": 183430,
+    "development_samples": 19980,
+    "samples": 203410,
+    "successful_demonstrations_only": true,
+    "policy_rollouts_included": false,
+    "benchmark_exact_prompt_overlaps": 0,
+    "manifest_sha256": "90f66d29bdd0b73496f06c28915fc5087cc7659d8673dc84201c89ccd41f46f7",
+    "samples_sha256": "345a1b2cb60eeeb23503fc45ad029207ca26fdc033abf4e1c321773dbb2c957b"
+  },
+  "feature_cache": {
+    "complete": true,
+    "limited": false,
+    "episodes": 967,
+    "samples": 203410,
+    "files": 967,
+    "context_width": 2048,
+    "manifest_sha256": "dd19c2e85bcee554cd0225f645355f1945bcf4a6d7dc8ea7483c5683d021e531",
+    "run_contract_sha256": "9b175951f77ca78f54fb3b7a5017c981990dc64285968c3a588c7f413e6b048b"
+  },
+  "selector_training": {
+    "scheduled_steps": 20000,
+    "selected_step": 6000,
+    "checkpoint_selection": "minimum development loss; earliest step breaks ties",
+    "development_samples": 4096,
+    "best_development_loss": 0.9338393788784742,
+    "best_candidate_accuracy": 0.66748046875,
+    "best_stop_accuracy": 0.68896484375,
+    "final_step_development_loss": 1.4290317241102457,
+    "parameters": 44122113,
+    "weights_bytes": 176494396,
+    "weights_sha256": "88a05811257384bbba867169b72103d3bc1e118f5813a9d6c4f4713b274e1f16",
+    "provenance_sha256": "dbaafe338876fcc5b233a811ec9738fddb3f2b5de52836e039aa2c9a134e405f"
+  },
+  "selection": {
+    "native_action_horizon": 16,
+    "evaluated_execution_horizons": [8, 16],
+    "stop_confirmation_window": 2,
+    "confirmation_window_source": "frozen smallest non-trivial window before held-out evaluation",
+    "planner_observes_task_outcomes": false,
+    "planner_replans": false,
+    "retry": false,
+    "state_restoration": false,
+    "recovery": false
+  },
+  "pilot": {
+    "condition": "Ideal",
+    "case": "case1",
+    "trial": 0,
+    "seed": 7,
+    "execution_horizon": 16,
+    "policy_calls": 14,
+    "executed_actions": 16,
+    "selector_stop_proposals": 13,
+    "selector_stop_commits": 6,
+    "selector_subgoals_completed": 6,
+    "completed_subtasks": 0,
+    "final_success": false,
+    "trace_contract_valid": true,
+    "used_for_tuning": false
+  },
+  "full_benchmark": {
+    "H16": {
+      "episodes": 600,
+      "decisions": 21476,
+      "paper_subtask_success_rate": 0.012805897805897807,
+      "terminal_goal_state_success_rate": 0.01
+    },
+    "H8": {
+      "episodes": 600,
+      "decisions": 13939,
+      "paper_subtask_success_rate": 0.00522060347060347,
+      "terminal_goal_state_success_rate": 0.0016666666666666668
+    },
+    "contract_audit_valid": true
+  },
+  "verification": {
+    "ruff": "passed",
+    "pytest": "58 passed",
+    "shell_syntax": "passed",
+    "checkpoint_contract": "passed",
+    "merged_core_file_hashes": "8 of 8 matched",
+    "decision_contracts": "35415 of 35415 passed",
+    "long_running_processes_left_active": 0
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "experiment_id": "B",
+  "feature_contract": "frozen GR00T-RC last-valid backbone token plus proposed H16 chunk",
+  "selector_index_manifest_sha256": "90f66d29bdd0b73496f06c28915fc5087cc7659d8673dc84201c89ccd41f46f7",
+  "episodes_sha256": "8c439a7e58af111bf94cb195419ee182c01f080f3d0a53bf1bc46366d60e6ff0",
+  "samples_sha256": "345a1b2cb60eeeb23503fc45ad029207ca26fdc033abf4e1c321773dbb2c957b",
+  "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/checkpoints/robocerebra/GR00T-RC",
+  "checkpoint_training_revision": "5d2e1e361bf65aabbe4d18179515f5a10936cc96",
+  "checkpoint_provenance_sha256": "ebcc39432adf253cc431616722eb6e5fae0fd5153a4ebf1c897725798af2e487",
+  "checkpoint_weight_shards_sha256": {
+    "model-00001-of-00002.safetensors": "d273ca475107b081cb91ecb4f555b6ac46692ba0d8c337935c00a03dc889b973",
+    "model-00002-of-00002.safetensors": "244a7ea7e7b2510a31cad92a805f59651301277a9e36508f863012bde49ed4aa"
+  },
+  "action_horizon": 16,
+  "context_width": 2048,
+  "dtype": "float16",
+  "device": "cuda:0",
+  "batch_size": 64,
+  "seed": 7,
+  "seed_derivation": "sha256(B-feature-v1:base_seed:episode_index)[:31-bit]"
+}

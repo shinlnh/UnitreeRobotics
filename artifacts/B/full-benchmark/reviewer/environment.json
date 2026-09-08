@@ -1,0 +1,76 @@
+{
+  "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+  "python": "3.10.20",
+  "machine": "x86_64",
+  "processor": "x86_64",
+  "cpu": "Architecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           46 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  32\nOn-line CPU(s) list:                     0-31\nVendor ID:                               GenuineIntel\nModel name:                              Intel(R) Core(TM) i9-14900K\nCPU family:                              6\nModel:                                   183\nThread(s) per core:                      2\nCore(s) per socket:                      24\nSocket(s):                               1\nStepping:                                1\nCPU(s) scaling MHz:                      57%\nCPU max MHz:                             6000.0000\nCPU min MHz:                             800.0000\nBogoMIPS:                                6374.40\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid movdiri movdir64b fsrm md_clear serialize pconfig arch_lbr ibt flush_l1d arch_capabilities\nVirtualization:                          VT-x\nL1d cache:                               896 KiB (24 instances)\nL1i cache:                               1.3 MiB (24 instances)\nL2 cache:                                32 MiB (12 instances)\nL3 cache:                                36 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-31\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Mitigation; Clear Register File\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Not affected\nVulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Not affected\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Mitigation; IBPB before exit to userspace",
+  "gpu": "NVIDIA GeForce RTX 5070 Ti, GPU-da696980-637c-75d7-e5a2-2e4579d14d9e, 595.84, 16303 MiB",
+  "packages_in_report_environment": {
+    "numpy": "1.26.4",
+    "mujoco": "2.3.7",
+    "robosuite": "1.4.0",
+    "pyzmq": "27.2.0",
+    "msgpack": "1.2.2",
+    "torch": null
+  },
+  "evaluator_environment": {
+    "python": "3.10.20",
+    "packages": {
+      "numpy": "1.26.4",
+      "mujoco": "2.3.7",
+      "robosuite": "1.4.0",
+      "pyzmq": "27.2.0",
+      "msgpack": "1.2.2",
+      "torch": null,
+      "transformers": null
+    }
+  },
+  "policy_server_environment": {
+    "python": "3.10.20",
+    "packages": {
+      "numpy": "1.26.4",
+      "mujoco": null,
+      "robosuite": null,
+      "pyzmq": "27.0.1",
+      "msgpack": "1.1.0",
+      "torch": "2.7.1+cu128",
+      "transformers": "4.57.3"
+    },
+    "torch_cuda": "12.8",
+    "cudnn": 90701,
+    "cuda_available": true
+  },
+  "git_head": "bad34f728645e15d88356b2e9cc64b69cb7614dc",
+  "git_branch": "feat(B)/implement-GR00T-RC-SparkVLA-style-execution",
+  "git_worktree_status": null,
+  "implementation_sha256": {
+    "configs/project.toml": "b1db41b903c4d3432db86712fb16d269f94627b897b4209de80571f7b4883f6d",
+    "scripts/run_a0_full_benchmark.sh": "5020f307347d54053851714db5fa4b65f71706696ee631b07d79a2f26919d3d2",
+    "scripts/setup_robocerebra_a0.sh": "9bd4b2fb6bfb11c65e3b6c1f6de992c024de7d001df075137ef1587075e8d12f",
+    "src/unitree_gr00t/a0.py": "a60e52776906771d20cec419f27115c22abe76c6a86e45c989804ce2513837d0",
+    "src/unitree_gr00t/a0_eval.py": "9be47605071feb19a8ddea0363d6d598534f121067e95b4c90c0f3cc59d8b965",
+    "src/unitree_gr00t/a0_merge.py": "bbd99ade2de48475b83a7d03f57c1fb6f53c51b523e129f0164bd7c9a6b31976",
+    "src/unitree_gr00t/a0_report.py": "d4919d76476eb3354fdf55392872eca743c2dc61fc724cd395a0c7397ddc7615",
+    "scripts/run_a2_full_benchmark.sh": "bf1aaeb350db8bec39f788ba6851dc07aaf90db864d87dcbe03fe89107fc0d35",
+    "scripts/run_a2_pipeline.sh": "eaad8c8a1714287ced77fa687966bc1757b9f142dab998aa5c5ce0d53b450f8b",
+    "src/unitree_gr00t/a2.py": "692491e331f58fdf78681cbb340da00f0586426d8636e52aa958016cb9851af8",
+    "src/unitree_gr00t/a2_eval.py": "71d56c332c3b27773e8a195b128e58fc6cfc7cdfaa7a4f8505235b3d67266a3d",
+    "src/unitree_gr00t/a2_merge.py": "a8e1b4b8376676a6b89ed774a62a80970d957d82aec0ad830f5996cb34003069",
+    "docs/SPARKVLA_B_IMPLEMENTATION_PLAN.md": "64de618dbb1dbc874b2371a50aa06b9f97095e0571d3059eaa99a9c92a3cb2b7",
+    "scripts/run_b_full_benchmark.sh": "2857d533cc1779069c08f9c7f10802c86747b7a9befa0659b466555e918cdcd2",
+    "scripts/run_b_pipeline.sh": "0b87922484062f602fdbb829fbcee7e8cc57002decf81548bb1c87d3534d0a01",
+    "src/unitree_gr00t/b.py": "62fffa5b959a7146629ee015e2e3684ff6e1f332743ff417111801fc7fb064be",
+    "src/unitree_gr00t/b_data.py": "02285c6f391782ac012f9a5359e4d167e5fa2dbaf8d5138b5b26b8c59c229912",
+    "src/unitree_gr00t/b_features.py": "c47122218890f379206dc1238dd0602cf0f19eec58056e7e4d6af905ed3ad615",
+    "src/unitree_gr00t/b_model.py": "43a2b93dc7c39f3b18a54444eb6d138448601cde7a4cce790ec47eff5f310314",
+    "src/unitree_gr00t/b_train.py": "78657cd141b52c24f3e49ccf165c49522fcb2f060b5180d4dda3d1e67ead0dae",
+    "src/unitree_gr00t/b_runtime.py": "634a42bbac005fd001a51c24ed250165c21bf3174865ad4ad344776f472ea07d",
+    "src/unitree_gr00t/b_server.py": "7739438ccf7959a1ce469985f0fe338c3836e06fc150faf82bc43bc191dc54fc",
+    "src/unitree_gr00t/b_eval.py": "e6e9f711255c7bdefb55ddf9ee37746436268aef9b2d0fd201cf9b9b1cd2458e",
+    "src/unitree_gr00t/b_merge.py": "f694eb03980aa9b68fc0c79a901ffabad4e85a13584a4ea4ec470e33eb657f82"
+  },
+  "actual_upstream_git_heads": {
+    "Isaac-GR00T-N1.7": "4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e",
+    "RoboCerebra": "2573426c13dfcd5e7d7831c15587b058aaa1c0c0"
+  }
+}

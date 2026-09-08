@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "experiment_id": "B",
+  "dataset": "SparkVLA-style selector offline index",
+  "source_revision": "5d2e1e361bf65aabbe4d18179515f5a10936cc96",
+  "source_manifest": "/HELIOS/Robotics/UnitreeRobotic/.cache/robocerebra/train/RoboCerebra_trainset/trainingset.json",
+  "source_manifest_sha256": "3211be95643a2ff8fdda2253267137272617821ac93ae827fd12355e7a39d46f",
+  "converted_dataset": "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/gr00t-lerobot-v2",
+  "converted_dataset_provenance_sha256": "d8d8be402d745486d54757692b696f731ce945d9f03e4e35846867758dbdd631",
+  "benchmark_exact_prompt_overlaps": 0,
+  "action_horizon": 16,
+  "sample_stride": 8,
+  "post_boundary_steps": 80,
+  "development_fraction": 0.1,
+  "split_seed": 7,
+  "source_episodes": 995,
+  "episodes": 967,
+  "annotation_exclusion_count": 28,
+  "annotation_exclusions": [
+    {
+      "episode_index": 18,
+      "source_manifest_index": 18,
+      "source_case": "coffee_table/case115",
+      "reason": "invalid subgoal annotation at index 8"
+    },
+    {
+      "episode_index": 70,
+      "source_manifest_index": 71,
+      "source_case": "coffee_table/case163",
+      "reason": "invalid subgoal annotation at index 7"
+    },
+    {
+      "episode_index": 82,
+      "source_manifest_index": 83,
+      "source_case": "coffee_table/case174",
+      "reason": "invalid subgoal annotation at index 4"
+    },
+    {
+      "episode_index": 138,
+      "source_manifest_index": 139,
+      "source_case": "coffee_table/case224",
+      "reason": "at least one annotated subgoal is empty after A1 no-op filtering"
+    },
+    {
+      "episode_index": 151,
+      "source_manifest_index": 152,
+      "source_case": "coffee_table/case236",
+      "reason": "invalid subgoal annotation at index 1"
+    },
+    {
+      "episode_index": 199,
+      "source_manifest_index": 200,
+      "source_case": "coffee_table/case28",
+      "reason": "invalid subgoal annotation at index 5"
+    },
+    {
+      "episode_index": 241,
+      "source_manifest_index": 242,
+      "source_case": "coffee_table/case317",
+      "reason": "invalid subgoal annotation at index 2"
+    },
+    {
+      "episode_index": 277,
+      "source_manifest_index": 278,
+      "source_case": "coffee_table/case35",
+      "reason": "invalid subgoal annotation at index 8"
+    },
+    {
+      "episode_index": 304,
+      "source_manifest_index": 305,
+      "source_case": "coffee_table/case374",
+      "reason": "non-contiguous subgoal annotation at index 6"
+    },
+    {
+      "episode_index": 367,
+      "source_manifest_index": 368,
+      "source_case": "coffee_table/case430",
+      "reason": "invalid subgoal annotation at index 2"
+    },
+    {
+      "episode_index": 413,
+      "source_manifest_index": 414,
+      "source_case": "coffee_table/case472",
+      "reason": "invalid subgoal annotation at index 7"
+    },
+    {
+      "episode_index": 428,
+      "source_manifest_index": 431,
+      "source_case": "coffee_table/case488",
+      "reason": "at least one annotated subgoal is empty after A1 no-op filtering"
+    },
+    {
+      "episode_index": 430,
+      "source_manifest_index": 433,
+      "source_case": "coffee_table/case49",
+      "reason": "invalid subgoal annotation at index 10"
+    },
+    {
+      "episode_index": 433,
+      "source_manifest_index": 436,
+      "source_case": "coffee_table/case492",
+      "reason": "invalid subgoal annotation at index 2"
+    },
+    {
+      "episode_index": 503,
+      "source_manifest_index": 507,
+      "source_case": "coffee_table/case556",
+      "reason": "invalid subgoal annotation at index 5"
+    },
+    {
+      "episode_index": 509,
+      "source_manifest_index": 513,
+      "source_case": "coffee_table/case561",
+      "reason": "non-contiguous subgoal annotation at index 1"
+    },
+    {
+      "episode_index": 515,
+      "source_manifest_index": 519,
+      "source_case": "coffee_table/case567",
+      "reason": "invalid subgoal annotation at index 2"
+    },
+    {
+      "episode_index": 575,
+      "source_manifest_index": 579,
+      "source_case": "coffee_table/case620",
+      "reason": "at least one annotated subgoal is empty after A1 no-op filtering"
+    },
+    {
+      "episode_index": 580,
+      "source_manifest_index": 585,
+      "source_case": "coffee_table/case626",
+      "reason": "invalid subgoal annotation at index 1"
+    },
+    {
+      "episode_index": 587,
+      "source_manifest_index": 592,
+      "source_case": "coffee_table/case632",
+      "reason": "invalid subgoal annotation at index 0"
+    },
+    {
+      "episode_index": 636,
+      "source_manifest_index": 641,
+      "source_case": "coffee_table/case677",
+      "reason": "invalid subgoal annotation at index 10"
+    },
+    {
+      "episode_index": 659,
+      "source_manifest_index": 664,
+      "source_case": "coffee_table/case698",
+      "reason": "invalid subgoal annotation at index 8"
+    },
+    {
+      "episode_index": 716,
+      "source_manifest_index": 721,
+      "source_case": "coffee_table/case749",
+      "reason": "invalid subgoal annotation at index 6"
+    },
+    {
+      "episode_index": 799,
+      "source_manifest_index": 804,
+      "source_case": "kitchen_table/case106",
+      "reason": "invalid subgoal annotation at index 7"
+    },
+    {
+      "episode_index": 814,
+      "source_manifest_index": 819,
+      "source_case": "kitchen_table/case12",
+      "reason": "non-contiguous subgoal annotation at index 1"
+    },
+    {
+      "episode_index": 924,
+      "source_manifest_index": 929,
+      "source_case": "study_table/case12",
+      "reason": "non-contiguous subgoal annotation at index 10"
+    },
+    {
+      "episode_index": 984,
+      "source_manifest_index": 989,
+      "source_case": "study_table/case67",
+      "reason": "invalid subgoal annotation at index 2"
+    },
+    {
+      "episode_index": 991,
+      "source_manifest_index": 996,
+      "source_case": "study_table/case73",
+      "reason": "invalid subgoal annotation at index 2"
+    }
+  ],
+  "episode_split_counts": {
+    "train": 871,
+    "development": 96
+  },
+  "samples": 203410,
+  "sample_split_counts": {
+    "train": 183430,
+    "development": 19980
+  },
+  "successful_demonstrations_only": true,
+  "policy_rollouts_included": false,
+  "episodes_sha256": "8c439a7e58af111bf94cb195419ee182c01f080f3d0a53bf1bc46366d60e6ff0",
+  "samples_sha256": "345a1b2cb60eeeb23503fc45ad029207ca26fdc033abf4e1c321773dbb2c957b"
+}

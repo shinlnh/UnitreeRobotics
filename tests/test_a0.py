@@ -6,6 +6,7 @@ import pytest
 
 from unitree_gr00t.a0 import (
     A0ContractError,
+    RemotePolicyClient,
     build_policy_observation,
     discover_cases,
     inspect_checkpoint,
@@ -148,3 +149,25 @@ def test_policy_observation_and_action_conversion_match_libero_contract() -> Non
     assert chunk.shape == (16, 7)
     assert chunk[0].tolist() == pytest.approx([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
     assert to_libero_action(chunk[0], np)[-1] == -1.0
+
+
+def test_remote_policy_client_preserves_adaptive_options_and_info() -> None:
+    client = object.__new__(RemotePolicyClient)
+    captured = {}
+
+    def call(endpoint: str, data: object) -> object:
+        captured["endpoint"] = endpoint
+        captured["data"] = data
+        return [{"action.x": "chunk"}, {"b_selector": {"candidate": 3}}]
+
+    client.call = call  # type: ignore[method-assign]
+    action, info = client.get_action_with_info(
+        {"video.image": "frame"}, {"b_selector": {"max_prefix": 8}}
+    )
+    assert action == {"action.x": "chunk"}
+    assert info["b_selector"]["candidate"] == 3
+    assert captured["endpoint"] == "get_action"
+    assert captured["data"]["options"]["b_selector"]["max_prefix"] == 8
+    client.reset({"episode_seed": 9})
+    assert captured["endpoint"] == "reset"
+    assert captured["data"] == {"options": {"episode_seed": 9}}

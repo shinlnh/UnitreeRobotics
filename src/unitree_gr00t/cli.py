@@ -9,8 +9,15 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .a0 import discover_cases, inspect_checkpoint
-from .a1 import audit_training_source, inspect_a1_checkpoint, validate_converted_dataset
+from .a1 import (
+    audit_training_source,
+    inspect_a1_checkpoint,
+    sha256_file,
+    validate_converted_dataset,
+)
 from .a2 import audit_fixed_hierarchy, hierarchy_audit_payload
+from .b import inspect_selector_checkpoint, verify_a1_weight_hashes
+from .b_features import FEATURE_RUN_CONTRACT
 from .commands import (
     build_a0_eval_command,
     build_a0_server_command,
@@ -20,6 +27,11 @@ from .commands import (
     build_a1_train_command,
     build_a2_eval_command,
     build_a2_server_command,
+    build_b_eval_command,
+    build_b_features_command,
+    build_b_prepare_command,
+    build_b_server_command,
+    build_b_train_command,
     build_collect_command,
     build_deploy_command,
     build_open_loop_command,
@@ -190,6 +202,51 @@ def _parser() -> argparse.ArgumentParser:
     a2_eval.add_argument("--no-trace-images", action="store_true")
     a2_eval.add_argument("--resume", action="store_true")
     a2_eval.add_argument("--execute", action="store_true")
+
+    b_check = subparsers.add_parser(
+        "b-check", help="Validate B selector index, features, or frozen checkpoint"
+    )
+    b_check.add_argument("--stage", choices=("index", "features", "checkpoint"), default="index")
+
+    b_prepare = subparsers.add_parser(
+        "b-prepare", help="Preview or build B's audited selector boundary index"
+    )
+    b_prepare.add_argument("--limit", type=int)
+    b_prepare.add_argument("--output")
+    b_prepare.add_argument("--execute", action="store_true")
+
+    b_features = subparsers.add_parser(
+        "b-features", help="Preview or extract frozen A1 contexts and chunks for B"
+    )
+    b_features.add_argument("--batch-size", type=int, default=64)
+    b_features.add_argument("--limit-episodes", type=int)
+    b_features.add_argument("--no-resume", action="store_true")
+    b_features.add_argument("--execute", action="store_true")
+
+    b_train = subparsers.add_parser("b-train", help="Preview or train B's unified selector")
+    b_train.add_argument("--steps", type=int)
+    b_train.add_argument("--batch-size", type=int)
+    b_train.add_argument("--no-resume", action="store_true")
+    b_train.add_argument("--execute", action="store_true")
+
+    b_server = subparsers.add_parser(
+        "b-server", help="Preview or serve frozen GR00T-RC with the B selector"
+    )
+    b_server.add_argument("--seed", type=int, default=7)
+    b_server.add_argument("--execute", action="store_true")
+
+    b_eval = subparsers.add_parser(
+        "b-eval", help="Preview or run adaptive STOP/action-prefix B evaluation"
+    )
+    b_eval.add_argument("--task-types", nargs="+", default=["Ideal"])
+    b_eval.add_argument("--cases", nargs="*", default=[])
+    b_eval.add_argument("--trials", type=int, default=1)
+    b_eval.add_argument("--execution-horizon", type=int, default=16, choices=(8, 16))
+    b_eval.add_argument("--seed", type=int, default=7)
+    b_eval.add_argument("--output")
+    b_eval.add_argument("--no-trace-images", action="store_true")
+    b_eval.add_argument("--resume", action="store_true")
+    b_eval.add_argument("--execute", action="store_true")
 
     subparsers.add_parser("show-config", help="Print resolved runtime configuration")
     return parser
@@ -459,6 +516,137 @@ def _run(args: argparse.Namespace) -> int:
             resume=args.resume,
         )
         return run_or_preview(spec, args.execute)
+
+    if args.command == "b-check":
+        b = config.robocerebra_selector
+        if args.stage == "checkpoint":
+            contract, _ = inspect_a1_checkpoint(
+                config.robocerebra_posttrain.checkpoint_dir,
+                expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
+            )
+            audit, provenance = inspect_selector_checkpoint(
+                b.checkpoint_dir,
+                expected_action_horizon=b.action_horizon,
+                expected_context_width=b.context_width,
+            )
+            verify_a1_weight_hashes(contract, provenance.get("a1_checkpoint_weight_shards_sha256"))
+            payload = asdict(audit) | {
+                "checkpoint_dir": str(audit.checkpoint_dir),
+                "provenance": provenance,
+            }
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+            return 0
+        manifest_path = b.dataset_dir / (
+            "feature_manifest.json" if args.stage == "features" else "manifest.json"
+        )
+        if not manifest_path.is_file():
+            raise FileNotFoundError(f"B {args.stage} manifest not found: {manifest_path}")
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if args.stage == "index":
+            if payload.get("experiment_id") != "B":
+                raise ValueError("selector index identity is not B")
+            for filename in ("episodes.jsonl", "samples.jsonl"):
+                key = f"{filename.removesuffix('.jsonl')}_sha256"
+                if sha256_file(b.dataset_dir / filename) != payload[key]:
+                    raise ValueError(f"B selector index hash mismatch: {filename}")
+            if payload.get("benchmark_exact_prompt_overlaps") != 0:
+                raise ValueError("B selector index overlaps exact held-out prompts")
+        else:
+            contract, _ = inspect_a1_checkpoint(
+                config.robocerebra_posttrain.checkpoint_dir,
+                expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
+            )
+            index_manifest_path = b.dataset_dir / "manifest.json"
+            index_manifest = json.loads(index_manifest_path.read_text(encoding="utf-8"))
+            run_contract_path = b.dataset_dir / FEATURE_RUN_CONTRACT
+            if (
+                payload.get("experiment_id") != "B"
+                or payload.get("selector_index_manifest_sha256") != sha256_file(index_manifest_path)
+                or int(payload.get("samples", -1)) != int(index_manifest["samples"])
+                or payload.get("feature_run_contract_sha256") != sha256_file(run_contract_path)
+            ):
+                raise ValueError("B feature manifest identity or parent contract is invalid")
+            verify_a1_weight_hashes(contract, payload.get("checkpoint_weight_shards_sha256"))
+            hashes = payload.get("feature_files_sha256")
+            if not isinstance(hashes, dict) or len(hashes) != int(payload.get("feature_files", -1)):
+                raise ValueError("B feature manifest is missing its complete hash inventory")
+            actual_feature_files = {
+                path.name for path in (b.dataset_dir / "features").glob("episode_*.npz")
+            }
+            if actual_feature_files != set(hashes):
+                raise ValueError("B feature cache file inventory differs from its manifest")
+            for filename, expected_hash in hashes.items():
+                if Path(filename).name != filename:
+                    raise ValueError(f"B feature manifest contains an unsafe filename: {filename}")
+                path = b.dataset_dir / "features" / filename
+                if not path.is_file() or sha256_file(path) != expected_hash:
+                    raise ValueError(f"B feature cache hash mismatch: {filename}")
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        valid = args.stage == "index" or (
+            bool(payload.get("complete")) and not bool(payload.get("limited"))
+        )
+        return 0 if valid else 2
+
+    if args.command == "b-prepare":
+        return run_or_preview(
+            build_b_prepare_command(config, limit=args.limit, output_dir=args.output), args.execute
+        )
+
+    if args.command == "b-features":
+        return run_or_preview(
+            build_b_features_command(
+                config,
+                batch_size=args.batch_size,
+                limit_episodes=args.limit_episodes,
+                resume=not args.no_resume,
+            ),
+            args.execute,
+        )
+
+    if args.command == "b-train":
+        spec = build_b_train_command(config, steps=args.steps, batch_size=args.batch_size)
+        if args.no_resume:
+            argv = tuple(value for value in spec.argv if value != "--resume")
+            spec = type(spec)(argv, spec.cwd, spec.description)
+        return run_or_preview(spec, args.execute)
+
+    if args.command == "b-server":
+        inspect_a1_checkpoint(
+            config.robocerebra_posttrain.checkpoint_dir,
+            expected_training_revision=config.robocerebra_posttrain.training_dataset_revision,
+        )
+        inspect_selector_checkpoint(
+            config.robocerebra_selector.checkpoint_dir,
+            expected_action_horizon=config.robocerebra_selector.action_horizon,
+            expected_context_width=config.robocerebra_selector.context_width,
+        )
+        return run_or_preview(build_b_server_command(config, args.seed), args.execute)
+
+    if args.command == "b-eval":
+        inspect_selector_checkpoint(
+            config.robocerebra_selector.checkpoint_dir,
+            expected_action_horizon=config.robocerebra_selector.action_horizon,
+            expected_context_width=config.robocerebra_selector.context_width,
+        )
+        output = (
+            Path(args.output).expanduser()
+            if args.output
+            else config.artifact_dir / "B" / f"H{args.execution_horizon}-seed{args.seed}"
+        )
+        return run_or_preview(
+            build_b_eval_command(
+                config,
+                task_types=args.task_types,
+                case_names=args.cases,
+                trials=args.trials,
+                execution_horizon=args.execution_horizon,
+                seed=args.seed,
+                output_dir=output,
+                trace_images=not args.no_trace_images,
+                resume=args.resume,
+            ),
+            args.execute,
+        )
 
     if args.command == "show-config":
         resolved = {

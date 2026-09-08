@@ -10,6 +10,10 @@ from unitree_gr00t.commands import (
     build_a1_train_command,
     build_a2_eval_command,
     build_a2_server_command,
+    build_b_eval_command,
+    build_b_features_command,
+    build_b_server_command,
+    build_b_train_command,
     build_deploy_command,
     build_server_command,
     build_train_command,
@@ -131,4 +135,34 @@ def test_a2_commands_reuse_a1_checkpoint_with_separate_hierarchy(tmp_path: Path)
     assert "A2" in evaluate.argv
     assert "GR00T-RC-fixed-hierarchy" in evaluate.argv
     assert "RoboCerebra-HPE-fixed-anchor-reimplementation" in evaluate.argv
+    assert "--resume" in evaluate.argv
+
+
+def test_b_commands_freeze_selector_training_and_adaptive_eval(tmp_path: Path) -> None:
+    config = load_config(ROOT / "configs" / "project.toml")
+    features = build_b_features_command(config, batch_size=64, resume=True)
+    train = build_b_train_command(config, steps=20_000, batch_size=128)
+    server = build_b_server_command(config, seed=7)
+    evaluate = build_b_eval_command(
+        config,
+        task_types=["Ideal"],
+        case_names=["case1"],
+        trials=1,
+        execution_horizon=8,
+        seed=7,
+        output_dir=tmp_path / "b",
+        resume=True,
+    )
+
+    assert "unitree_gr00t.b_features" in features.argv
+    assert "64" in features.argv and "--resume" in features.argv
+    assert "unitree_gr00t.b_train" in train.argv
+    assert "20000" in train.argv and "128" in train.argv
+    assert "--resume" in train.argv
+    assert "unitree_gr00t.b_server" in server.argv
+    assert str(config.robocerebra_posttrain.checkpoint_dir) in server.argv
+    assert str(config.robocerebra_selector.checkpoint_dir) in server.argv
+    assert "unitree_gr00t.b_eval" in evaluate.argv
+    assert config.robocerebra_selector.method in evaluate.argv
+    assert "--stop-confirmation-window" in evaluate.argv
     assert "--resume" in evaluate.argv

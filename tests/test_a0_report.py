@@ -1,4 +1,9 @@
+import json
+from pathlib import Path
+
 from unitree_gr00t.a0_report import (
+    _paired_delta,
+    _scan_decisions,
     cluster_bootstrap_mean,
     cluster_bootstrap_ratio,
     metric_block,
@@ -86,6 +91,15 @@ def test_metric_block_keeps_task_macro_and_pooled_rates_separate() -> None:
     assert block["reference_pooled_subtask_success_rate"]["estimate"] == 5 / 6
 
 
+def test_b_chunk_utilization_excludes_post_success_controller_holds() -> None:
+    row = _row("case1", 4, True)
+    row["selector_executed_actions"] = 8
+    block = metric_block([row], samples=1000, seed=7)
+    assert block["total_executed_steps"] == 16
+    assert block["total_selector_executed_actions"] == 8
+    assert block["action_chunk_utilization"] == 0.25
+
+
 def test_stability_is_conditioned_on_ordered_goal_reach() -> None:
     terminal_only = _row("case1", 1, True)
     terminal_only["reached_success"] = False
@@ -94,3 +108,47 @@ def test_stability_is_conditioned_on_ordered_goal_reach() -> None:
     assert block["strict_full_task_success_rate"]["estimate"] == 1.0
     assert block["ever_reached_full_success_rate"]["estimate"] == 0.0
     assert block["stable_success_given_reached"]["estimate"] is None
+
+
+def test_decision_scan_counts_controller_monitoring_as_steps_not_policy_calls(
+    tmp_path: Path,
+) -> None:
+    rows = [
+        {
+            "policy_latency_seconds": 0.1,
+            "selected_prefix_length": 2,
+            "prefix_selection": "learned_unified_stop_prefix",
+            "active_subgoal_index_before": 0,
+            "transitions": [{}, {}],
+        },
+        {
+            "policy_invoked": False,
+            "policy_latency_seconds": 0.0,
+            "selected_prefix_length": 3,
+            "prefix_selection": "post_success_controller_hold",
+            "transitions": [{}, {}, {}],
+        },
+    ]
+    path = tmp_path / "decisions.jsonl"
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    metrics = _scan_decisions(path)
+    assert metrics["policy_calls"] == 1
+    assert metrics["executed_transitions"] == 5
+    assert metrics["selected_prefix_histogram"] == {2: 1}
+
+
+def test_paired_delta_recognizes_request_local_diffusion_seeds() -> None:
+    row = _row("case1", 2, False) | {"trial": 0}
+    derivation = "sha256(B-decision-v1:episode_seed:decision_index)[:31-bit]"
+    left = {
+        "label": "H16",
+        "manifest": {"decision_seed_derivation": derivation},
+        "episodes": [row],
+    }
+    right = {
+        "label": "H8",
+        "manifest": {"decision_seed_derivation": derivation},
+        "episodes": [dict(row)],
+    }
+    comparison = _paired_delta(left, right, samples=1000, seed=7)
+    assert "request-local policy diffusion seeds" in comparison["pairing_note"]

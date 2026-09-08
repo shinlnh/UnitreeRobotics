@@ -30,6 +30,13 @@ revision. B must therefore be labelled a reimplementation, not an official
 SparkVLA checkpoint. Paper-reported SparkVLA results may be shown separately but
 must not be mixed with locally reproduced results.
 
+SparkVLA's paper was published later as
+[`arXiv:2608.16172v1`](https://arxiv.org/abs/2608.16172v1). B uses the paper as
+the method specification while retaining the pinned repository revision as
+evidence that no official code or checkpoint was available. The GR00T-RC
+adaptation and frozen delivery gates are defined in
+[`SPARKVLA_B_IMPLEMENTATION_PLAN.md`](SPARKVLA_B_IMPLEMENTATION_PLAN.md).
+
 ## Frozen assets
 
 The exact repository, dataset, model revisions, and evaluation constants are in

@@ -81,6 +81,40 @@ class RoboCerebraHierarchyConfig:
 
 
 @dataclass(frozen=True)
+class RoboCerebraSelectorConfig:
+    experiment_id: str
+    variant: str
+    method: str
+    paper: str
+    checkpoint_dir: Path
+    dataset_dir: Path
+    action_horizon: int
+    context_width: int
+    scoring_width: int
+    scoring_layers: int
+    scoring_heads: int
+    feedforward_width: int
+    boundary_jitter_steps: int
+    stop_loss_weight: float
+    unsuccessful_rank_weight: float
+    stop_positive_weight: float
+    near_boundary_steps: int
+    near_boundary_stop_weight: float
+    unsuccessful_stop_weight: float
+    stop_confirmation_window: int
+    sample_stride: int
+    development_fraction: float
+    training_seed: int
+    max_steps: int
+    batch_size: int
+    learning_rate: float
+    weight_decay: float
+    warmup_steps: int
+    gradient_clip_norm: float
+    save_steps: int
+
+
+@dataclass(frozen=True)
 class ModelConfig:
     base_model: str
     embodiment: str
@@ -127,6 +161,7 @@ class ProjectConfig:
     robocerebra: RoboCerebraConfig
     robocerebra_posttrain: RoboCerebraPosttrainConfig
     robocerebra_hierarchy: RoboCerebraHierarchyConfig
+    robocerebra_selector: RoboCerebraSelectorConfig
     model: ModelConfig
     sonic: SonicConfig
     training: TrainingConfig
@@ -172,6 +207,7 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
     robocerebra = raw["robocerebra"]
     robocerebra_posttrain = raw["robocerebra_posttrain"]
     robocerebra_hierarchy = raw["robocerebra_hierarchy"]
+    robocerebra_selector = raw["robocerebra_selector"]
     model = raw["model"]
     sonic = raw["sonic"]
     training = raw["training"]
@@ -268,6 +304,38 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
             planner=str(robocerebra_hierarchy["planner"]),
             plan_source=str(robocerebra_hierarchy["plan_source"]),
             subgoal_horizon_steps=int(robocerebra_hierarchy["subgoal_horizon_steps"]),
+        ),
+        robocerebra_selector=RoboCerebraSelectorConfig(
+            experiment_id=str(robocerebra_selector["experiment_id"]),
+            variant=str(robocerebra_selector["variant"]),
+            method=str(robocerebra_selector["method"]),
+            paper=str(robocerebra_selector["paper"]),
+            checkpoint_dir=project_path(str(robocerebra_selector["checkpoint_dir"])),
+            dataset_dir=project_path(str(robocerebra_selector["dataset_dir"])),
+            action_horizon=int(robocerebra_selector["action_horizon"]),
+            context_width=int(robocerebra_selector["context_width"]),
+            scoring_width=int(robocerebra_selector["scoring_width"]),
+            scoring_layers=int(robocerebra_selector["scoring_layers"]),
+            scoring_heads=int(robocerebra_selector["scoring_heads"]),
+            feedforward_width=int(robocerebra_selector["feedforward_width"]),
+            boundary_jitter_steps=int(robocerebra_selector["boundary_jitter_steps"]),
+            stop_loss_weight=float(robocerebra_selector["stop_loss_weight"]),
+            unsuccessful_rank_weight=float(robocerebra_selector["unsuccessful_rank_weight"]),
+            stop_positive_weight=float(robocerebra_selector["stop_positive_weight"]),
+            near_boundary_steps=int(robocerebra_selector["near_boundary_steps"]),
+            near_boundary_stop_weight=float(robocerebra_selector["near_boundary_stop_weight"]),
+            unsuccessful_stop_weight=float(robocerebra_selector["unsuccessful_stop_weight"]),
+            stop_confirmation_window=int(robocerebra_selector["stop_confirmation_window"]),
+            sample_stride=int(robocerebra_selector["sample_stride"]),
+            development_fraction=float(robocerebra_selector["development_fraction"]),
+            training_seed=int(robocerebra_selector["training_seed"]),
+            max_steps=int(robocerebra_selector["max_steps"]),
+            batch_size=int(robocerebra_selector["batch_size"]),
+            learning_rate=float(robocerebra_selector["learning_rate"]),
+            weight_decay=float(robocerebra_selector["weight_decay"]),
+            warmup_steps=int(robocerebra_selector["warmup_steps"]),
+            gradient_clip_norm=float(robocerebra_selector["gradient_clip_norm"]),
+            save_steps=int(robocerebra_selector["save_steps"]),
         ),
         model=ModelConfig(
             base_model=str(model["base_model"]),
