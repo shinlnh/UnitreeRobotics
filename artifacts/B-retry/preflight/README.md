@@ -20,3 +20,9 @@ the six canonical subtasks. It executed 48 actions, stayed inside the unchanged
 
 The full benchmark must use `scripts/run_b_retry_pipeline.sh`, retain the same
 600 episodes per H16/H8 horizon, and compare against frozen B.
+
+That frozen run is now complete. Both horizons contain 600 validated episodes.
+Task-macro predicate SR changed by -0.21 percentage points for H16 and +0.06
+points for H8 relative to B; both 95% confidence intervals include zero, while
+executed steps and policy calls increased. The negative/null result was retained
+without changing the retry contract.

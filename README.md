@@ -513,3 +513,15 @@ scripts/run_b_retry_pipeline.sh
 Reviewer report ghép B-retry với B theo đúng task/case/trial/horizon. Retry dùng
 chung global step budget với B, vì vậy blind repetition không được hưởng thêm
 thời gian thực thi.
+
+Run frozen cuối đã hoàn tất 600 episode cho mỗi horizon. Task-macro predicate SR
+là 1,07% ở H16 và 0,58% ở H8; terminal goal-state SR lần lượt là 0,50% và
+0,17%. So với B, delta task-macro SR là -0,21 điểm phần trăm ở H16 (95% CI
+[-0,47, +0,04]) và +0,06 điểm phần trăm ở H8 (95% CI [-0,06, +0,19]); cả hai
+khoảng đều cắt zero. B-retry tăng trung bình 73,20 executed step và 23,44 policy
+call ở H16, 10,72 step và 20,44 call ở H8. Kết quả xác nhận blind retry không tạo
+lợi ích có ý nghĩa thống kê trên B và không được trình bày như learned recovery.
+Xem
+[`artifacts/B-retry/full-benchmark/reviewer/REVIEWER_REPORT.md`](artifacts/B-retry/full-benchmark/reviewer/REVIEWER_REPORT.md)
+và
+[`artifacts/B-retry/preflight/summary.json`](artifacts/B-retry/preflight/summary.json).

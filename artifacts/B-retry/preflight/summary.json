@@ -2,7 +2,7 @@
   "schema_version": 1,
   "experiment_id": "B-retry",
   "variant": "GR00T-RC-SparkVLA-style-execution-naive-retry",
-  "phase": "preflight_complete",
+  "phase": "preflight_and_full_benchmark_complete",
   "branch": "feat(B-retry)/implement-naive-retry-control",
   "implementation_git_commit": "15a41030ca4967ea9b36c5a6fe75cecbd923b5fb",
   "parent_b_source": "32838a4d42af8c8e4616f12539c9a5ef4d9c618f",
@@ -53,6 +53,30 @@
     "episodes_sha256": "1eb442694fee154dce7c2a951e2295d13ea0404f0f4dcdc1eee8afad9ad7d081",
     "decisions_sha256": "504e9708087baa65abdc272a3184081de33ddc7acccb121c90fe1d81ecaa1330"
   },
+  "full_benchmark": {
+    "H16": {
+      "episodes": 600,
+      "decisions": 35541,
+      "executed_steps": 199176,
+      "retry_attempts": 5557,
+      "paper_subtask_success_rate": 0.010691021941021941,
+      "terminal_goal_state_success_rate": 0.005
+    },
+    "H8": {
+      "episodes": 600,
+      "decisions": 26201,
+      "executed_steps": 26167,
+      "retry_attempts": 5630,
+      "paper_subtask_success_rate": 0.005836284086284086,
+      "terminal_goal_state_success_rate": 0.0016666666666666668
+    },
+    "paired_against": "B",
+    "H16_paper_sr_delta": -0.002114875864875865,
+    "H16_paper_sr_delta_ci95": [-0.004657510776260776, 0.0003741883116883103],
+    "H8_paper_sr_delta": 0.0006156806156806157,
+    "H8_paper_sr_delta_ci95": [-0.0006424573112073111, 0.001906084656084656],
+    "contract_audit_valid": true
+  },
   "verification": {
     "ruff": "passed",
     "pytest": "67 passed",
@@ -60,6 +84,8 @@
     "parent_checkpoint_contract": "passed",
     "selector_checkpoint_contract": "passed",
     "pilot_decision_contracts": "27 of 27 passed",
+    "full_decision_contracts": "61742 of 61742 passed",
+    "merged_core_file_hashes": "8 of 8 matched",
     "long_running_processes_left_active": 0
   }
 }

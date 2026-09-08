@@ -1,0 +1,56 @@
+{
+  "H16": {
+    "root": "/HELIOS/Robotics/UnitreeRobotic/artifacts/B-retry/full-benchmark/H16",
+    "frame_bundles": 35541,
+    "frame_bytes": 5681320767,
+    "frame_tree_sha256": "dc7adc0b9751e34bb3154ac3dca36090151b969ad5103d70f95dd2cb9cecd546",
+    "frame_first_mtime_utc": "2026-09-08T04:03:04.803699+00:00",
+    "frame_last_mtime_utc": "2026-09-08T04:44:08.160129+00:00",
+    "trace_collection_span_seconds": 2463.3564302921295,
+    "core_files": {
+      "run_manifest.json": {
+        "bytes": 7925,
+        "sha256": "31302bacf92562356b6bc9d51c945747b337eede1a660466f96ed7a110071de2"
+      },
+      "summary.json": {
+        "bytes": 9198,
+        "sha256": "ceb6826c460d86fc1be0a4130ff6f2e6845bca614700368af84b7c9925708c24"
+      },
+      "episodes.jsonl": {
+        "bytes": 1805187,
+        "sha256": "5830a7c7cc34773ceae01e0f7f644865c3525dc9db1cda579b8d92757ff7c0f4"
+      },
+      "decisions.jsonl": {
+        "bytes": 941731340,
+        "sha256": "0630f1ab078df3484728ff780e144917410f69c4fc4db6ce355860a05e21d04f"
+      }
+    }
+  },
+  "H8": {
+    "root": "/HELIOS/Robotics/UnitreeRobotic/artifacts/B-retry/full-benchmark/H8",
+    "frame_bundles": 26201,
+    "frame_bytes": 4298582676,
+    "frame_tree_sha256": "0bbd379955a234ea37be31808b314da21cc23eaaadab195730811fe52ad4dfa4",
+    "frame_first_mtime_utc": "2026-09-08T04:44:59.563064+00:00",
+    "frame_last_mtime_utc": "2026-09-08T05:13:39.511764+00:00",
+    "trace_collection_span_seconds": 1719.9486999511719,
+    "core_files": {
+      "run_manifest.json": {
+        "bytes": 7923,
+        "sha256": "e7ec2dc4b5a3af2ed244b6d112621111df1521a47791f8670fb3837de1746e1a"
+      },
+      "summary.json": {
+        "bytes": 9213,
+        "sha256": "6b2da00e6a2702fb7decd9c93739be42b5487403ca56982ca0aa5bfc68870299"
+      },
+      "episodes.jsonl": {
+        "bytes": 1789947,
+        "sha256": "f2b71e1e594f2269abfde149ed10854f4a9a8528586e02b5264cd78fcecae968"
+      },
+      "decisions.jsonl": {
+        "bytes": 460595254,
+        "sha256": "147a306980388482c6f16ec3293cc6ec4631d2b4575dab172ceefa49326e7057"
+      }
+    }
+  }
+}
