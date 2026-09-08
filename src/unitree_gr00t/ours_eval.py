@@ -52,6 +52,7 @@ def _parser() -> argparse.ArgumentParser:
         help="Bounded outcome-blind ADVANCE fallback searched only on development runs",
     )
     parser.add_argument("--failure-threshold", type=float, default=0.5)
+    parser.add_argument("--consensus-cooldown-decisions", type=int, default=16)
     parser.add_argument("--capture-training-context", action="store_true")
     parser.add_argument("--collection-force-boundary-steps", type=int)
     return parser
@@ -75,6 +76,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         raise ValueError("gate threshold override must be inside [0, 1]")
     if not 0.0 <= args.failure_threshold <= 1.0:
         raise ValueError("failure threshold must be inside [0, 1]")
+    if args.consensus_cooldown_decisions < 0:
+        raise ValueError("consensus cooldown cannot be negative")
     recovery_audit, recovery_provenance = inspect_recovery_checkpoint(args.recovery_checkpoint)
     metrics = recovery_provenance["development_metrics"]
     threshold_key = {
@@ -102,6 +105,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         gate_threshold=gate_threshold,
         consensus_hypotheses=args.consensus_hypotheses,
         failure_threshold=args.failure_threshold,
+        consensus_cooldown_decisions=args.consensus_cooldown_decisions,
         force_boundary_steps=boundary_steps,
     )
     manifest_extensions = {
@@ -119,6 +123,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "gate_threshold_override": args.gate_threshold_override,
         "consensus_hypotheses": args.consensus_hypotheses,
         "failure_threshold": args.failure_threshold,
+        "consensus_cooldown_decisions": args.consensus_cooldown_decisions,
         "recovery_checkpoint_stage": recovery_provenance["stage"],
         "failure_detector": True,
         "recovery_memory": True,

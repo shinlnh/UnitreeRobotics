@@ -8,6 +8,7 @@ def test_selective_consensus_reobserves_then_executes_medoid_nonstop_prefix() ->
         completion_threshold=0.8,
         consensus_hypotheses=2,
         failure_threshold=0.5,
+        consensus_cooldown_decisions=2,
     )
     chunk_a = np.ones((16, 7), dtype=np.float32)
     chunk_b = np.full((16, 7), 2.0, dtype=np.float32)
@@ -42,6 +43,19 @@ def test_selective_consensus_reobserves_then_executes_medoid_nonstop_prefix() ->
     assert second.option == "CONSENSUS_PREFIX"
     assert second.candidate > 0
     assert second.hypothesis_count == 2
+
+    cooldown = controller.decide(
+        candidate=0,
+        action_chunk=chunk_a,
+        scores=scores_a,
+        valid=valid,
+        completion_probability=0.1,
+        progress_probability=0.2,
+        failure_probability=0.9,
+        np=np,
+    )
+    assert cooldown.hypothesis_count == 1
+    assert not cooldown.recovery_triggered
 
 
 def test_low_failure_stop_uses_one_prefix_without_extra_policy_call() -> None:

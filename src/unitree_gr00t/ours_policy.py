@@ -31,6 +31,7 @@ class SelectiveConsensusRecovery:
         completion_threshold: float | None = None,
         consensus_hypotheses: int,
         failure_threshold: float = 0.5,
+        consensus_cooldown_decisions: int = 16,
         force_boundary_steps: int | None = None,
     ):
         # completion_threshold remains an explicit compatibility alias for the
@@ -44,16 +45,24 @@ class SelectiveConsensusRecovery:
             raise OursContractError("consensus hypotheses must be positive")
         if not 0.0 <= failure_threshold <= 1.0:
             raise OursContractError("failure threshold must be inside [0, 1]")
+        if consensus_cooldown_decisions < 0:
+            raise OursContractError("consensus cooldown cannot be negative")
         if force_boundary_steps is not None and force_boundary_steps < 1:
             raise OursContractError("forced collection boundary must be positive")
         self.gate_signal = gate_signal
         self.gate_threshold = selected_threshold
         self.consensus_hypotheses = consensus_hypotheses
         self.failure_threshold = failure_threshold
+        self.consensus_cooldown_decisions = consensus_cooldown_decisions
         self.force_boundary_steps = force_boundary_steps
         self._proposals: list[tuple[Any, Any, Any]] = []
+        self._cooldown_remaining = 0
 
     def reset(self) -> None:
+        self._proposals.clear()
+        self._cooldown_remaining = 0
+
+    def _clear_proposals(self) -> None:
         self._proposals.clear()
 
     @staticmethod
@@ -88,6 +97,9 @@ class SelectiveConsensusRecovery:
         subgoal_elapsed_steps: int = 0,
         np: Any,
     ) -> RecoveryDirective:
+        cooldown_active = self._cooldown_remaining > 0
+        if cooldown_active:
+            self._cooldown_remaining -= 1
         if not all(
             0.0 <= probability <= 1.0
             for probability in (
@@ -105,7 +117,7 @@ class SelectiveConsensusRecovery:
             self.force_boundary_steps is not None
             and subgoal_elapsed_steps >= self.force_boundary_steps
         ):
-            self.reset()
+            self._clear_proposals()
             return RecoveryDirective(
                 candidate=0,
                 action_chunk=action_chunk,
@@ -117,7 +129,7 @@ class SelectiveConsensusRecovery:
                 progress_probability=progress_probability,
             )
         if candidate > 0:
-            self.reset()
+            self._clear_proposals()
             return RecoveryDirective(
                 candidate=candidate,
                 action_chunk=action_chunk,
@@ -134,7 +146,7 @@ class SelectiveConsensusRecovery:
             "maximum": max(completion_probability, progress_probability),
         }[self.gate_signal]
         if gate_probability >= self.gate_threshold:
-            self.reset()
+            self._clear_proposals()
             return RecoveryDirective(
                 candidate=0,
                 action_chunk=action_chunk,
@@ -146,8 +158,8 @@ class SelectiveConsensusRecovery:
                 progress_probability=progress_probability,
             )
 
-        if failure_probability < self.failure_threshold:
-            self.reset()
+        if failure_probability < self.failure_threshold or cooldown_active:
+            self._clear_proposals()
             return RecoveryDirective(
                 candidate=self._best_nonstop(scores, valid, np),
                 action_chunk=action_chunk,
@@ -175,7 +187,8 @@ class SelectiveConsensusRecovery:
         chosen_chunk, chosen_scores, chosen_valid = self._proposals[chosen]
         chosen_candidate = self._best_nonstop(chosen_scores, chosen_valid, np)
         count = len(self._proposals)
-        self.reset()
+        self._clear_proposals()
+        self._cooldown_remaining = self.consensus_cooldown_decisions
         return RecoveryDirective(
             candidate=chosen_candidate,
             action_chunk=chosen_chunk,
