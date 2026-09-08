@@ -37,6 +37,8 @@ class LoadedCorpus:
     target_complete: Any
     target_failure: Any
     target_failure_valid: Any
+    target_option_values: Any
+    target_option_valid: Any
     selector_candidates: Any
     train_ids: Any
     development_ids: Any
@@ -149,13 +151,18 @@ def load_corpus(
     target_complete = np.empty(samples, dtype=np.bool_)
     target_failure = np.empty(samples, dtype=np.bool_)
     target_failure_valid = np.empty(samples, dtype=np.bool_)
+    target_option_values = np.zeros((samples, 6), dtype=np.float32)
+    target_option_valid = np.zeros((samples, 6), dtype=np.bool_)
     selector_candidates = np.empty(samples, dtype=np.int8)
     seen = np.zeros(samples, dtype=np.bool_)
     train_episode_ids = set(int(value) for value in manifest["split_episodes"]["train"])
     development_episode_ids = set(int(value) for value in manifest["split_episodes"]["development"])
     train_ids: list[Any] = []
     development_ids: list[Any] = []
-    source_is_live = manifest.get("source_kind") == "live_rollout"
+    source_is_live = manifest.get("source_kind") in {
+        "live_rollout",
+        "counterfactual_live_rollout",
+    }
 
     for filename in sorted(manifest["files_sha256"]):
         episode_index = int(filename.removeprefix("episode_").removesuffix(".npz"))
@@ -193,6 +200,16 @@ def load_corpus(
                 if "target_failure" in value
                 else np.zeros(len(ids), dtype=np.bool_)
             )
+            option_values = (
+                value["target_option_values"].astype(np.float32, copy=False)
+                if "target_option_values" in value
+                else np.zeros((len(ids), 6), dtype=np.float32)
+            )
+            option_valid = (
+                value["target_option_valid"].astype(np.bool_, copy=False)
+                if "target_option_valid" in value
+                else np.zeros((len(ids), 6), dtype=np.bool_)
+            )
         row_count = len(ids)
         shapes = (
             len(episode_contexts),
@@ -208,6 +225,8 @@ def load_corpus(
             len(complete),
             len(failure),
             len(failure_valid),
+            len(option_values),
+            len(option_valid),
         )
         expected_shapes = (
             (row_count, context_width),
@@ -233,6 +252,9 @@ def load_corpus(
             or not np.isfinite(episode_contexts).all()
             or not np.isfinite(episode_chunks).all()
             or not np.isfinite(scores).all()
+            or option_values.shape != (row_count, 6)
+            or option_valid.shape != (row_count, 6)
+            or not np.isfinite(option_values).all()
         ):
             raise ValueError(f"inconsistent Ours feature rows: {filename}")
         if anchor_contexts is not None:
@@ -258,6 +280,8 @@ def load_corpus(
         target_complete[ids] = complete
         target_failure[ids] = failure
         target_failure_valid[ids] = failure_valid
+        target_option_values[ids] = option_values
+        target_option_valid[ids] = option_valid
         selector_candidates[ids] = candidates
         seen[ids] = True
 
@@ -298,6 +322,8 @@ def load_corpus(
         target_complete=target_complete,
         target_failure=target_failure,
         target_failure_valid=target_failure_valid,
+        target_option_values=target_option_values,
+        target_option_valid=target_option_valid,
         selector_candidates=selector_candidates,
         train_ids=concatenated_train,
         development_ids=concatenated_development,
@@ -322,6 +348,12 @@ def merge_corpora(primary: LoadedCorpus, additional: LoadedCorpus, np: Any) -> L
         target_failure=np.concatenate((primary.target_failure, additional.target_failure)),
         target_failure_valid=np.concatenate(
             (primary.target_failure_valid, additional.target_failure_valid)
+        ),
+        target_option_values=np.concatenate(
+            (primary.target_option_values, additional.target_option_values)
+        ),
+        target_option_valid=np.concatenate(
+            (primary.target_option_valid, additional.target_option_valid)
         ),
         selector_candidates=np.concatenate(
             (primary.selector_candidates, additional.selector_candidates)
@@ -405,6 +437,10 @@ def _batch(corpus: LoadedCorpus, ids: Any, *, device: str, np: Any, torch: Any) 
         "complete": torch.as_tensor(corpus.target_complete[ids], device=device),
         "failure": torch.as_tensor(corpus.target_failure[ids], device=device),
         "failure_valid": torch.as_tensor(corpus.target_failure_valid[ids], device=device),
+        "option_values": torch.as_tensor(
+            corpus.target_option_values[ids], device=device, dtype=torch.float32
+        ),
+        "option_valid": torch.as_tensor(corpus.target_option_valid[ids], device=device),
     }
 
 
@@ -648,7 +684,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "selector_weights_sha256",
             "a1_checkpoint_weight_shards_sha256",
         )
-        if additional_manifest.get("source_kind") != "live_rollout" or any(
+        if additional_manifest.get("source_kind") not in {
+            "live_rollout",
+            "counterfactual_live_rollout",
+        } or any(
             additional_manifest.get(field) != manifest.get(field) for field in compatible_fields
         ):
             raise ValueError("additional Ours corpus is not compatible with the primary corpus")
@@ -737,6 +776,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 batch["progress_valid"],
                 batch["failure"],
                 batch["failure_valid"],
+                batch["option_values"],
+                batch["option_valid"],
             )
         loss.backward()
         gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.gradient_clip_norm)
@@ -759,6 +800,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "train_completion_loss": float(losses["completion_loss"]),
                 "train_progress_loss": float(losses["progress_loss"]),
                 "train_failure_loss": float(losses["failure_loss"]),
+                "train_option_value_loss": float(losses["option_value_loss"]),
+                "train_option_rank_loss": float(losses["option_rank_loss"]),
                 "gradient_norm": float(gradient_norm),
                 "development": dev_metrics,
                 "elapsed_seconds": time.perf_counter() - started,

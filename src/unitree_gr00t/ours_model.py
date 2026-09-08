@@ -191,6 +191,8 @@ def completion_progress_loss(
     target_progress_valid: Any | None = None,
     target_failure: Any | None = None,
     target_failure_valid: Any | None = None,
+    target_option_values: Any | None = None,
+    target_option_valid: Any | None = None,
     *,
     completion_weight: float = 1.0,
     progress_weight: float = 1.0,
@@ -221,10 +223,41 @@ def completion_progress_loss(
         )
         failure_mask = target_failure_valid.to(failure_losses.dtype)
         failure = (failure_losses * failure_mask).sum() / failure_mask.sum().clamp_min(1.0)
-    total = completion_weight * completion + progress_weight * progress + 0.5 * failure
+    option_value = outputs["option_values"].sum() * 0.0
+    option_rank = outputs["option_values"].sum() * 0.0
+    if target_option_values is not None and target_option_valid is not None:
+        normalized_target = target_option_values.to(outputs["option_values"].dtype) / 16.0
+        option_mask = target_option_valid.to(outputs["option_values"].dtype)
+        option_losses = functional.smooth_l1_loss(
+            outputs["option_values"],
+            normalized_target,
+            reduction="none",
+        )
+        option_value = (option_losses * option_mask).sum() / option_mask.sum().clamp_min(1.0)
+        target_difference = normalized_target[:, :, None] - normalized_target[:, None, :]
+        prediction_difference = (
+            outputs["option_values"][:, :, None] - outputs["option_values"][:, None, :]
+        )
+        pair_mask = (
+            target_option_valid[:, :, None]
+            & target_option_valid[:, None, :]
+            & (target_difference.abs() > 1e-4)
+        )
+        pair_losses = functional.relu(0.1 - prediction_difference * target_difference.sign())
+        pair_weight = pair_mask.to(pair_losses.dtype)
+        option_rank = (pair_losses * pair_weight).sum() / pair_weight.sum().clamp_min(1.0)
+    total = (
+        completion_weight * completion
+        + progress_weight * progress
+        + 0.5 * failure
+        + 0.25 * option_value
+        + 0.25 * option_rank
+    )
     return total, {
         "loss": total.detach(),
         "completion_loss": completion.detach(),
         "progress_loss": progress.detach(),
         "failure_loss": failure.detach(),
+        "option_value_loss": option_value.detach(),
+        "option_rank_loss": option_rank.detach(),
     }
