@@ -143,4 +143,7 @@ for specification in "${variants[@]}"; do
   run_variant \
     "${variant_id}" "${checkpoint_name}" "${gate_signal}" "${hypotheses}" \
     "${failure_threshold}" "${cooldown}" "${max_attempts}" "${min_elapsed}" "${boundary}"
+  if [[ -n "${STOP_AFTER_VARIANT:-}" && "${variant_id}" == "${STOP_AFTER_VARIANT}" ]]; then
+    break
+  fi
 done
