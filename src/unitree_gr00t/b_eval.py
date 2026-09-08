@@ -5,7 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from dataclasses import asdict
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,21 @@ from .b import (
 from .b_runtime import context_sha256
 
 
+@dataclass(frozen=True)
+class EvaluationIdentity:
+    experiment_id: str
+    variant: str
+    method: str
+    paper: str
+    retry: bool = False
+    retry_trigger: str | None = None
+    max_retries_per_subtask: int = 0
+    decision_schedule: str = "B-confirmed-stop-advance-v1"
+
+
+B_EVALUATION = EvaluationIdentity(B_ID, B_VARIANT, B_METHOD, B_PAPER)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--robocerebra-source", type=Path, required=True)
@@ -112,6 +128,8 @@ def _run_episode(
     trace_images: bool,
     provenance: dict[str, str],
     np: Any,
+    identity: EvaluationIdentity = B_EVALUATION,
+    stop_transition: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
     task = parse_task_description(case.path / "task_description.txt")
     plan = build_fixed_plan(task, steps_per_subtask)
@@ -148,6 +166,9 @@ def _run_episode(
     predicted_actions = 0
     selector_executed_actions = 0
     active_subgoal = 0
+    retry_attempt_index = 0
+    retry_counts = [0] * len(plan.subgoals)
+    retry_attempts = 0
     visited_subgoals: set[int] = set()
     anchors: list[Any] = []
     subgoal_start = True
@@ -242,15 +263,38 @@ def _run_episode(
         completed_at_start = completed_before
         success_at_start = current_success
         predicates_at_start = _predicate_snapshot(env, goal)
+        active_subgoal_at_start = active_subgoal
+        retry_attempt_at_start = retry_attempt_index
+        retry_triggered = False
+        subgoal_advanced = False
         transitions: list[dict[str, Any]] = []
         injections: list[dict[str, Any]] = []
 
         if selection.stop_committed:
             selector_stop_commits += 1
-            active_subgoal += 1
-            subgoal_start = active_subgoal < len(plan.subgoals)
+            if stop_transition is None:
+                active_subgoal += 1
+                retry_attempt_index = 0
+                subgoal_advanced = True
+            else:
+                retry_transition = stop_transition(
+                    subgoal_index=active_subgoal,
+                    subgoal_count=len(plan.subgoals),
+                    attempt_index=retry_attempt_index,
+                    max_retries_per_subtask=identity.max_retries_per_subtask,
+                )
+                active_subgoal = int(retry_transition.subgoal_index_after)
+                retry_triggered = bool(retry_transition.retry_triggered)
+                subgoal_advanced = bool(retry_transition.subgoal_advanced)
+                if retry_triggered:
+                    retry_attempt_index = int(retry_transition.attempt_index_after)
+                    retry_counts[active_subgoal] += 1
+                    retry_attempts += 1
+                else:
+                    retry_attempt_index = 0
+            subgoal_start = retry_triggered or active_subgoal < len(plan.subgoals)
             zero_progress_decisions += 1
-            if active_subgoal >= len(plan.subgoals):
+            if subgoal_advanced and active_subgoal >= len(plan.subgoals):
                 termination_reason = "selector_final_stop"
         elif selection.stop_pending:
             zero_progress_decisions += 1
@@ -295,10 +339,10 @@ def _run_episode(
         _append_jsonl(
             trace_path,
             {
-                "experiment_id": B_ID,
-                "variant": B_VARIANT,
-                "method": B_METHOD,
-                "paper": B_PAPER,
+                "experiment_id": identity.experiment_id,
+                "variant": identity.variant,
+                "method": identity.method,
+                "paper": identity.paper,
                 "protocol": "continuous_no_restore",
                 **provenance,
                 "task_type": case.task_type,
@@ -316,7 +360,7 @@ def _run_episode(
                 "planner": A2_PLANNER,
                 "plan_source": plan.source,
                 "plan_sha256": plan.sha256,
-                "active_subgoal_index_before": active_subgoal - int(selection.stop_committed),
+                "active_subgoal_index_before": active_subgoal_at_start,
                 "active_subgoal_index_after": active_subgoal,
                 "frame_bundle": frame_path,
                 "predicted_chunk": chunk.tolist(),
@@ -343,7 +387,21 @@ def _run_episode(
                 "first_success_step": first_success_step,
                 "condition_start": start_event if policy_calls == 1 else None,
                 "injections": injections,
-                "retry": False,
+                "retry": identity.retry,
+                **(
+                    {
+                        "retry_trigger": identity.retry_trigger,
+                        "retry_triggered": retry_triggered,
+                        "retry_attempt_index_before": retry_attempt_at_start,
+                        "retry_attempt_index_after": retry_attempt_index,
+                        "subgoal_advanced": subgoal_advanced,
+                        "failure_detector": False,
+                        "recovery_memory": False,
+                        "recovery_policy": False,
+                    }
+                    if identity.retry
+                    else {}
+                ),
                 "recovery": False,
             },
         )
@@ -382,10 +440,10 @@ def _run_episode(
         _append_jsonl(
             trace_path,
             {
-                "experiment_id": B_ID,
-                "variant": B_VARIANT,
-                "method": B_METHOD,
-                "paper": B_PAPER,
+                "experiment_id": identity.experiment_id,
+                "variant": identity.variant,
+                "method": identity.method,
+                "paper": identity.paper,
                 "protocol": "continuous_no_restore",
                 **provenance,
                 "task_type": case.task_type,
@@ -406,7 +464,21 @@ def _run_episode(
                 "success_predicates_before": monitoring_predicates_before,
                 "success_predicates_after": _predicate_snapshot(env, goal),
                 "first_success_step": first_success_step,
-                "retry": False,
+                "retry": identity.retry,
+                **(
+                    {
+                        "retry_trigger": identity.retry_trigger,
+                        "retry_triggered": False,
+                        "retry_attempt_index_before": retry_attempt_index,
+                        "retry_attempt_index_after": retry_attempt_index,
+                        "subgoal_advanced": False,
+                        "failure_detector": False,
+                        "recovery_memory": False,
+                        "recovery_policy": False,
+                    }
+                    if identity.retry
+                    else {}
+                ),
                 "recovery": False,
             },
         )
@@ -414,10 +486,10 @@ def _run_episode(
     final_success = _final_predicates_hold(env, goal)
     possible_subtasks = sum(len(states) for states in goal.values()) - excluded_subtasks
     return {
-        "experiment_id": B_ID,
-        "variant": B_VARIANT,
-        "method": B_METHOD,
-        "paper": B_PAPER,
+        "experiment_id": identity.experiment_id,
+        "variant": identity.variant,
+        "method": identity.method,
+        "paper": identity.paper,
         "protocol": "continuous_no_restore",
         **provenance,
         "task_type": case.task_type,
@@ -467,7 +539,20 @@ def _run_episode(
         "p95_policy_inference_ms": 1000.0 * _percentile(policy_latencies, 0.95),
         "injection_count": injection_count,
         "elapsed_seconds": time.perf_counter() - started,
-        "retry": False,
+        "retry": identity.retry,
+        **(
+            {
+                "retry_trigger": identity.retry_trigger,
+                "max_retries_per_subtask": identity.max_retries_per_subtask,
+                "retry_attempts": retry_attempts,
+                "retry_counts_by_subtask": retry_counts,
+                "failure_detector": False,
+                "recovery_memory": False,
+                "recovery_policy": False,
+            }
+            if identity.retry
+            else {}
+        ),
         "recovery": False,
     }
 
@@ -480,13 +565,14 @@ def _run_manifest(
     selector_provenance: dict[str, Any],
     cases: list[BenchmarkCase],
     output_dir: Path,
+    identity: EvaluationIdentity = B_EVALUATION,
 ) -> dict[str, Any]:
     return {
         "schema_version": 1,
-        "experiment_id": B_ID,
-        "variant": B_VARIANT,
-        "method": B_METHOD,
-        "paper": B_PAPER,
+        "experiment_id": identity.experiment_id,
+        "variant": identity.variant,
+        "method": identity.method,
+        "paper": identity.paper,
         "protocol": "continuous_no_restore",
         "checkpoint": str(contract.checkpoint_dir),
         "checkpoint_source_experiment": checkpoint_provenance["experiment_id"],
@@ -512,7 +598,27 @@ def _run_manifest(
         "episode_seeded_policy": True,
         "decision_seed_derivation": "sha256(B-decision-v1:episode_seed:decision_index)[:31-bit]",
         "stop_or_adaptive_chunk": True,
-        "retry": False,
+        "retry": identity.retry,
+        **(
+            {
+                "decision_schedule": identity.decision_schedule,
+                "retry_contract": {
+                    "trigger": identity.retry_trigger,
+                    "max_retries_per_subtask": identity.max_retries_per_subtask,
+                    "unconditional": True,
+                    "preserve_global_step_budget": True,
+                    "reset_selector_anchor_on_retry": True,
+                    "observes_goal_predicates": False,
+                    "observes_injection_labels": False,
+                    "observes_task_outcomes": False,
+                },
+                "failure_detector": False,
+                "recovery_memory": False,
+                "recovery_policy": False,
+            }
+            if identity.retry
+            else {}
+        ),
         "recovery": False,
         "task_types": args.task_types,
         "cases": [f"{case.task_type}/{case.case_name}" for case in cases],
@@ -541,7 +647,7 @@ def _build_summary(
         **manifest,
         "fixed_hierarchy": False,
         "stop_or_adaptive_chunk": True,
-        "retry": False,
+        "retry": bool(manifest.get("retry", False)),
         "recovery": False,
         "checkpoint_contract": asdict(contract) | {"checkpoint_dir": str(contract.checkpoint_dir)},
         "episodes": episodes,
@@ -568,6 +674,11 @@ def _build_summary(
             result["selector_stop_proposals"] for result in results
         ),
         "total_selector_stop_commits": sum(result["selector_stop_commits"] for result in results),
+        **(
+            {"total_retry_attempts": sum(int(result["retry_attempts"]) for result in results)}
+            if manifest.get("retry")
+            else {}
+        ),
         "total_policy_inference_seconds": sum(
             result["policy_inference_seconds"] for result in results
         ),
@@ -575,18 +686,25 @@ def _build_summary(
     }
 
 
-def run(args: argparse.Namespace) -> dict[str, Any]:
+def run(
+    args: argparse.Namespace,
+    *,
+    identity: EvaluationIdentity = B_EVALUATION,
+    stop_transition: Callable[..., Any] | None = None,
+) -> dict[str, Any]:
     if min(args.trials, args.control_frequency_hz, args.steps_per_subtask) < 1:
         raise ValueError("B evaluator counts must be positive")
     if (args.experiment_id, args.variant, args.method, args.paper) != (
-        B_ID,
-        B_VARIANT,
-        B_METHOD,
-        B_PAPER,
+        identity.experiment_id,
+        identity.variant,
+        identity.method,
+        identity.paper,
     ):
-        raise ValueError("B evaluator identity is frozen")
+        raise ValueError(f"{identity.experiment_id} evaluator identity is frozen")
+    if identity.retry != (stop_transition is not None):
+        raise ValueError("retry identity and controller must be enabled together")
     if args.planner != A2_PLANNER or args.plan_source != A2_PLAN_SOURCE:
-        raise ValueError("B canonical planner source is frozen")
+        raise ValueError(f"{identity.experiment_id} canonical planner source is frozen")
     contract, checkpoint_provenance = inspect_a1_checkpoint(
         args.checkpoint, expected_training_revision=args.model_revision
     )
@@ -597,18 +715,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     frozen_window = int(selector_provenance["selection"]["stop_confirmation_window"])
     if args.stop_confirmation_window != frozen_window:
-        raise ValueError("B STOP confirmation window differs from the frozen checkpoint")
+        raise ValueError(
+            f"{identity.experiment_id} STOP confirmation window differs from the frozen checkpoint"
+        )
 
     benchmark_dir = args.benchmark_dir.expanduser().resolve()
     cases = discover_cases(benchmark_dir, args.task_types, args.cases)
     hierarchy_audit = audit_fixed_hierarchy(cases, args.steps_per_subtask)
     if not hierarchy_audit.valid:
-        raise ValueError(f"B hierarchy audit failed: {asdict(hierarchy_audit)}")
+        raise ValueError(
+            f"{identity.experiment_id} hierarchy audit failed: {asdict(hierarchy_audit)}"
+        )
     output_dir = args.output.expanduser().resolve()
     artifact_names = ("run_manifest.json", "summary.json", "episodes.jsonl", "decisions.jsonl")
     existing = [name for name in artifact_names if (output_dir / name).exists()]
     if existing and not args.resume:
-        raise FileExistsError(f"refusing to mix B runs in {output_dir}: {', '.join(existing)}")
+        raise FileExistsError(
+            f"refusing to mix {identity.experiment_id} runs in {output_dir}: {', '.join(existing)}"
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest = _run_manifest(
         args,
@@ -618,6 +742,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         selector_provenance,
         cases,
         output_dir,
+        identity,
     )
     manifest["hierarchy_audit"] = hierarchy_audit_payload(hierarchy_audit)
     manifest_path = output_dir / "run_manifest.json"
@@ -625,7 +750,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if json.loads(manifest_path.read_text(encoding="utf-8")) != manifest:
             raise ValueError("--resume configuration does not match run_manifest.json")
     elif existing:
-        raise ValueError("cannot --resume B without run_manifest.json")
+        raise ValueError(f"cannot --resume {identity.experiment_id} without run_manifest.json")
     else:
         _write_json(manifest_path, manifest)
 
@@ -634,12 +759,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         (str(result["task_type"]), str(result["case"]), int(result["trial"])) for result in results
     }
     if len(completed_keys) != len(results):
-        raise ValueError("duplicate completed B episode")
+        raise ValueError(f"duplicate completed {identity.experiment_id} episode")
     expected_keys = {
         (case.task_type, case.case_name, trial) for case in cases for trial in range(args.trials)
     }
     if completed_keys - expected_keys:
-        raise ValueError("resume file contains unexpected B episodes")
+        raise ValueError(f"resume file contains unexpected {identity.experiment_id} episodes")
     if args.resume:
         _clean_partial_trace(output_dir, completed_keys)
 
@@ -684,6 +809,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         trace_images=not args.no_trace_images,
                         provenance=provenance,
                         np=np,
+                        identity=identity,
+                        stop_transition=stop_transition,
                     )
                     results.append(result)
                     _append_jsonl(output_dir / "episodes.jsonl", result)

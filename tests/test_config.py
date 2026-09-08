@@ -31,6 +31,12 @@ def test_project_config_resolves_paths() -> None:
     assert config.robocerebra_selector.checkpoint_dir == (
         ROOT / "checkpoints" / "robocerebra" / "GR00T-RC-SparkVLA-selector"
     )
+    assert config.robocerebra_retry.experiment_id == "B-retry"
+    assert config.robocerebra_retry.max_retries_per_subtask == 1
+    assert config.robocerebra_retry.preserve_global_step_budget
+    assert not config.robocerebra_retry.failure_detector
+    assert not config.robocerebra_retry.recovery_memory
+    assert not config.robocerebra_retry.recovery_policy
 
 
 def test_task_catalog_and_selection() -> None:

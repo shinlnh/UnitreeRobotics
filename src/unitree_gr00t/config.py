@@ -115,6 +115,20 @@ class RoboCerebraSelectorConfig:
 
 
 @dataclass(frozen=True)
+class RoboCerebraRetryConfig:
+    experiment_id: str
+    variant: str
+    method: str
+    trigger: str
+    max_retries_per_subtask: int
+    preserve_global_step_budget: bool
+    reset_selector_anchor_on_retry: bool
+    failure_detector: bool
+    recovery_memory: bool
+    recovery_policy: bool
+
+
+@dataclass(frozen=True)
 class ModelConfig:
     base_model: str
     embodiment: str
@@ -162,6 +176,7 @@ class ProjectConfig:
     robocerebra_posttrain: RoboCerebraPosttrainConfig
     robocerebra_hierarchy: RoboCerebraHierarchyConfig
     robocerebra_selector: RoboCerebraSelectorConfig
+    robocerebra_retry: RoboCerebraRetryConfig
     model: ModelConfig
     sonic: SonicConfig
     training: TrainingConfig
@@ -208,6 +223,7 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
     robocerebra_posttrain = raw["robocerebra_posttrain"]
     robocerebra_hierarchy = raw["robocerebra_hierarchy"]
     robocerebra_selector = raw["robocerebra_selector"]
+    robocerebra_retry = raw["robocerebra_retry"]
     model = raw["model"]
     sonic = raw["sonic"]
     training = raw["training"]
@@ -336,6 +352,20 @@ def load_config(path: str | Path = "configs/project.toml") -> ProjectConfig:
             warmup_steps=int(robocerebra_selector["warmup_steps"]),
             gradient_clip_norm=float(robocerebra_selector["gradient_clip_norm"]),
             save_steps=int(robocerebra_selector["save_steps"]),
+        ),
+        robocerebra_retry=RoboCerebraRetryConfig(
+            experiment_id=str(robocerebra_retry["experiment_id"]),
+            variant=str(robocerebra_retry["variant"]),
+            method=str(robocerebra_retry["method"]),
+            trigger=str(robocerebra_retry["trigger"]),
+            max_retries_per_subtask=int(robocerebra_retry["max_retries_per_subtask"]),
+            preserve_global_step_budget=bool(robocerebra_retry["preserve_global_step_budget"]),
+            reset_selector_anchor_on_retry=bool(
+                robocerebra_retry["reset_selector_anchor_on_retry"]
+            ),
+            failure_detector=bool(robocerebra_retry["failure_detector"]),
+            recovery_memory=bool(robocerebra_retry["recovery_memory"]),
+            recovery_policy=bool(robocerebra_retry["recovery_policy"]),
         ),
         model=ModelConfig(
             base_model=str(model["base_model"]),

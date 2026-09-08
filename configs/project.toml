@@ -109,6 +109,20 @@ warmup_steps = 1000
 gradient_clip_norm = 1.0
 save_steps = 1000
 
+[robocerebra_retry]
+experiment_id = "B-retry"
+variant = "GR00T-RC-SparkVLA-style-execution-naive-retry"
+method = "B-plus-fixed-unconditional-single-subtask-retry"
+trigger = "first-confirmed-stop-per-subtask"
+max_retries_per_subtask = 1
+# Retry consumes the existing B episode budget. It never restores simulator
+# state and never reads predicates, injection labels, or outcome signals.
+preserve_global_step_budget = true
+reset_selector_anchor_on_retry = true
+failure_detector = false
+recovery_memory = false
+recovery_policy = false
+
 [model]
 base_model = "nvidia/GR00T-N1.7-3B"
 embodiment = "UNITREE_G1_SONIC"

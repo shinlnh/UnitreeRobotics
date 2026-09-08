@@ -32,6 +32,7 @@ Project end-to-end để chạy một policy vision-language-action generalist t
 | A1: shared GR00T-RC post-training | Có | `gr00t-g1 a1-check` |
 | A2: GR00T-RC + fixed hierarchy | Có | `gr00t-g1 a2-check` |
 | B: GR00T-RC + SparkVLA-style execution | Có | `gr00t-g1 b-check` |
+| B-retry: B + fixed naive retry control | Có | `gr00t-g1 b-retry-check` |
 | G1 real deployment interlock | Có | `gr00t-g1 deploy --mode real` |
 
 Model, benchmark và cache lớn được lưu theo đúng cây nhánh tại Hugging Face;
@@ -486,3 +487,29 @@ là 1,28% ở H16 và 0,52% ở H8; terminal goal-state SR lần lượt là 1,0
 STOP quá mạnh được giữ nguyên, không tuning lại trên held-out outcome. Xem
 [`artifacts/B/full-benchmark/reviewer/REVIEWER_REPORT.md`](artifacts/B/full-benchmark/reviewer/REVIEWER_REPORT.md)
 và [`artifacts/B/preflight/summary.json`](artifacts/B/preflight/summary.json).
+
+## Experiment B-retry: fixed naive retry control
+
+B-retry là evaluation control kế thừa nguyên checkpoint, selector, hierarchy,
+STOP confirmation, H8/H16, seed, injection và episode budget của B. Confirmed
+STOP đầu tiên ở mỗi subtask luôn chạy lại đúng instruction đó một lần từ simulator
+state hiện tại; confirmed STOP kế tiếp mới chuyển subtask. Luật không đọc predicate,
+failure/injection label hay outcome và không restore state.
+
+Không có training mới ở bước này. B-retry cũng chưa có failure detector, recovery
+memory, recovery action hay recovery policy, nên không phải contribution learned
+recovery của hệ thống. Boundary và gate trước khi xem outcome được freeze tại
+[docs/B_RETRY_IMPLEMENTATION_PLAN.md](docs/B_RETRY_IMPLEMENTATION_PLAN.md).
+
+Kiểm tra contract, preview pilot và chạy pipeline đầy đủ:
+
+```bash
+PYTHONPATH=src python3 -m unitree_gr00t.cli b-retry-check
+PYTHONPATH=src python3 -m unitree_gr00t.cli b-retry-eval \
+  --task-types Ideal --cases case1 --trials 1 --execution-horizon 16
+scripts/run_b_retry_pipeline.sh
+```
+
+Reviewer report ghép B-retry với B theo đúng task/case/trial/horizon. Retry dùng
+chung global step budget với B, vì vậy blind repetition không được hưởng thêm
+thời gian thực thi.

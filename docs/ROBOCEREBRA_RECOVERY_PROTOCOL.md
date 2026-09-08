@@ -110,6 +110,21 @@ is not an adaptive selector. A2 never restores state, retries a subtask, re-plan
 or carries recovery state. Canonical plan text, plan SHA-256, active subgoal, fixed
 anchor bounds, and every executed prefix are retained in the trace.
 
+### Frozen B-retry control
+
+B-retry reuses B's frozen A1 and selector checkpoints, canonical plan, confirmed
+STOP rule, H8/H16 candidate masks, continuous simulator state, injections, and
+global episode budget. On the first confirmed STOP for each active subtask, it
+unconditionally repeats the same instruction once and creates a new B subtask
+anchor; the second confirmed STOP advances. This transition depends only on the
+subtask index and fixed attempt counter. It cannot inspect goal predicates,
+failure labels, injection metadata, object state, or rollout outcomes.
+
+B-retry does not reset or restore the simulator and has no detector, recovery
+memory, recovery action, recovery policy, recovery loss, or learned parameter.
+The complete pre-outcome freeze and trace contract are in
+[`B_RETRY_IMPLEMENTATION_PLAN.md`](B_RETRY_IMPLEMENTATION_PLAN.md).
+
 ## Required measurements
 
 Every policy decision writes a machine-readable trace containing:

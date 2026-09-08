@@ -792,6 +792,48 @@ def build_b_eval_command(
     return CommandSpec(tuple(argv), config.root, "Run adaptive B on RoboCerebra")
 
 
+def build_b_retry_server_command(config: ProjectConfig, seed: int = 7) -> CommandSpec:
+    """B-retry serves the byte-identical frozen B policy and selector."""
+
+    spec = build_b_server_command(config, seed)
+    return CommandSpec(spec.argv, spec.cwd, "Start frozen B assets for B-retry")
+
+
+def build_b_retry_eval_command(
+    config: ProjectConfig,
+    *,
+    task_types: list[str],
+    case_names: list[str],
+    trials: int,
+    execution_horizon: int,
+    seed: int,
+    output_dir: str | Path,
+    trace_images: bool = True,
+    resume: bool = False,
+) -> CommandSpec:
+    """Build the frozen B-retry continuous evaluation command."""
+
+    spec = build_b_eval_command(
+        config,
+        task_types=task_types,
+        case_names=case_names,
+        trials=trials,
+        execution_horizon=execution_horizon,
+        seed=seed,
+        output_dir=output_dir,
+        trace_images=trace_images,
+        resume=resume,
+    )
+    retry = config.robocerebra_retry
+    argv = list(spec.argv)
+    argv[argv.index("unitree_gr00t.b_eval")] = "unitree_gr00t.b_retry_eval"
+    argv[argv.index("--experiment-id") + 1] = retry.experiment_id
+    argv[argv.index("--variant") + 1] = retry.variant
+    argv[argv.index("--method") + 1] = retry.method
+    argv.extend(("--max-retries-per-subtask", str(retry.max_retries_per_subtask)))
+    return CommandSpec(tuple(argv), config.root, "Run naive retry control B-retry")
+
+
 def run_or_preview(spec: CommandSpec, execute: bool) -> int:
     print(f"{spec.description}:\n{spec.display()}")
     if not execute:
