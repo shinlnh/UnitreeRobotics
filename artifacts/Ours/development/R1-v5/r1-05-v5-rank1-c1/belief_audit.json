@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "experiment_id": "Ours",
+  "source_rollout": "/HELIOS/Robotics/UnitreeRobotic/artifacts/Ours/development/R1-v5/r1-05-v5-rank1-c1",
+  "base_seed": 20007,
+  "episodes": 60,
+  "policy_decisions": 2328,
+  "completion_positives": 5,
+  "completion_negatives": 2323,
+  "selector_stop_proposals": 1185,
+  "failure_positives": 964,
+  "max_false_positive_rate": 0.05,
+  "gate_calibration_on_stop_proposals": {
+    "completion": {
+      "calibratable": true,
+      "stop_samples": 1185,
+      "completion_negatives": 1182,
+      "completion_positives": 3,
+      "threshold": 1.0,
+      "false_positive_rate": 0.0,
+      "true_positive_rate": 0.0,
+      "precision": 1.0,
+      "accuracy": 0.9974683544303797
+    },
+    "progress": {
+      "calibratable": true,
+      "stop_samples": 1185,
+      "completion_negatives": 1182,
+      "completion_positives": 3,
+      "threshold": 1.0,
+      "false_positive_rate": 0.0,
+      "true_positive_rate": 0.0,
+      "precision": 1.0,
+      "accuracy": 0.9974683544303797
+    },
+    "maximum": {
+      "calibratable": true,
+      "stop_samples": 1185,
+      "completion_negatives": 1182,
+      "completion_positives": 3,
+      "threshold": 1.0,
+      "false_positive_rate": 0.0,
+      "true_positive_rate": 0.0,
+      "precision": 1.0,
+      "accuracy": 0.9974683544303797
+    }
+  },
+  "failure_calibration": {
+    "calibratable": true,
+    "stop_samples": 2328,
+    "completion_negatives": 1364,
+    "completion_positives": 964,
+    "threshold": 0.7734375,
+    "false_positive_rate": 0.0469208211143695,
+    "true_positive_rate": 0.29045643153526973,
+    "precision": 0.813953488372093,
+    "accuracy": 0.6786941580756014
+  },
+  "recovery_triggers": 5,
+  "false_recovery_triggers": 1,
+  "false_recovery_rate": 0.2,
+  "run_manifest_sha256": "abda433f89518c3a419b476e14b929804e3216aa69305bc89ad50fffe2cae8d6",
+  "summary_sha256": "1054ce79a5d3654d595412bf36b34ed2c4ae438e31d1d6c6dae6f7b08de05552",
+  "decisions_sha256": "3f4659b1565a1ac4190fc3f3312c0c4f52568adb93611a879601e3085ed26626",
+  "episodes_sha256": "1f97534edbb8936a62a79a4e3c32a256e52638f84778984ada3b33132c5f0987"
+}

@@ -68,7 +68,9 @@ start_server() {
     --seed 20007 \
     >"${OUTPUT_ROOT}/servers/${server_id}.log" 2>&1 &
   server_pid="$!"
-  for _ in $(seq 1 90); do
+  # Transformer recovery heads can take longer than the linear/MLP heads to
+  # materialize the frozen VLA on a cold CUDA context.
+  for _ in $(seq 1 240); do
     if ! kill -0 "${server_pid}" 2>/dev/null; then
       wait "${server_pid}"
     fi
