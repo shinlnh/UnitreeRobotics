@@ -59,6 +59,7 @@ run_variant() {
   local checkpoint_name="$2"
   local hypotheses="$3"
   local option_margin="$4"
+  local failure_threshold="$5"
   local checkpoint="${CHECKPOINT_ROOT}/${checkpoint_name}"
   local output="${OUTPUT_ROOT}/${variant_id}"
   if [[ -f "${output}/summary.json" ]] && \
@@ -93,7 +94,7 @@ run_variant() {
     --no-trace-images \
     --gate-signal completion \
     --consensus-hypotheses "${hypotheses}" \
-    --failure-threshold 0.90 \
+    --failure-threshold "${failure_threshold}" \
     --consensus-cooldown-decisions 16 \
     --max-recovery-attempts 1 \
     --min-recovery-elapsed-steps 75 \
@@ -109,30 +110,35 @@ run_variant() {
 
 # R1 already contains three completed registered variants (r1-00..r1-02).
 # These nine variants exhaust the frozen breadth budget of twelve while testing
-# option-value margin, true fixed-hypothesis consensus, and all four R0 models.
-# id checkpoint hypotheses option-margin
+# The first option-aware run showed that the 0.90 failure pre-gate was safe but
+# overly conservative. The remaining matrix explicitly tests the value head as
+# the primary gate (threshold 0), one hybrid threshold, value margins, true
+# fixed-hypothesis consensus, and all four R0 models.
+# id checkpoint hypotheses option-margin failure-threshold
 variants=(
-  "r1-03-cf-v00-c1-m000 v00-mlp-h16-live025-opt0125 1 0.000"
-  "r1-04-cf-v00-c1-m025 v00-mlp-h16-live025-opt0125 1 0.025"
-  "r1-05-cf-v00-c1-m050 v00-mlp-h16-live025-opt0125 1 0.050"
-  "r1-06-cf-v00-c4-m000 v00-mlp-h16-live025-opt0125 4 0.000"
-  "r1-07-cf-v00-c4-m050 v00-mlp-h16-live025-opt0125 4 0.050"
-  "r1-08-cf-v01-c1-m000 v01-mlp-h16-live050-opt0250 1 0.000"
-  "r1-09-cf-v01-c1-m050 v01-mlp-h16-live050-opt0250 1 0.050"
-  "r1-10-cf-v02-c1-m000 v02-gru-h16-live050-opt0250 1 0.000"
-  "r1-11-cf-v03-c1-m000 v03-transformer-h8-live025-opt0125 1 0.000"
+  "r1-03-cf-v00-c1-m000 v00-mlp-h16-live025-opt0125 1 0.000 0.90"
+  "r1-04-cf-v00-c1-m000-f000 v00-mlp-h16-live025-opt0125 1 0.000 0.00"
+  "r1-05-cf-v00-c1-m025-f000 v00-mlp-h16-live025-opt0125 1 0.025 0.00"
+  "r1-06-cf-v00-c1-m050-f000 v00-mlp-h16-live025-opt0125 1 0.050 0.00"
+  "r1-07-cf-v00-c4-m025-f000 v00-mlp-h16-live025-opt0125 4 0.025 0.00"
+  "r1-08-cf-v00-c1-m025-f050 v00-mlp-h16-live025-opt0125 1 0.025 0.50"
+  "r1-09-cf-v01-c1-m025-f000 v01-mlp-h16-live050-opt0250 1 0.025 0.00"
+  "r1-10-cf-v02-c1-m025-f000 v02-gru-h16-live050-opt0250 1 0.025 0.00"
+  "r1-11-cf-v03-c1-m025-f000 v03-transformer-h8-live025-opt0125 1 0.025 0.00"
 )
 
 current_checkpoint=""
 stopped_early=false
 for specification in "${variants[@]}"; do
-  read -r variant_id checkpoint_name hypotheses option_margin <<<"${specification}"
+  read -r variant_id checkpoint_name hypotheses option_margin failure_threshold <<<"${specification}"
   if [[ "${checkpoint_name}" != "${current_checkpoint}" ]]; then
     stop_server
     start_server "${CHECKPOINT_ROOT}/${checkpoint_name}" "counterfactual-${checkpoint_name}"
     current_checkpoint="${checkpoint_name}"
   fi
-  run_variant "${variant_id}" "${checkpoint_name}" "${hypotheses}" "${option_margin}"
+  run_variant \
+    "${variant_id}" "${checkpoint_name}" "${hypotheses}" "${option_margin}" \
+    "${failure_threshold}"
   if [[ -n "${STOP_AFTER_VARIANT:-}" && "${variant_id}" == "${STOP_AFTER_VARIANT}" ]]; then
     stopped_early=true
     break
