@@ -102,7 +102,8 @@ def residual_contract_checks(
         "residual_confirmed_stop_sources": bool(sampling.get("require_stop_pending"))
         and all(bool(row.get("source_stop_pending")) for row in branches),
         "residual_b_retry_continuation": sampling.get("continuation_policy")
-        == "B-retry-confirmed-stop-one-retry-per-subtask",
+        == "B-retry-confirmed-stop-one-retry-per-subtask"
+        and bool(sampling.get("consensus_source_proposal_included")),
         "residual_branch_hash": branches_sha256
         == manifest.get("counterfactual_branches_sha256"),
         "residual_branch_inventory": len(branches) == int(sampling.get("branch_count", -1))

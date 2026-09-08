@@ -50,6 +50,7 @@ def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
             "residual_retry_baseline": True,
             "require_stop_pending": True,
             "continuation_policy": "B-retry-confirmed-stop-one-retry-per-subtask",
+            "consensus_source_proposal_included": True,
             "state_count": 1,
             "branch_count": 4,
             "options": {

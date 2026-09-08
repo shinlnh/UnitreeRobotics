@@ -6,6 +6,7 @@ from unitree_gr00t.ours_counterfactual_rollout_prepare import (
     _apply_residual_stop_confirmation,
     _apply_stop_confirmation,
     _best_nonstop,
+    _fresh_consensus_count,
     _medoid_index,
     _selected_rollout_positions,
     _valid_options,
@@ -85,6 +86,7 @@ def test_rollout_consensus_and_nonstop_selection_are_deterministic() -> None:
     scores = np.asarray([5.0, 1.0, 4.0], dtype=np.float32)
     valid = np.asarray([True, True, True])
     assert _best_nonstop(scores, valid, np) == 2
+    assert _fresh_consensus_count(4) == 3
 
 
 def test_rollout_sampling_uses_subgoal_relative_failure_onset() -> None:

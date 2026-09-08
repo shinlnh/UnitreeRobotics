@@ -82,6 +82,12 @@ def _medoid_index(chunks: list[Any], np: Any) -> int:
     return int(distances.sum(axis=1).argmin())
 
 
+def _fresh_consensus_count(total_hypotheses: int) -> int:
+    if total_hypotheses < 1:
+        raise OursContractError("counterfactual consensus count must be positive")
+    return total_hypotheses - 1
+
+
 def _valid_options(
     active_subgoal: int,
     subgoal_count: int,
@@ -224,6 +230,7 @@ def _roll_option(
     subgoals: tuple[str, ...],
     active_subgoal: int,
     source_anchors: list[Any],
+    source_proposal: tuple[Any, Any, Any],
     client: RemotePolicyClient,
     rollout_steps: int,
     max_policy_calls: int,
@@ -268,8 +275,13 @@ def _roll_option(
     while executed_steps < rollout_steps and policy_calls < max_policy_calls:
         remaining = rollout_steps - executed_steps
         if option is RecoveryOption.CONSENSUS_PREFIX and first_proposal:
-            proposals = []
-            for _ in range(consensus_hypotheses):
+            source_chunk, source_scores, source_valid = source_proposal
+            proposals = [
+                (source_chunk.copy(), source_scores.copy(), source_valid.copy(), 0)
+            ]
+            # Runtime consensus counts the already-observed STOP proposal as
+            # hypothesis one, so only the remaining hypotheses are new calls.
+            for _ in range(_fresh_consensus_count(consensus_hypotheses)):
                 if policy_calls >= max_policy_calls:
                     break
                 proposal = _query_b(
@@ -505,6 +517,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                 subgoals=task.steps,
                                 active_subgoal=active_subgoal,
                                 source_anchors=[anchor.copy() for anchor in anchors],
+                                source_proposal=(
+                                    np.asarray(row["predicted_chunk"], dtype=np.float32),
+                                    np.asarray(row["selector_scores"], dtype=np.float32),
+                                    np.asarray(row["selector_valid"], dtype=np.bool_),
+                                ),
                                 client=client,
                                 rollout_steps=args.rollout_steps,
                                 max_policy_calls=args.max_policy_calls,
@@ -605,6 +622,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "rollout_steps": args.rollout_steps,
                 "max_policy_calls": args.max_policy_calls,
                 "consensus_hypotheses": args.consensus_hypotheses,
+                "consensus_source_proposal_included": True,
                 "future_injections": False,
                 "replay_rows": replay_rows,
                 "replay_mismatches": replay_mismatches,
