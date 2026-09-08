@@ -12,6 +12,46 @@ from typing import Any
 from .a1 import sha256_file
 from .ours import OURS_ID, OURS_METHOD, OURS_VARIANT, OursContractError
 
+PAIRED_EVALUATION_FIELDS = (
+    "protocol",
+    "checkpoint",
+    "checkpoint_source_experiment",
+    "checkpoint_training_revision",
+    "selector_checkpoint",
+    "selector_weights_sha256",
+    "selector_provenance_sha256",
+    "a1_checkpoint_weight_shards_sha256",
+    "selector_training",
+    "benchmark_dir",
+    "robocerebra_source",
+    "benchmark_revision",
+    "model_revision",
+    "dataset_revision",
+    "hierarchy",
+    "hierarchy_audit",
+    "planner",
+    "planner_mode",
+    "plan_source",
+    "planner_observes_task_outcomes",
+    "planner_replans",
+    "episode_seeded_policy",
+    "decision_seed_derivation",
+    "stop_or_adaptive_chunk",
+    "task_types",
+    "cases",
+    "trials_per_case",
+    "expected_episodes",
+    "execution_horizon",
+    "native_action_horizon",
+    "stop_confirmation_window",
+    "control_frequency_hz",
+    "steps_per_subtask",
+    "initial_wait_steps",
+    "post_success_steps",
+    "base_seed",
+    "trace_images",
+)
+
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -32,6 +72,23 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 def _key(row: dict[str, Any]) -> tuple[str, str, int]:
     return str(row["task_type"]), str(row["case"]), int(row["trial"])
+
+
+def validate_paired_evaluation_contracts(
+    baseline: dict[str, Any], candidate: dict[str, Any]
+) -> None:
+    mismatches = [
+        field
+        for field in PAIRED_EVALUATION_FIELDS
+        if field not in baseline
+        or field not in candidate
+        or baseline[field] != candidate[field]
+    ]
+    if mismatches:
+        raise OursContractError(
+            "paired development manifests differ in frozen fields: "
+            + ", ".join(mismatches)
+        )
 
 
 def task_macro_subtask_rate(rows: list[dict[str, Any]]) -> float:
@@ -139,6 +196,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         identity = (manifest.get("variant"), manifest.get("method"), int(manifest["base_seed"]))
         if identity != (OURS_VARIANT, OURS_METHOD, args.seed):
             raise OursContractError(f"invalid Ours development identity: {root}")
+        validate_paired_evaluation_contracts(baseline_manifest, manifest)
         belief_path = root / "belief_audit.json"
         belief = json.loads(belief_path.read_text(encoding="utf-8"))
         paired = paired_task_macro_bootstrap(

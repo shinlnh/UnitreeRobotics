@@ -1,9 +1,12 @@
 import numpy as np
 
 from unitree_gr00t.ours_development_search import (
+    PAIRED_EVALUATION_FIELDS,
     paired_task_macro_bootstrap,
     task_macro_subtask_rate,
+    validate_paired_evaluation_contracts,
 )
+from unitree_gr00t.ours import OursContractError
 
 
 def _row(
@@ -56,3 +59,21 @@ def test_paired_bootstrap_matches_macro_rate_with_unequal_denominators() -> None
 
     expected = task_macro_subtask_rate(candidate) - task_macro_subtask_rate(baseline)
     assert result["delta"] == expected == 0.375
+
+
+def test_paired_evaluation_contract_rejects_frozen_field_mismatch() -> None:
+    baseline = {field: f"value-{field}" for field in PAIRED_EVALUATION_FIELDS}
+    candidate = dict(baseline)
+    validate_paired_evaluation_contracts(baseline, candidate)
+
+    candidate["dataset_revision"] = "different"
+    with np.testing.assert_raises_regex(OursContractError, "dataset_revision"):
+        validate_paired_evaluation_contracts(baseline, candidate)
+
+
+def test_paired_evaluation_contract_rejects_missing_field() -> None:
+    baseline = {field: f"value-{field}" for field in PAIRED_EVALUATION_FIELDS}
+    candidate = dict(baseline)
+    del candidate["trace_images"]
+    with np.testing.assert_raises_regex(OursContractError, "trace_images"):
+        validate_paired_evaluation_contracts(baseline, candidate)
