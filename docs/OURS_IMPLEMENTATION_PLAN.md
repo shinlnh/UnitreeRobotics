@@ -235,6 +235,15 @@ If no candidate passes, Ours is not run on the final split. The failure is
 reported and the search protocol must be amended in a new, explicit commit;
 final outcomes can never justify a retroactive amendment.
 
+R1 slots `r1-00` through `r1-04` are already consumed by the recorded initial
+and corrected-option attempts, including the interrupted `r1-04` negative run.
+The seven remaining slots are fixed before v5 R0 results: offline ranks 1--4
+each receive one C1 run; ranks 1 and 2 also receive C4; and rank 1 receives one
+C1 run with its calibrated option margin increased by 0.05. All use the
+checkpoint-calibrated completion and failure thresholds, one bounded recovery
+attempt, and minimum elapsed time 75. The rank labels are determined solely by
+the train-seed option audit and cannot be reordered using R1 outcomes.
+
 ## Training objectives and calibration
 
 The learned heads predict:
