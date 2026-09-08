@@ -83,6 +83,27 @@ def test_low_failure_stop_uses_one_prefix_without_extra_policy_call() -> None:
     assert not directive.recovery_triggered
 
 
+def test_single_hypothesis_never_claims_a_recovery_trigger() -> None:
+    controller = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        failure_threshold=0.5,
+    )
+    directive = controller.decide(
+        candidate=0,
+        action_chunk=np.ones((16, 7), dtype=np.float32),
+        scores=np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        valid=np.asarray([True, True, True] + [False] * 14),
+        completion_probability=0.1,
+        progress_probability=0.2,
+        failure_probability=0.9,
+        np=np,
+    )
+    assert directive.option == "CONSENSUS_PREFIX"
+    assert directive.hypothesis_count == 1
+    assert not directive.recovery_triggered
+
+
 def test_selective_consensus_accepts_action_and_high_confidence_stop() -> None:
     controller = SelectiveConsensusRecovery(completion_threshold=0.8, consensus_hypotheses=4)
     chunk = np.zeros((16, 7), dtype=np.float32)

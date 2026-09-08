@@ -158,7 +158,11 @@ class SelectiveConsensusRecovery:
                 progress_probability=progress_probability,
             )
 
-        if failure_probability < self.failure_threshold or cooldown_active:
+        if (
+            self.consensus_hypotheses == 1
+            or failure_probability < self.failure_threshold
+            or cooldown_active
+        ):
             self._clear_proposals()
             return RecoveryDirective(
                 candidate=self._best_nonstop(scores, valid, np),
