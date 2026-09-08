@@ -151,6 +151,35 @@ def runtime_scalars(
     ).astype(np.float16)
 
 
+def causal_anchor_histories(
+    ids: Any,
+    anchor_positions: Any,
+    history_length: int,
+    np: Any,
+) -> Any:
+    """Match runtime memory resets at every live-state anchor."""
+
+    if (
+        history_length < 1
+        or ids.ndim != 1
+        or anchor_positions.shape != ids.shape
+        or np.any(anchor_positions < 0)
+        or np.any(anchor_positions > np.arange(len(ids)))
+    ):
+        raise ValueError("Ours anchor-local history inputs are invalid")
+    histories = np.empty((len(ids), history_length), dtype=np.int64)
+    for position in range(len(ids)):
+        start = max(int(anchor_positions[position]), position - history_length + 1)
+        previous = ids[start : position + 1]
+        histories[position] = np.pad(
+            previous,
+            (history_length - len(previous), 0),
+            mode="constant",
+            constant_values=previous[0],
+        )
+    return histories
+
+
 def load_corpus(
     root: Path, history_length: int, np: Any, *, require_development: bool = True
 ) -> LoadedCorpus:
@@ -306,18 +335,13 @@ def load_corpus(
         selector_candidates[ids] = candidates
         seen[ids] = True
 
-        for subgoal in np.unique(subgoals):
-            positions = np.flatnonzero(subgoals == subgoal)
-            ordered_ids = ids[positions]
-            for offset, sample_id in enumerate(ordered_ids):
-                start = max(0, offset - history_length + 1)
-                previous = ordered_ids[start : offset + 1]
-                histories[sample_id] = np.pad(
-                    previous,
-                    (history_length - len(previous), 0),
-                    mode="constant",
-                    constant_values=previous[0],
-                )
+        episode_histories = causal_anchor_histories(
+            np.arange(row_count, dtype=np.int64),
+            local_anchors,
+            history_length,
+            np,
+        )
+        histories[ids] = ids[episode_histories]
         if episode_index in train_episode_ids:
             train_ids.append(ids)
         elif episode_index in development_episode_ids:

@@ -5,11 +5,30 @@ import pytest
 
 from unitree_gr00t.ours_train import (
     calibrate_threshold,
+    causal_anchor_histories,
     evaluate_failure,
     evaluate_residual_options,
     merge_corpora,
     sample_training_ids,
 )
+
+
+def test_training_histories_reset_at_every_runtime_anchor() -> None:
+    histories = causal_anchor_histories(
+        np.arange(6, dtype=np.int64),
+        np.asarray([0, 0, 0, 3, 3, 5], dtype=np.int64),
+        3,
+        np,
+    )
+
+    assert histories.tolist() == [
+        [0, 0, 0],
+        [0, 0, 1],
+        [0, 1, 2],
+        [3, 3, 3],
+        [3, 3, 4],
+        [5, 5, 5],
+    ]
 
 
 def test_completion_calibration_maximizes_recall_under_false_positive_cap() -> None:

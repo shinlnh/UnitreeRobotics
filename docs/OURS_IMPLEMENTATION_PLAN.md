@@ -32,6 +32,11 @@ The working method is **counterfactual temporal recovery (CTR)**:
    training; and
 5. execute only the selected option in the uninterrupted evaluation rollout.
 
+Offline history construction resets at every recorded live-state anchor,
+including same-subtask retries, exactly matching the deployable server's causal
+memory reset.  Histories never cross an anchor boundary merely because the
+canonical subgoal index is unchanged.
+
 The final paper name is chosen only after the winning method is frozen. The
 working name must not be presented as a result or novelty claim.
 
