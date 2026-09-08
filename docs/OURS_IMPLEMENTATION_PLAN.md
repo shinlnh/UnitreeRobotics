@@ -398,6 +398,24 @@ fresh R0 destination is `R0-residual-v9-outcome-first-balanced`. This correction
 changes sampling only—not labels, architectures, optimizer settings, or any
 development/final evaluation choice.
 
+That balanced-sampling ablation completed all six models, but all six still had
+zero beneficial held-out recovery at their safe margins. Raw false-override
+rates remained 72--100%: regression and positive-only winner classification do
+not directly supervise the binary runtime decision to intervene rather than
+retain retry. The complete checkpoints and registry are therefore retained as
+`R0-residual-v9-outcome-first-balanced-no-binary-negative`.
+
+Before another model is trained, v9-balanced-binary adds a unit-weight binary
+cross-entropy term on `max(alternative value) - RETRY_CURRENT value`. Its target
+is positive only when the best physically aligned alternative is strictly
+better; every tie and retry-better state is negative. The existing residual
+value, pairwise-rank, and strict winning-option losses remain unchanged. This
+factorizes the deployed decision into a safety gate (whether to override) and a
+conditional option choice (which override), while using the same value head and
+adding no parameters or runtime signals. The loss weight and per-step loss are
+recorded in provenance; its fresh destination is
+`R0-residual-v9-outcome-first-balanced-binary`.
+
 The six low-capacity R0 architectures and all optimizer settings remain
 identical to v5.  V8 models are diagnostic ablations; the R1b registry is ranked
 only from episode-held-out residual-v9 advantage against `RETRY_CURRENT`.

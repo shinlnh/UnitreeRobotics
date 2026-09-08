@@ -12,6 +12,7 @@ COUNTERFACTUAL_PREFIX="${COUNTERFACTUAL_PREFIX:-ctr-counterfactual-rollout-v8-co
 RESIDUAL_OPTION_ADVANTAGES="${RESIDUAL_OPTION_ADVANTAGES:-false}"
 MIN_STRICT_PREFERENCE_RATE="${MIN_STRICT_PREFERENCE_RATE:-0.10}"
 RESIDUAL_STRATIFIED_SPLIT="${RESIDUAL_STRATIFIED_SPLIT:-false}"
+OPTION_OVERRIDE_WEIGHT="${OPTION_OVERRIDE_WEIGHT:-0.0}"
 COUNTERFACTUAL_DATASETS=(
   "outputs/robocerebra/${COUNTERFACTUAL_PREFIX}-seed10007"
   "outputs/robocerebra/${COUNTERFACTUAL_PREFIX}-seed11007"
@@ -93,6 +94,7 @@ for specification in "${variants[@]}"; do
     --option-value-weight 0.10 \
     --option-rank-weight 0.25 \
     --option-classification-weight 1.00 \
+    --option-override-weight "${OPTION_OVERRIDE_WEIGHT}" \
     --checkpoint-selection residual \
     "${residual_advantage_args[@]}" \
     --device cuda:0 \

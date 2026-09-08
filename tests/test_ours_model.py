@@ -66,6 +66,7 @@ def test_temporal_model_shapes_and_parameter_budget(encoder: str) -> None:
         torch.tensor([0.2, 1.0]),
         target_option_values=shifted_targets,
         target_option_valid=option_valid,
+        option_override_weight=1.0,
         option_baseline_index=0,
     )
     _, centered_metrics = completion_progress_loss(
@@ -78,6 +79,7 @@ def test_temporal_model_shapes_and_parameter_budget(encoder: str) -> None:
     assert float(residual_metrics["option_value_loss"].detach()) == pytest.approx(
         float(centered_metrics["option_value_loss"].detach())
     )
+    assert residual_metrics["option_override_loss"] > 0
     assert metrics["option_rank_loss"] >= 0
     assert metrics["option_classification_loss"] > 0
 

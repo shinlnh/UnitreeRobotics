@@ -206,6 +206,7 @@ def completion_progress_loss(
     option_value_weight: float = 0.25,
     option_rank_weight: float = 0.25,
     option_classification_weight: float = 0.0,
+    option_override_weight: float = 0.0,
     option_baseline_index: int | None = None,
 ) -> tuple[Any, dict[str, Any]]:
     """R0 loss for the false-STOP gate before failure branches are added."""
@@ -237,6 +238,7 @@ def completion_progress_loss(
     option_value = outputs["option_values"].sum() * 0.0
     option_rank = outputs["option_values"].sum() * 0.0
     option_classification = outputs["option_values"].sum() * 0.0
+    option_override = outputs["option_values"].sum() * 0.0
     if target_option_values is not None and target_option_valid is not None:
         normalized_target = target_option_values.to(outputs["option_values"].dtype) / 16.0
         if option_baseline_index is not None:
@@ -249,6 +251,27 @@ def completion_progress_loss(
                 normalized_target
                 - normalized_target[:, option_baseline_index : option_baseline_index + 1]
             )
+            alternative_valid = target_option_valid.clone()
+            alternative_valid[:, option_baseline_index] = False
+            override_labeled = labeled & alternative_valid.any(dim=1)
+            if override_labeled.any():
+                target_alternative = normalized_target.masked_fill(
+                    ~alternative_valid, -torch.inf
+                ).max(dim=1).values
+                predicted_alternative = outputs["option_values"].masked_fill(
+                    ~alternative_valid, -torch.inf
+                ).max(dim=1).values
+                target_override = (
+                    target_alternative[override_labeled]
+                    > normalized_target[override_labeled, option_baseline_index] + 1e-4
+                ).to(outputs["option_values"].dtype)
+                predicted_override = (
+                    predicted_alternative[override_labeled]
+                    - outputs["option_values"][override_labeled, option_baseline_index]
+                )
+                option_override = functional.binary_cross_entropy_with_logits(
+                    predicted_override, target_override
+                )
         option_mask = target_option_valid.to(outputs["option_values"].dtype)
         option_losses = functional.smooth_l1_loss(
             outputs["option_values"],
@@ -289,6 +312,7 @@ def completion_progress_loss(
         + option_value_weight * option_value
         + option_rank_weight * option_rank
         + option_classification_weight * option_classification
+        + option_override_weight * option_override
     )
     return total, {
         "loss": total.detach(),
@@ -298,4 +322,5 @@ def completion_progress_loss(
         "option_value_loss": option_value.detach(),
         "option_rank_loss": option_rank.detach(),
         "option_classification_loss": option_classification.detach(),
+        "option_override_loss": option_override.detach(),
     }

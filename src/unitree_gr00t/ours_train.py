@@ -136,6 +136,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--option-value-weight", type=float, default=0.25)
     parser.add_argument("--option-rank-weight", type=float, default=0.25)
     parser.add_argument("--option-classification-weight", type=float, default=0.0)
+    parser.add_argument("--option-override-weight", type=float, default=0.0)
     parser.add_argument(
         "--residual-option-advantages",
         action="store_true",
@@ -960,6 +961,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             args.option_value_weight,
             args.option_rank_weight,
             args.option_classification_weight,
+            args.option_override_weight,
         )
         < 0.0
     ):
@@ -1126,6 +1128,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 option_value_weight=args.option_value_weight,
                 option_rank_weight=args.option_rank_weight,
                 option_classification_weight=args.option_classification_weight,
+                option_override_weight=args.option_override_weight,
                 option_baseline_index=option_baseline_index,
             )
         loss.backward()
@@ -1166,6 +1169,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "train_option_classification_loss": float(
                     losses["option_classification_loss"]
                 ),
+                "train_option_override_loss": float(losses["option_override_loss"]),
                 "gradient_norm": float(gradient_norm),
                 "development": dev_metrics,
                 "residual_option_validation": residual_metrics,
@@ -1266,6 +1270,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "option_value_weight": args.option_value_weight,
         "option_rank_weight": args.option_rank_weight,
         "option_classification_weight": args.option_classification_weight,
+        "option_override_weight": args.option_override_weight,
         "residual_option_advantages": residual_option_advantages,
         "option_value_baseline": (
             RecoveryOption.RETRY_CURRENT.value
