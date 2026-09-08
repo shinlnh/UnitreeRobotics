@@ -35,7 +35,7 @@ for specification in "${variants[@]}"; do
     echo "Refusing incomplete destination: ${destination}" >&2
     exit 1
   fi
-  "${PYTHON_BIN}" -m unitree_gr00t.ours_train \
+  PYTHONPATH=src "${PYTHON_BIN}" -m unitree_gr00t.ours_train \
     --dataset "${DEMO_DATASET}" \
     --additional-train-dataset "${COUNTERFACTUAL_DATASET}" \
     --destination "${destination}" \
@@ -56,7 +56,7 @@ for specification in "${variants[@]}"; do
     >"${ARTIFACT_ROOT}/${variant}.log" 2>&1
 done
 
-"${PYTHON_BIN}" -m unitree_gr00t.ours_search \
+PYTHONPATH=src "${PYTHON_BIN}" -m unitree_gr00t.ours_search \
   --checkpoints "${CHECKPOINT_ROOT}" \
   --output "${ARTIFACT_ROOT}/registry.json" \
   --expected-variants "${#variants[@]}"
