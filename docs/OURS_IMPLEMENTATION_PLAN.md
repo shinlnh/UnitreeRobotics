@@ -309,13 +309,31 @@ Corrected v7 was interrupted after 342 branches when review found that
 already-observed STOP proposal plus three fresh proposals as runtime does.
 Neither v6 nor v7 labels are admissible for training.  V8 starts from empty
 destinations, uses the on-policy sources, and matches both branch contracts.
-The six low-capacity R0
-architectures and all optimizer settings remain identical to v5; models are
-reranked only by held-out residual
-advantage against `RETRY_CURRENT`.  Within each architecture, validation
-checkpoints are selected by beneficial residual recovery under the same 5%
-false-override cap, followed by recovery recall, regret, completion recall, and
-Brier score; exact ties keep the earlier checkpoint.
+V8 completed with 189 labeled states and 929 valid branches across all three
+training seeds.  Although 80 states assigned a higher shaped return to an
+override, only 8 states (4.2328%) improved final success, completed subtasks, or
+success predicates; 72 apparent gains came only from executing fewer steps or
+policy calls.  V8 is therefore retained as a negative, efficiency-shaped
+ablation and does not determine an R1b candidate.
+
+This train-only diagnosis motivates a prospective **outcome-first residual-v9**
+amendment before any seed `22007` result exists.  V9 keeps the exact source
+states, options, common-random-number coupling, B-retry continuation, and source
+completion shaping, but removes step and policy-call penalties from the learned
+option target.  Those costs remain evaluation-only overhead metrics.  The
+branch horizon increases prospectively from 75 steps / 24 calls to 150 steps /
+48 calls so a delayed physical recovery can become observable.  V8's 75/24
+setting remains the horizon ablation.  V9 uses fresh empty destinations and
+records `return_target=outcome-first-physical-v1` plus
+`cost_terms_in_target=false` in every manifest.
+
+The six low-capacity R0 architectures and all optimizer settings remain
+identical to v5.  V8 models are diagnostic ablations; the R1b registry is ranked
+only from episode-held-out residual-v9 advantage against `RETRY_CURRENT`.
+Within each architecture, validation checkpoints are selected by beneficial
+residual recovery under the same 5% false-override cap, followed by recovery
+recall, regret, completion recall, and Brier score; exact ties keep the earlier
+checkpoint.
 
 The seed roles are now fixed as follows.  Seed `20007` is retired after the
 original-family diagnosis.  Seed `22007` is used once for R1b breadth with a new

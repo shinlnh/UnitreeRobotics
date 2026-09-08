@@ -106,6 +106,12 @@ def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
         branches,
         branches_sha256="branches",
     )["residual_source_is_abstaining_b_retry"]
+    manifest["counterfactual_sampling"]["return_target"] = "unknown"
+    assert not residual_contract_checks(
+        manifest,
+        branches,
+        branches_sha256="branches",
+    )["residual_return_target"]
 
 
 def test_residual_mechanism_audit_separates_physical_and_efficiency_gains() -> None:

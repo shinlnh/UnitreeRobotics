@@ -5,6 +5,9 @@ import pytest
 
 from unitree_gr00t.ours import OursContractError, RecoveryOption
 from unitree_gr00t.ours_counterfactual import (
+    EFFICIENCY_SHAPED_RETURN_TARGET,
+    OUTCOME_FIRST_RETURN_TARGET,
+    counterfactual_return,
     evaluate_counterfactual_options,
     evaluate_counterfactual_rollouts,
 )
@@ -64,6 +67,37 @@ class _Env:
 
     def _get_observations(self) -> dict:
         return {}
+
+
+def test_outcome_first_counterfactual_return_excludes_efficiency_costs() -> None:
+    shaped = counterfactual_return(
+        progress_gain=1,
+        final_success=False,
+        predicate_gain=1,
+        executed_steps=75,
+        policy_calls=8,
+        return_target=EFFICIENCY_SHAPED_RETURN_TARGET,
+    )
+    outcome_first = counterfactual_return(
+        progress_gain=1,
+        final_success=False,
+        predicate_gain=1,
+        executed_steps=75,
+        policy_calls=8,
+        return_target=OUTCOME_FIRST_RETURN_TARGET,
+    )
+
+    assert shaped == pytest.approx(8.77)
+    assert outcome_first == 9.0
+    with pytest.raises(OursContractError, match="unsupported"):
+        counterfactual_return(
+            progress_gain=0,
+            final_success=False,
+            predicate_gain=0,
+            executed_steps=0,
+            policy_calls=0,
+            return_target="unknown",
+        )
 
 
 def test_counterfactual_options_branch_and_restore_exact_state() -> None:

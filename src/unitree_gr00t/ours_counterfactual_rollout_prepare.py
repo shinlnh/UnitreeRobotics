@@ -31,7 +31,12 @@ from .a0_eval import (
 from .a1 import sha256_file
 from .b import select_unified_candidate
 from .ours import OURS_ID, RECOVERY_OPTIONS, OursContractError, RecoveryOption
-from .ours_counterfactual import branch_payload, evaluate_counterfactual_rollouts
+from .ours_counterfactual import (
+    COUNTERFACTUAL_RETURN_TARGETS,
+    EFFICIENCY_SHAPED_RETURN_TARGET,
+    branch_payload,
+    evaluate_counterfactual_rollouts,
+)
 from .ours_counterfactual_prepare import _set_trace_state
 from .ours_data import OURS_CORPUS_MANIFEST, audit_recovery_corpus
 from .ours_rollout_prepare import (
@@ -60,6 +65,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-source-elapsed-steps", type=int, default=75)
     parser.add_argument("--rollout-steps", type=int, default=75)
     parser.add_argument("--max-policy-calls", type=int, default=24)
+    parser.add_argument(
+        "--return-target",
+        choices=COUNTERFACTUAL_RETURN_TARGETS,
+        default=EFFICIENCY_SHAPED_RETURN_TARGET,
+    )
     parser.add_argument("--consensus-hypotheses", type=int, choices=(4, 8), default=4)
     parser.add_argument("--max-replay-mismatch-rate", type=float, default=0.05)
     parser.add_argument(
@@ -577,6 +587,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             base_seed=base_seed,
                             state_index=int(arrays["sample_indices"][position]),
                             np=np,
+                            return_target=args.return_target,
                         )
                         for branch in branches:
                             if branch.option == RecoveryOption.ADVANCE.value:
@@ -685,6 +696,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "consensus_source_proposal_included": True,
                 "randomness_coupling": "common-random-numbers-per-state-v1",
                 "rollouts_per_option": 1,
+                "return_target": args.return_target,
+                "cost_terms_in_target": (
+                    args.return_target == EFFICIENCY_SHAPED_RETURN_TARGET
+                ),
                 "future_injections": False,
                 "replay_rows": replay_rows,
                 "replay_mismatches": replay_mismatches,

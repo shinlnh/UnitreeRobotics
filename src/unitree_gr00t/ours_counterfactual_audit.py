@@ -10,6 +10,10 @@ from typing import Any
 
 from .a1 import sha256_file
 from .ours import RECOVERY_OPTIONS, OursContractError
+from .ours_counterfactual import (
+    COUNTERFACTUAL_RETURN_TARGETS,
+    EFFICIENCY_SHAPED_RETURN_TARGET,
+)
 from .ours_data import OURS_CORPUS_MANIFEST, audit_recovery_corpus
 
 
@@ -90,6 +94,9 @@ def residual_contract_checks(
         return {}
     observed_options = Counter(str(row.get("option")) for row in branches)
     source_contract = sampling.get("source_behavior_contract", {})
+    return_target = sampling.get(
+        "return_target", EFFICIENCY_SHAPED_RETURN_TARGET
+    )
     expected_options = {
         str(option): int(count)
         for option, count in sampling.get("options", {}).items()
@@ -131,6 +138,14 @@ def residual_contract_checks(
         == "common-random-numbers-per-state-v1"
         and sampling.get("rollouts_per_option") == 1
         and all(len(seeds) == 1 and -1 not in seeds for seeds in state_seeds.values()),
+        "residual_return_target": return_target in COUNTERFACTUAL_RETURN_TARGETS
+        and bool(
+            sampling.get(
+                "cost_terms_in_target",
+                return_target == EFFICIENCY_SHAPED_RETURN_TARGET,
+            )
+        )
+        == (return_target == EFFICIENCY_SHAPED_RETURN_TARGET),
     }
 
 

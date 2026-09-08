@@ -10,6 +10,13 @@ from typing import Any
 
 from .ours import OursContractError, RecoveryOption, counterfactual_branch_seed
 
+EFFICIENCY_SHAPED_RETURN_TARGET = "efficiency-shaped-v1"
+OUTCOME_FIRST_RETURN_TARGET = "outcome-first-physical-v1"
+COUNTERFACTUAL_RETURN_TARGETS = (
+    EFFICIENCY_SHAPED_RETURN_TARGET,
+    OUTCOME_FIRST_RETURN_TARGET,
+)
+
 
 @dataclass(frozen=True)
 class SimulatorSnapshot:
@@ -122,6 +129,31 @@ def _predicate_count(env: Any, goal: dict[str, list[list[str]]]) -> int:
     return sum(bool(env._eval_predicate(predicate)) for states in goal.values() for predicate in states)
 
 
+def counterfactual_return(
+    *,
+    progress_gain: int,
+    final_success: bool,
+    predicate_gain: int,
+    executed_steps: int,
+    policy_calls: int,
+    return_target: str,
+) -> float:
+    """Score a branch with either legacy efficiency or outcome-first targets."""
+
+    if return_target not in COUNTERFACTUAL_RETURN_TARGETS:
+        raise OursContractError(f"unsupported counterfactual return target: {return_target}")
+    if min(executed_steps, policy_calls) < 0:
+        raise OursContractError("counterfactual return costs must be nonnegative")
+    value = (
+        8.0 * progress_gain
+        + 16.0 * int(bool(final_success))
+        + float(predicate_gain)
+    )
+    if return_target == EFFICIENCY_SHAPED_RETURN_TARGET:
+        value -= 0.002 * executed_steps + 0.01 * policy_calls
+    return value
+
+
 def evaluate_counterfactual_options(
     env: Any,
     *,
@@ -131,6 +163,7 @@ def evaluate_counterfactual_options(
     base_seed: int,
     state_index: int,
     np: Any,
+    return_target: str = EFFICIENCY_SHAPED_RETURN_TARGET,
 ) -> tuple[CounterfactualBranch, ...]:
     """Evaluate fixed candidate actions from one state and restore it exactly."""
 
@@ -157,11 +190,13 @@ def evaluate_counterfactual_options(
             state_after = capture_simulator_snapshot(env)
             progress_gain = int(completed_after) - completed_subtasks_before
             predicate_gain = predicate_after - predicate_before
-            return_value = (
-                8.0 * progress_gain
-                + 16.0 * int(bool(final_success))
-                + float(predicate_gain)
-                - 0.002 * executed_steps
+            return_value = counterfactual_return(
+                progress_gain=progress_gain,
+                final_success=bool(final_success),
+                predicate_gain=predicate_gain,
+                executed_steps=executed_steps,
+                policy_calls=0,
+                return_target=return_target,
             )
             branches.append(
                 CounterfactualBranch(
@@ -198,6 +233,7 @@ def evaluate_counterfactual_rollouts(
     base_seed: int,
     state_index: int,
     np: Any,
+    return_target: str = EFFICIENCY_SHAPED_RETURN_TARGET,
 ) -> tuple[CounterfactualBranch, ...]:
     """Evaluate closed-loop option callbacks from one restored training state."""
 
@@ -228,12 +264,13 @@ def evaluate_counterfactual_rollouts(
             state_after = capture_simulator_snapshot(env)
             progress_gain = int(completed_after) - completed_subtasks_before
             predicate_gain = predicate_after - predicate_before
-            return_value = (
-                8.0 * progress_gain
-                + 16.0 * int(bool(final_success))
-                + float(predicate_gain)
-                - 0.002 * executed_steps
-                - 0.01 * policy_calls
+            return_value = counterfactual_return(
+                progress_gain=progress_gain,
+                final_success=bool(final_success),
+                predicate_gain=predicate_gain,
+                executed_steps=executed_steps,
+                policy_calls=policy_calls,
+                return_target=return_target,
             )
             branches.append(
                 CounterfactualBranch(
