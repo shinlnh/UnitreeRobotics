@@ -10,8 +10,8 @@ CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/
 ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-counterfactual-v4-multiseed}"
 COUNTERFACTUAL_DATASETS=(
   "outputs/robocerebra/ctr-counterfactual-rollout-v3"
-  "outputs/robocerebra/ctr-counterfactual-rollout-v3-seed11007"
-  "outputs/robocerebra/ctr-counterfactual-rollout-v3-seed12007"
+  "outputs/robocerebra/ctr-counterfactual-rollout-v4-dense-seed11007"
+  "outputs/robocerebra/ctr-counterfactual-rollout-v4-dense-seed12007"
 )
 
 mkdir -p "${CHECKPOINT_ROOT}" "${ARTIFACT_ROOT}"

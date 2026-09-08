@@ -189,7 +189,12 @@ episode holdout from every seed remains excluded from fitting. A recovery
 margin is calibrated on that holdout at false-recovery rate at most 5%. R0
 ranks models by beneficial recovery rate at that operating point, then recovery
 recall, decision regret, balanced option recall, and registered id. This matrix
-is fixed before any v4 result is observed.
+is fixed before any v4 result is observed. Because the bounded controller emits
+far fewer redundant STOPs than the retired controller, seeds `11007` and
+`12007` use STOP stride 4 and at most eight states per episode; the corrected
+seed-`10007` corpus uses its already frozen stride 32 / eight-state sampling.
+This density choice was made after the sparse seed-`11007` pilot yielded only
+34 labeled states and before either dense corpus or any v4 model was produced.
 
 ## Trial-and-error protocol
 
