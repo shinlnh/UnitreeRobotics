@@ -325,8 +325,11 @@ def summarize_residual_predictions(
             "max_false_recovery_rate": max_false_recovery_rate,
             "option_value_margin": float(margin),
             "false_recovery_rate": false_rate,
+            "false_recovery_states": int((override & target_retry_or_tie).sum()),
             "true_recovery_rate": recall,
             "beneficial_recovery_rate": beneficial_rate,
+            "beneficial_recovery_states": int(beneficial.sum()),
+            "beneficial_recovery_rate_all_states": float(beneficial.mean()),
             "accuracy": accuracy,
             "mean_decision_regret": regret,
         }

@@ -208,3 +208,5 @@ def test_residual_audit_can_restrict_the_runtime_override_library() -> None:
     assert unrestricted["selective_recovery"]["beneficial_recovery_rate"] == 0.0
     assert consensus_only["override_options"] == ["CONSENSUS_PREFIX"]
     assert consensus_only["selective_recovery"]["beneficial_recovery_rate"] == 1.0
+    assert consensus_only["selective_recovery"]["beneficial_recovery_states"] == 1
+    assert consensus_only["selective_recovery"]["false_recovery_states"] == 0
