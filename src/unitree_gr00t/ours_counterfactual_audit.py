@@ -89,6 +89,7 @@ def residual_contract_checks(
     if not bool(sampling.get("residual_retry_baseline")):
         return {}
     observed_options = Counter(str(row.get("option")) for row in branches)
+    source_contract = sampling.get("source_behavior_contract", {})
     expected_options = {
         str(option): int(count)
         for option, count in sampling.get("options", {}).items()
@@ -101,6 +102,16 @@ def residual_contract_checks(
         states.setdefault(key, set()).add(str(row.get("option")))
         state_seeds.setdefault(key, set()).add(int(row.get("branch_seed", -1)))
     return {
+        "residual_source_is_abstaining_b_retry": source_contract
+        == {
+            "decision_schedule": "counterfactual-residual-over-b-retry-v1",
+            "residual_retry_baseline": True,
+            "option_value_margin": 1_000_000.0,
+            "recovery_triggers": 0,
+            "capture_training_context": True,
+            "collection_force_boundary_steps": None,
+            "stagnation_boundary_steps": None,
+        },
         "residual_confirmed_stop_sources": bool(sampling.get("require_stop_pending"))
         and all(bool(row.get("source_stop_pending")) for row in branches),
         "residual_b_retry_continuation": sampling.get("continuation_policy")

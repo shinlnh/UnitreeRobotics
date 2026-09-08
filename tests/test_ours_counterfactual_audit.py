@@ -49,6 +49,15 @@ def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
         "counterfactual_branches_sha256": "branches",
         "counterfactual_sampling": {
             "residual_retry_baseline": True,
+            "source_behavior_contract": {
+                "decision_schedule": "counterfactual-residual-over-b-retry-v1",
+                "residual_retry_baseline": True,
+                "option_value_margin": 1_000_000.0,
+                "recovery_triggers": 0,
+                "capture_training_context": True,
+                "collection_force_boundary_steps": None,
+                "stagnation_boundary_steps": None,
+            },
             "require_stop_pending": True,
             "continuation_policy": "B-retry-confirmed-stop-one-retry-per-subtask",
             "consensus_source_proposal_included": True,
@@ -88,3 +97,11 @@ def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
         branches,
         branches_sha256="branches",
     )["residual_common_random_numbers"]
+    manifest["counterfactual_sampling"]["source_behavior_contract"][
+        "recovery_triggers"
+    ] = 1
+    assert not residual_contract_checks(
+        manifest,
+        branches,
+        branches_sha256="branches",
+    )["residual_source_is_abstaining_b_retry"]

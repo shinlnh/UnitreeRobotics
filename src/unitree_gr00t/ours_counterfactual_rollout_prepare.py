@@ -647,6 +647,27 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 ),
                 "require_stop_pending": args.require_stop_pending,
                 "residual_retry_baseline": args.residual_retry_baseline,
+                "source_behavior_contract": (
+                    {
+                        "decision_schedule": run_manifest["decision_schedule"],
+                        "residual_retry_baseline": run_manifest[
+                            "residual_retry_baseline"
+                        ],
+                        "option_value_margin": run_manifest["option_value_margin"],
+                        "recovery_triggers": summary["total_recovery_triggers"],
+                        "capture_training_context": run_manifest[
+                            "capture_training_context"
+                        ],
+                        "collection_force_boundary_steps": run_manifest[
+                            "collection_force_boundary_steps"
+                        ],
+                        "stagnation_boundary_steps": run_manifest[
+                            "stagnation_boundary_steps"
+                        ],
+                    }
+                    if args.residual_retry_baseline
+                    else None
+                ),
                 "continuation_policy": (
                     "B-retry-confirmed-stop-one-retry-per-subtask"
                     if args.residual_retry_baseline
