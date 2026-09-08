@@ -8,6 +8,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from .a1 import sha256_file
 from .ours import RECOVERY_OPTIONS, OursContractError
 from .ours_data import OURS_CORPUS_MANIFEST, audit_recovery_corpus
 
@@ -76,6 +77,45 @@ def summarize_option_targets(
     }
 
 
+def residual_contract_checks(
+    manifest: dict[str, Any],
+    branches: list[dict[str, Any]],
+    *,
+    branches_sha256: str,
+) -> dict[str, bool]:
+    """Verify that residual labels estimate a one-step deviation from B-retry."""
+
+    sampling = manifest.get("counterfactual_sampling", {})
+    if not bool(sampling.get("residual_retry_baseline")):
+        return {}
+    observed_options = Counter(str(row.get("option")) for row in branches)
+    expected_options = {
+        str(option): int(count)
+        for option, count in sampling.get("options", {}).items()
+        if int(count)
+    }
+    states: dict[tuple[int, int], set[str]] = {}
+    for row in branches:
+        key = (int(row.get("episode_index", -1)), int(row.get("sample_index", -1)))
+        states.setdefault(key, set()).add(str(row.get("option")))
+    return {
+        "residual_confirmed_stop_sources": bool(sampling.get("require_stop_pending"))
+        and all(bool(row.get("source_stop_pending")) for row in branches),
+        "residual_b_retry_continuation": sampling.get("continuation_policy")
+        == "B-retry-confirmed-stop-one-retry-per-subtask",
+        "residual_branch_hash": branches_sha256
+        == manifest.get("counterfactual_branches_sha256"),
+        "residual_branch_inventory": len(branches) == int(sampling.get("branch_count", -1))
+        and len(states) == int(sampling.get("state_count", -1))
+        and dict(observed_options) == expected_options,
+        "residual_distinct_actions": observed_options.get("ACCEPT_B", 0) == 0
+        and all(
+            {"RETRY_CURRENT", "ADVANCE"}.issubset(options)
+            for options in states.values()
+        ),
+    }
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     if (
         min(args.min_labeled_states, args.min_winning_options) < 1
@@ -92,6 +132,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         require_both_completion_classes=False,
     )
     manifest = json.loads((root / OURS_CORPUS_MANIFEST).read_text(encoding="utf-8"))
+    branch_path = root / "counterfactual_branches.jsonl"
+    branches = (
+        [json.loads(line) for line in branch_path.read_text(encoding="utf-8").splitlines()]
+        if branch_path.is_file()
+        else []
+    )
     values: list[Any] = []
     masks: list[Any] = []
     for filename in sorted(manifest["files_sha256"]):
@@ -108,6 +154,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "strict_preference_rate": (
             summary["strict_preference_rate"] >= args.min_strict_preference_rate
+        ),
+        **residual_contract_checks(
+            manifest,
+            branches,
+            branches_sha256=(sha256_file(branch_path) if branch_path.is_file() else ""),
         ),
     }
     result = {

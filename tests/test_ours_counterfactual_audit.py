@@ -1,6 +1,9 @@
 import numpy as np
 
-from unitree_gr00t.ours_counterfactual_audit import summarize_option_targets
+from unitree_gr00t.ours_counterfactual_audit import (
+    residual_contract_checks,
+    summarize_option_targets,
+)
 
 
 def test_counterfactual_audit_detects_diverse_strict_preferences() -> None:
@@ -29,3 +32,48 @@ def test_counterfactual_audit_rejects_single_valid_option_rows() -> None:
 
     assert audit["labeled_states"] == 0
     assert audit["distinct_winning_options"] == 0
+
+
+def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
+    branches = [
+        {
+            "episode_index": 0,
+            "sample_index": 4,
+            "option": option,
+            "source_stop_pending": True,
+        }
+        for option in ("REOBSERVE", "RETRY_CURRENT", "ADVANCE", "CONSENSUS_PREFIX")
+    ]
+    manifest = {
+        "counterfactual_branches_sha256": "branches",
+        "counterfactual_sampling": {
+            "residual_retry_baseline": True,
+            "require_stop_pending": True,
+            "continuation_policy": "B-retry-confirmed-stop-one-retry-per-subtask",
+            "state_count": 1,
+            "branch_count": 4,
+            "options": {
+                "ACCEPT_B": 0,
+                "REOBSERVE": 1,
+                "RETRY_CURRENT": 1,
+                "BACKTRACK_ONE": 0,
+                "ADVANCE": 1,
+                "CONSENSUS_PREFIX": 1,
+            },
+        },
+    }
+
+    checks = residual_contract_checks(
+        manifest,
+        branches,
+        branches_sha256="branches",
+    )
+
+    assert checks
+    assert all(checks.values())
+    branches[0]["source_stop_pending"] = False
+    assert not residual_contract_checks(
+        manifest,
+        branches,
+        branches_sha256="branches",
+    )["residual_confirmed_stop_sources"]
