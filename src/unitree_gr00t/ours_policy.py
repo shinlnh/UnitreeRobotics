@@ -30,6 +30,7 @@ class SelectiveConsensusRecovery:
         gate_threshold: float | None = None,
         completion_threshold: float | None = None,
         consensus_hypotheses: int,
+        failure_threshold: float = 0.5,
         force_boundary_steps: int | None = None,
     ):
         # completion_threshold remains an explicit compatibility alias for the
@@ -41,11 +42,14 @@ class SelectiveConsensusRecovery:
             raise OursContractError("gate threshold must be inside [0, 1]")
         if consensus_hypotheses < 1:
             raise OursContractError("consensus hypotheses must be positive")
+        if not 0.0 <= failure_threshold <= 1.0:
+            raise OursContractError("failure threshold must be inside [0, 1]")
         if force_boundary_steps is not None and force_boundary_steps < 1:
             raise OursContractError("forced collection boundary must be positive")
         self.gate_signal = gate_signal
         self.gate_threshold = selected_threshold
         self.consensus_hypotheses = consensus_hypotheses
+        self.failure_threshold = failure_threshold
         self.force_boundary_steps = force_boundary_steps
         self._proposals: list[tuple[Any, Any, Any]] = []
 
@@ -80,10 +84,18 @@ class SelectiveConsensusRecovery:
         valid: Any,
         completion_probability: float,
         progress_probability: float,
+        failure_probability: float = 0.0,
         subgoal_elapsed_steps: int = 0,
         np: Any,
     ) -> RecoveryDirective:
-        if not 0.0 <= completion_probability <= 1.0 or not 0.0 <= progress_probability <= 1.0:
+        if not all(
+            0.0 <= probability <= 1.0
+            for probability in (
+                completion_probability,
+                progress_probability,
+                failure_probability,
+            )
+        ):
             raise OursContractError("Ours runtime probabilities must be inside [0, 1]")
         if candidate < 0 or candidate >= len(valid) or not bool(valid[candidate]):
             raise OursContractError("B proposed an invalid candidate to Ours")
@@ -128,6 +140,19 @@ class SelectiveConsensusRecovery:
                 action_chunk=action_chunk,
                 suppress_stop_confirmation=False,
                 option=RecoveryOption.ADVANCE.value,
+                recovery_triggered=False,
+                hypothesis_count=1,
+                completion_probability=completion_probability,
+                progress_probability=progress_probability,
+            )
+
+        if failure_probability < self.failure_threshold:
+            self.reset()
+            return RecoveryDirective(
+                candidate=self._best_nonstop(scores, valid, np),
+                action_chunk=action_chunk,
+                suppress_stop_confirmation=False,
+                option=RecoveryOption.CONSENSUS_PREFIX.value,
                 recovery_triggered=False,
                 hypothesis_count=1,
                 completion_probability=completion_probability,
