@@ -102,20 +102,13 @@ def recovery_decision_seed(
 def counterfactual_branch_seed(
     base_seed: int,
     state_index: int,
-    option: RecoveryOption | str,
-    rollout_index: int,
+    replicate_index: int = 0,
 ) -> int:
-    """Derive a stable seed for a training-only counterfactual branch."""
+    """Derive common random numbers for every option at one training state."""
 
-    if min(base_seed, state_index, rollout_index) < 0:
+    if min(base_seed, state_index, replicate_index) < 0:
         raise OursContractError("counterfactual seed inputs must be non-negative")
-    try:
-        normalized = RecoveryOption(option).value
-    except ValueError as exc:
-        raise OursContractError(f"unknown recovery option: {option}") from exc
-    payload = (
-        f"Ours-counterfactual-v1:{base_seed}:{state_index}:{normalized}:{rollout_index}"
-    ).encode()
+    payload = f"Ours-counterfactual-crn-v2:{base_seed}:{state_index}:{replicate_index}".encode()
     return int.from_bytes(hashlib.sha256(payload).digest()[:4], "big") & 0x7FFF_FFFF
 
 

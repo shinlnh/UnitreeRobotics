@@ -41,6 +41,7 @@ def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
             "sample_index": 4,
             "option": option,
             "source_stop_pending": True,
+            "branch_seed": 1234,
         }
         for option in ("REOBSERVE", "RETRY_CURRENT", "ADVANCE", "CONSENSUS_PREFIX")
     ]
@@ -51,6 +52,8 @@ def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
             "require_stop_pending": True,
             "continuation_policy": "B-retry-confirmed-stop-one-retry-per-subtask",
             "consensus_source_proposal_included": True,
+            "randomness_coupling": "common-random-numbers-per-state-v1",
+            "rollouts_per_option": 1,
             "state_count": 1,
             "branch_count": 4,
             "options": {
@@ -78,3 +81,10 @@ def test_residual_audit_requires_confirmed_b_retry_branch_contract() -> None:
         branches,
         branches_sha256="branches",
     )["residual_confirmed_stop_sources"]
+    branches[0]["source_stop_pending"] = True
+    branches[0]["branch_seed"] = 4321
+    assert not residual_contract_checks(
+        manifest,
+        branches,
+        branches_sha256="branches",
+    )["residual_common_random_numbers"]

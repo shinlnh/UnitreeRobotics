@@ -119,9 +119,7 @@ def snapshot_mismatches(
 
 
 def _predicate_count(env: Any, goal: dict[str, list[list[str]]]) -> int:
-    return sum(
-        bool(env._eval_predicate(predicate)) for states in goal.values() for predicate in states
-    )
+    return sum(bool(env._eval_predicate(predicate)) for states in goal.values() for predicate in states)
 
 
 def evaluate_counterfactual_options(
@@ -144,14 +142,9 @@ def evaluate_counterfactual_options(
     predicate_before = _predicate_count(env, goal)
     branches: list[CounterfactualBranch] = []
     try:
-        for option_index, (raw_option, actions) in enumerate(option_actions.items()):
+        for raw_option, actions in option_actions.items():
             option = RecoveryOption(raw_option)
-            branch_seed = counterfactual_branch_seed(
-                base_seed,
-                state_index,
-                option,
-                option_index,
-            )
+            branch_seed = counterfactual_branch_seed(base_seed, state_index)
             random.seed(branch_seed)
             np.random.seed(branch_seed)
             restore_simulator_snapshot(env, snapshot)
@@ -216,19 +209,18 @@ def evaluate_counterfactual_rollouts(
     predicate_before = _predicate_count(env, goal)
     branches: list[CounterfactualBranch] = []
     try:
-        for option_index, (raw_option, rollout) in enumerate(option_rollouts.items()):
+        for raw_option, rollout in option_rollouts.items():
             option = RecoveryOption(raw_option)
-            branch_seed = counterfactual_branch_seed(
-                base_seed,
-                state_index,
-                option,
-                option_index,
-            )
+            branch_seed = counterfactual_branch_seed(base_seed, state_index)
             random.seed(branch_seed)
             np.random.seed(branch_seed)
             observation = restore_simulator_snapshot(env, snapshot)
             result = rollout(observation, branch_seed)
-            if not isinstance(result, tuple) or len(result) != 2 or min(result) < 0:
+            if (
+                not isinstance(result, tuple)
+                or len(result) != 2
+                or min(result) < 0
+            ):
                 raise OursContractError("counterfactual rollout returned invalid cost counts")
             executed_steps, policy_calls = (int(value) for value in result)
             _, completed_after, final_success = env._check_success(goal)

@@ -297,7 +297,9 @@ most eight states per episode.  Counts are audited after this on-policy source
 collection rather than fixed from the obsolete CTR distribution.  Each valid
 option gets the same 75-step/24-call continuation budget and then follows the
 exact B-retry transition rule, including one retry on every newly entered
-subtask.  A v6 collection was interrupted after 490 branches when review found
+subtask.  All options at one source state use common random numbers so their
+paired return difference is not confounded by option-specific diffusion noise.
+A v6 collection was interrupted after 490 branches when review found
 that `ADVANCE` and `BACKTRACK_ONE` continued with B rather than B-retry.
 Corrected v7 was interrupted after 342 branches when review found that
 `CONSENSUS_PREFIX` sampled four fresh proposals instead of using the

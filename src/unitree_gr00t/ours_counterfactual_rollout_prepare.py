@@ -662,6 +662,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "max_policy_calls": args.max_policy_calls,
                 "consensus_hypotheses": args.consensus_hypotheses,
                 "consensus_source_proposal_included": True,
+                "randomness_coupling": "common-random-numbers-per-state-v1",
+                "rollouts_per_option": 1,
                 "future_injections": False,
                 "replay_rows": replay_rows,
                 "replay_mismatches": replay_mismatches,

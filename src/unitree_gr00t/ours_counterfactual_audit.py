@@ -95,9 +95,11 @@ def residual_contract_checks(
         if int(count)
     }
     states: dict[tuple[int, int], set[str]] = {}
+    state_seeds: dict[tuple[int, int], set[int]] = {}
     for row in branches:
         key = (int(row.get("episode_index", -1)), int(row.get("sample_index", -1)))
         states.setdefault(key, set()).add(str(row.get("option")))
+        state_seeds.setdefault(key, set()).add(int(row.get("branch_seed", -1)))
     return {
         "residual_confirmed_stop_sources": bool(sampling.get("require_stop_pending"))
         and all(bool(row.get("source_stop_pending")) for row in branches),
@@ -114,6 +116,10 @@ def residual_contract_checks(
             {"RETRY_CURRENT", "ADVANCE"}.issubset(options)
             for options in states.values()
         ),
+        "residual_common_random_numbers": sampling.get("randomness_coupling")
+        == "common-random-numbers-per-state-v1"
+        and sampling.get("rollouts_per_option") == 1
+        and all(len(seeds) == 1 and -1 not in seeds for seeds in state_seeds.values()),
     }
 
 

@@ -6,7 +6,6 @@ import pytest
 from unitree_gr00t.config import load_config
 from unitree_gr00t.ours import (
     OursContractError,
-    RecoveryOption,
     apply_recovery_transition,
     counterfactual_branch_seed,
     prohibited_runtime_paths,
@@ -19,15 +18,14 @@ from unitree_gr00t.ours import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_recovery_and_counterfactual_seeds_are_stable_and_distinct() -> None:
+def test_recovery_seeds_are_stable_and_counterfactual_seeds_share_noise() -> None:
     assert recovery_decision_seed(7, 4, 0) == recovery_decision_seed(7, 4, 0)
     assert recovery_decision_seed(7, 4, 0) != recovery_decision_seed(7, 4, 1)
     assert recovery_decision_seed(7, 4, 0) != recovery_decision_seed(7, 5, 0)
-    assert counterfactual_branch_seed(10007, 3, RecoveryOption.RETRY_CURRENT, 0) == (
-        counterfactual_branch_seed(10007, 3, "RETRY_CURRENT", 0)
-    )
-    assert counterfactual_branch_seed(10007, 3, "RETRY_CURRENT", 0) != (
-        counterfactual_branch_seed(10007, 3, "BACKTRACK_ONE", 0)
+    assert counterfactual_branch_seed(10007, 3) == counterfactual_branch_seed(10007, 3)
+    assert counterfactual_branch_seed(10007, 3) != counterfactual_branch_seed(10007, 4)
+    assert counterfactual_branch_seed(10007, 3, 0) != counterfactual_branch_seed(
+        10007, 3, 1
     )
 
 
