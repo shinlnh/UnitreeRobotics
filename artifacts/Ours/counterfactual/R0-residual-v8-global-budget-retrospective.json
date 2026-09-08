@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "audit": "retrospective-global-step-budget-v1",
+  "configured_rollout_steps": 75,
+  "seeds": {
+    "10007": {
+      "selected_states": 62,
+      "violations": 0
+    },
+    "11007": {
+      "selected_states": 72,
+      "violations": 3
+    },
+    "12007": {
+      "selected_states": 55,
+      "violations": 0
+    }
+  },
+  "violations": [
+    {
+      "seed": 11007,
+      "task_type": "Ideal",
+      "case": "case1",
+      "trial": 0,
+      "policy_call": 67,
+      "sample_index": 66,
+      "source_step_before": 896,
+      "source_max_steps": 900,
+      "remaining_steps": 4
+    },
+    {
+      "seed": 11007,
+      "task_type": "Memory_Execution",
+      "case": "case1",
+      "trial": 0,
+      "policy_call": 86,
+      "sample_index": 592,
+      "source_step_before": 1195,
+      "source_max_steps": 1200,
+      "remaining_steps": 5
+    },
+    {
+      "seed": 11007,
+      "task_type": "Memory_Exploration",
+      "case": "case7",
+      "trial": 0,
+      "policy_call": 128,
+      "sample_index": 2002,
+      "source_step_before": 1496,
+      "source_max_steps": 1500,
+      "remaining_steps": 4
+    }
+  ],
+  "total_selected_states": 189,
+  "total_violations": 3
+}
