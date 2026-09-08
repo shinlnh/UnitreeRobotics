@@ -11,6 +11,11 @@ CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/
 ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-counterfactual-v3}"
 
 mkdir -p "${CHECKPOINT_ROOT}" "${ARTIFACT_ROOT}"
+PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_split \
+  --corpus "${COUNTERFACTUAL_DATASET}" \
+  --modulus 5 \
+  --remainder 4 \
+  >"${ARTIFACT_ROOT}/option_split.log"
 PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_audit \
   --corpus "${COUNTERFACTUAL_DATASET}" \
   --output "${ARTIFACT_ROOT}/corpus_audit.json" \
@@ -60,3 +65,9 @@ PYTHONPATH=src "${PYTHON_BIN}" -m unitree_gr00t.ours_search \
   --checkpoints "${CHECKPOINT_ROOT}" \
   --output "${ARTIFACT_ROOT}/registry.json" \
   --expected-variants "${#variants[@]}"
+
+PYTHONPATH=src "${PYTHON_BIN}" -m unitree_gr00t.ours_option_audit \
+  --checkpoint-root "${CHECKPOINT_ROOT}" \
+  --output "${ARTIFACT_ROOT}/option_fit_audit.json" \
+  --device cuda:0 \
+  >"${ARTIFACT_ROOT}/option_fit_audit.log"

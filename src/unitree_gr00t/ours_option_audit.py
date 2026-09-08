@@ -130,6 +130,45 @@ def summarize_option_predictions(
     }
 
 
+def _audit_model_ids(
+    model: Any,
+    corpus: Any,
+    raw_ids: Any,
+    *,
+    batch_size: int,
+    device: str,
+    np: Any,
+    torch: Any,
+) -> dict[str, Any] | None:
+    ids = raw_ids[corpus.target_option_valid[raw_ids].sum(axis=1) >= 2]
+    if not len(ids):
+        return None
+    predictions: list[Any] = []
+    with torch.inference_mode():
+        for start in range(0, len(ids), batch_size):
+            selected = ids[start : start + batch_size]
+            batch = _batch(corpus, selected, device=device, np=np, torch=torch)
+            with torch.autocast(
+                device_type="cuda",
+                dtype=torch.bfloat16,
+                enabled=device.startswith("cuda"),
+            ):
+                outputs = model(
+                    batch["contexts"],
+                    batch["anchors"],
+                    batch["actions"],
+                    batch["selector"],
+                    batch["scalars"],
+                )
+            predictions.append(outputs["option_values"].float().cpu().numpy())
+    return summarize_option_predictions(
+        corpus.target_option_values[ids],
+        corpus.target_option_valid[ids],
+        np.concatenate(predictions),
+        np=np,
+    )
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     if args.batch_size < 1:
         raise ValueError("option audit batch size must be positive")
@@ -153,34 +192,31 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         additional = load_corpus(
             Path(additional_path), config.history_length, np, require_development=False
         )
+        additional_offset = len(primary.contexts)
         corpus = merge_corpora(primary, additional, np)
-        ids = corpus.live_ids[corpus.target_option_valid[corpus.live_ids].sum(axis=1) >= 2]
         model = build_temporal_recovery_model(config).to(args.device)
         model.load_state_dict(load_file(checkpoint / "model.safetensors", device=args.device))
         model.eval()
-        predictions: list[Any] = []
-        with torch.inference_mode():
-            for start in range(0, len(ids), args.batch_size):
-                selected = ids[start : start + args.batch_size]
-                batch = _batch(corpus, selected, device=args.device, np=np, torch=torch)
-                with torch.autocast(
-                    device_type="cuda",
-                    dtype=torch.bfloat16,
-                    enabled=args.device.startswith("cuda"),
-                ):
-                    outputs = model(
-                        batch["contexts"],
-                        batch["anchors"],
-                        batch["actions"],
-                        batch["selector"],
-                        batch["scalars"],
-                    )
-                predictions.append(outputs["option_values"].float().cpu().numpy())
-        result = summarize_option_predictions(
-            corpus.target_option_values[ids],
-            corpus.target_option_valid[ids],
-            np.concatenate(predictions),
+        result = _audit_model_ids(
+            model,
+            corpus,
+            corpus.live_ids,
+            batch_size=args.batch_size,
+            device=args.device,
             np=np,
+            torch=torch,
+        )
+        if result is None:
+            raise ValueError(f"checkpoint has no counterfactual fit states: {checkpoint}")
+        validation_ids = additional.development_ids + additional_offset
+        result["option_validation"] = _audit_model_ids(
+            model,
+            corpus,
+            validation_ids,
+            batch_size=args.batch_size,
+            device=args.device,
+            np=np,
+            torch=torch,
         )
         result.update(
             {
@@ -188,7 +224,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "checkpoint": str(checkpoint),
                 "weights_sha256": audit.weights_sha256,
                 "selected_step": int(provenance["selected_step"]),
-                "scope": "train-only counterfactual fit audit; not development selection",
+                "scope": (
+                    "train-seed counterfactual fit plus held-out episodes; "
+                    "no rollout development seed"
+                ),
             }
         )
         results.append(result)
