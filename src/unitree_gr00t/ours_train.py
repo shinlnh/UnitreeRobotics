@@ -514,23 +514,28 @@ def evaluate(
     probability = np.concatenate(probabilities)
     progress_prediction = np.concatenate(progress)
     labels = corpus.target_complete[ids]
+    b_stop = corpus.selector_candidates[ids] == 0
+    if not b_stop.any() or not labels[b_stop].any() or labels[b_stop].all():
+        raise ValueError("development STOP proposals require both completion classes")
     threshold, calibration = calibrate_threshold(
-        probability, labels, max_false_positive_rate=max_false_positive_rate, np=np
+        probability[b_stop],
+        labels[b_stop],
+        max_false_positive_rate=max_false_positive_rate,
+        np=np,
     )
     progress_threshold, progress_calibration = calibrate_threshold(
-        progress_prediction,
-        labels,
+        progress_prediction[b_stop],
+        labels[b_stop],
         max_false_positive_rate=max_false_positive_rate,
         np=np,
     )
     maximum_probability = np.maximum(probability, progress_prediction)
     maximum_threshold, maximum_calibration = calibrate_threshold(
-        maximum_probability,
-        labels,
+        maximum_probability[b_stop],
+        labels[b_stop],
         max_false_positive_rate=max_false_positive_rate,
         np=np,
     )
-    b_stop = corpus.selector_candidates[ids] == 0
     gated_stop = b_stop & (probability >= threshold)
     negative = ~labels
     positive = labels
