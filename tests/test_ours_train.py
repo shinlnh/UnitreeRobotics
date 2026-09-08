@@ -139,6 +139,34 @@ def test_repeated_corpus_merge_preserves_all_live_training_ids() -> None:
 
     assert combined.train_ids.tolist() == [0, 1, 2, 4, 5, 7]
     assert combined.live_ids.tolist() == [4, 5, 7]
+    assert [group.tolist() for group in combined.live_groups] == [[4, 5], [7]]
+
+
+def test_option_sampler_balances_seed_and_winner_strata() -> None:
+    option_valid = np.zeros((16, 6), dtype=np.bool_)
+    option_valid[[8, 9, 12, 13], :2] = True
+    option_values = np.zeros((16, 6), dtype=np.float32)
+    option_values[[8, 12], 0] = 1.0
+    option_values[[9, 13], 1] = 1.0
+    corpus = SimpleNamespace(
+        train_ids=np.arange(16),
+        live_ids=np.arange(8, 16),
+        live_groups=(np.arange(8, 12), np.arange(12, 16)),
+        target_complete=np.asarray([True, False] * 8),
+        target_option_valid=option_valid,
+        target_option_values=option_values,
+    )
+
+    ids = sample_training_ids(
+        corpus,
+        batch_size=8,
+        live_batch_fraction=0.5,
+        option_batch_fraction=0.5,
+        generator=np.random.default_rng(10007),
+        np=np,
+    )
+
+    assert {8, 9, 12, 13}.issubset(set(ids.tolist()))
 
 
 def test_failure_calibration_uses_valid_heldout_rows() -> None:

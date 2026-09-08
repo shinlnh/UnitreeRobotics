@@ -201,6 +201,9 @@ seed-`10007` corpus uses its already frozen stride 32 / eight-state sampling.
 This final density choice was made after seed-`11007` pilots at strides 32 and 4
 yielded only 34 and 42 labeled states, respectively, and before any v5 model was
 produced. Both superseded pilots remain negative sampling evidence.
+Training batches balance the Cartesian seed/winning-option strata, so the
+pathological high-STOP seed `10007` cannot dominate merely by contributing more
+states. Non-option live rows are balanced across train seeds as well.
 
 ## Trial-and-error protocol
 

@@ -43,6 +43,7 @@ class LoadedCorpus:
     train_ids: Any
     development_ids: Any
     live_ids: Any
+    live_groups: tuple[Any, ...]
 
 
 @dataclass(frozen=True)
@@ -341,11 +342,18 @@ def load_corpus(
         train_ids=concatenated_train,
         development_ids=concatenated_development,
         live_ids=concatenated_train if source_is_live else np.empty(0, dtype=np.int64),
+        live_groups=(concatenated_train,) if source_is_live else (),
     )
 
 
 def merge_corpora(primary: LoadedCorpus, additional: LoadedCorpus, np: Any) -> LoadedCorpus:
     offset = len(primary.contexts)
+    primary_groups = getattr(primary, "live_groups", ())
+    additional_groups = getattr(
+        additional,
+        "live_groups",
+        (additional.live_ids,) if len(additional.live_ids) else (),
+    )
     return LoadedCorpus(
         contexts=np.concatenate((primary.contexts, additional.contexts)),
         anchor_ids=np.concatenate((primary.anchor_ids, additional.anchor_ids + offset)),
@@ -373,7 +381,8 @@ def merge_corpora(primary: LoadedCorpus, additional: LoadedCorpus, np: Any) -> L
         ),
         train_ids=np.concatenate((primary.train_ids, additional.train_ids + offset)),
         development_ids=primary.development_ids,
-        live_ids=np.concatenate((primary.live_ids, additional.train_ids + offset)),
+        live_ids=np.concatenate((primary.live_ids, additional.live_ids + offset)),
+        live_groups=primary_groups + tuple(group + offset for group in additional_groups),
     )
 
 
@@ -407,15 +416,16 @@ def sample_training_ids(
         generator.choice(demo_negative, size=negative_count, replace=True),
     )
     if live_count:
-        option_ids = corpus.live_ids[
-            corpus.target_option_valid[corpus.live_ids].sum(axis=1) >= 2
-        ]
-        option_count = (
-            min(live_count, max(1, round(batch_size * option_batch_fraction)))
-            if len(option_ids) and option_batch_fraction > 0.0
-            else 0
-        )
-        if option_count:
+        live_groups = getattr(corpus, "live_groups", ()) or (corpus.live_ids,)
+        option_groups: list[Any] = []
+        option_ids_by_seed: list[Any] = []
+        for live_group in live_groups:
+            option_ids = live_group[
+                corpus.target_option_valid[live_group].sum(axis=1) >= 2
+            ]
+            if not len(option_ids):
+                continue
+            option_ids_by_seed.append(option_ids)
             masked_values = np.where(
                 corpus.target_option_valid[option_ids],
                 corpus.target_option_values[option_ids],
@@ -425,40 +435,66 @@ def sample_training_ids(
             strict = ordered_values[:, -1] - ordered_values[:, -2] > 1e-4
             balanced_ids = option_ids[strict]
             winners = masked_values[strict].argmax(axis=1)
-            winner_groups = [
+            option_groups.extend(
                 balanced_ids[winners == winner] for winner in np.unique(winners)
-            ]
-            if not winner_groups:
-                winner_groups = [option_ids]
-            per_group, remainder = divmod(option_count, len(winner_groups))
+            )
+        option_ids = (
+            np.concatenate(option_ids_by_seed)
+            if option_ids_by_seed
+            else np.empty(0, dtype=np.int64)
+        )
+        option_count = (
+            min(live_count, max(1, round(batch_size * option_batch_fraction)))
+            if len(option_ids) and option_batch_fraction > 0.0
+            else 0
+        )
+        if option_count:
+            if not option_groups:
+                option_groups = [option_ids]
+            per_group, remainder = divmod(option_count, len(option_groups))
             sampled_options = [
                 generator.choice(
                     group,
                     size=per_group + int(index < remainder),
                     replace=True,
                 )
-                for index, group in enumerate(winner_groups)
+                for index, group in enumerate(option_groups)
                 if per_group + int(index < remainder)
             ]
             parts += (np.concatenate(sampled_options),)
         remaining_live = live_count - option_count
         if remaining_live:
-            live_positive = corpus.live_ids[corpus.target_complete[corpus.live_ids]]
-            live_negative = corpus.live_ids[~corpus.target_complete[corpus.live_ids]]
-            if len(live_positive) and len(live_negative):
-                live_positive_count = remaining_live // 2
-                parts += (
-                    generator.choice(live_positive, size=live_positive_count, replace=True),
-                    generator.choice(
-                        live_negative,
-                        size=remaining_live - live_positive_count,
-                        replace=True,
-                    ),
-                )
-            else:
-                parts += (
-                    generator.choice(corpus.live_ids, size=remaining_live, replace=True),
-                )
+            per_seed, seed_remainder = divmod(remaining_live, len(live_groups))
+            sampled_live: list[Any] = []
+            for index, live_group in enumerate(live_groups):
+                seed_count = per_seed + int(index < seed_remainder)
+                if not seed_count:
+                    continue
+                live_positive = live_group[corpus.target_complete[live_group]]
+                live_negative = live_group[~corpus.target_complete[live_group]]
+                if len(live_positive) and len(live_negative):
+                    live_positive_count = seed_count // 2
+                    if live_positive_count:
+                        sampled_live.append(
+                            generator.choice(
+                                live_positive,
+                                size=live_positive_count,
+                                replace=True,
+                            )
+                        )
+                    if seed_count - live_positive_count:
+                        sampled_live.append(
+                            generator.choice(
+                                live_negative,
+                                size=seed_count - live_positive_count,
+                                replace=True,
+                            )
+                        )
+                else:
+                    sampled_live.append(
+                        generator.choice(live_group, size=seed_count, replace=True)
+                    )
+            parts += (np.concatenate(sampled_live),)
     ids = np.concatenate(parts)
     generator.shuffle(ids)
     return ids
