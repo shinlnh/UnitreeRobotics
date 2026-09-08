@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "corpus": "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/ctr-counterfactual-rollout-v3-pilot",
+  "corpus_files": 60,
+  "corpus_samples": 25369,
+  "thresholds": {
+    "min_labeled_states": 32,
+    "min_winning_options": 2,
+    "min_strict_preference_rate": 0.1
+  },
+  "option_targets": {
+    "labeled_states": 59,
+    "valid_option_targets": 245,
+    "strict_preferences": 48,
+    "strict_preference_rate": 0.8135593220338984,
+    "ties": 11,
+    "winning_options": {
+      "ACCEPT_B": 21,
+      "BACKTRACK_ONE": 1,
+      "CONSENSUS_PREFIX": 8,
+      "REOBSERVE": 8,
+      "RETRY_CURRENT": 10
+    },
+    "distinct_winning_options": 5,
+    "mean_best_margin": 0.7475932107891067,
+    "per_option": {
+      "ACCEPT_B": {
+        "count": 59,
+        "mean": 0.10766101628541946,
+        "standard_deviation": 1.6479370594024658,
+        "minimum": -0.38600000739097595,
+        "maximum": 8.767999649047852
+      },
+      "REOBSERVE": {
+        "count": 59,
+        "mean": 0.07623730599880219,
+        "standard_deviation": 1.548545002937317,
+        "minimum": -0.3880000114440918,
+        "maximum": 8.680000305175781
+      },
+      "RETRY_CURRENT": {
+        "count": 59,
+        "mean": 0.4798644185066223,
+        "standard_deviation": 2.460812568664551,
+        "minimum": -0.3880000114440918,
+        "maximum": 9.739999771118164
+      },
+      "BACKTRACK_ONE": {
+        "count": 9,
+        "mean": -0.2526666522026062,
+        "standard_deviation": 0.054275013506412506,
+        "minimum": -0.38999998569488525,
+        "maximum": -0.20000000298023224
+      },
+      "ADVANCE": {
+        "count": 0,
+        "mean": null,
+        "standard_deviation": null,
+        "minimum": null,
+        "maximum": null
+      },
+      "CONSENSUS_PREFIX": {
+        "count": 59,
+        "mean": 0.08406776934862137,
+        "standard_deviation": 1.6360085010528564,
+        "minimum": -0.3880000114440918,
+        "maximum": 8.753999710083008
+      }
+    }
+  },
+  "checks": {
+    "minimum_labeled_states": true,
+    "multiple_winning_options": true,
+    "strict_preference_rate": true
+  },
+  "valid": true
+}
