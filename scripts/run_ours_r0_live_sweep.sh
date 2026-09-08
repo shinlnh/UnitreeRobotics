@@ -6,9 +6,9 @@ cd "${ROOT}"
 
 PYTHON_BIN="${PYTHON_BIN:-.upstream/Isaac-GR00T-N1.7/.venv/bin/python}"
 DEMO_DATASET="${DEMO_DATASET:-outputs/robocerebra/ctr-recovery-v1}"
-LIVE_DATASET="${LIVE_DATASET:-outputs/robocerebra/ctr-live-corpus-v1/train-seed10007-full-c1-H16}"
-CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/R0-live}"
-ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-live}"
+LIVE_DATASET="${LIVE_DATASET:-outputs/robocerebra/ctr-live-corpus-v2/train-seed10007-full-c1-H16}"
+CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/R0-live-v2}"
+ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-live-v2}"
 
 mkdir -p "${CHECKPOINT_ROOT}" "${ARTIFACT_ROOT}"
 

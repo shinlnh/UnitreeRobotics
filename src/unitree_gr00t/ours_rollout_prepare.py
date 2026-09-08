@@ -19,6 +19,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rollout", type=Path, required=True)
     parser.add_argument("--destination", type=Path, required=True)
+    parser.add_argument("--failure-onset-steps", type=int, default=75)
     return parser
 
 
@@ -44,7 +45,44 @@ def _episode_key(record: dict[str, Any]) -> tuple[str, str, int]:
     return str(record["task_type"]), str(record["case"]), int(record["trial"])
 
 
+def build_failure_targets(
+    subgoals: list[int],
+    elapsed: list[int],
+    complete: list[bool],
+    failure_after_injection: list[bool],
+    *,
+    failure_onset_steps: int,
+    np: Any,
+) -> Any:
+    """Label failed temporal segments with future outcome only during data generation."""
+
+    if (
+        failure_onset_steps < 1
+        or len({len(subgoals), len(elapsed), len(complete), len(failure_after_injection)}) != 1
+    ):
+        raise ValueError("failure target inputs are inconsistent")
+    successful_subgoals = {
+        subgoal for subgoal, is_complete in zip(subgoals, complete, strict=True) if is_complete
+    }
+    return np.asarray(
+        [
+            (injected or (subgoal not in successful_subgoals and age >= failure_onset_steps))
+            and not is_complete
+            for injected, subgoal, age, is_complete in zip(
+                failure_after_injection,
+                subgoals,
+                elapsed,
+                complete,
+                strict=True,
+            )
+        ],
+        dtype=np.bool_,
+    )
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    if args.failure_onset_steps < 1:
+        raise ValueError("failure onset must be positive")
     rollout = args.rollout.expanduser().resolve()
     destination = args.destination.expanduser().resolve()
     if destination.exists() and any(destination.iterdir()):
@@ -104,7 +142,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         frames: list[int] = []
         elapsed: list[int] = []
         complete: list[bool] = []
-        failure: list[bool] = []
+        failure_after_injection: list[bool] = []
         anchor_positions: list[int] = []
         current_anchor: Any | None = None
         current_anchor_position: int | None = None
@@ -145,14 +183,22 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             frames.append(int(row["step_before"]))
             elapsed.append(int(row["step_before"]) - subgoal_start_step)
             complete.append(is_complete)
-            failure.append(injection_seen and not is_complete)
+            failure_after_injection.append(injection_seen and not is_complete)
             positives += int(is_complete)
             negatives += int(not is_complete)
-            failure_positives += int(injection_seen and not is_complete)
             injection_seen = injection_seen or any(
                 transition.get("injection") is not None for transition in row["transitions"]
             )
         count = len(rows)
+        failure = build_failure_targets(
+            subgoals,
+            elapsed,
+            complete,
+            failure_after_injection,
+            failure_onset_steps=args.failure_onset_steps,
+            np=np,
+        )
+        failure_positives += int(failure.sum())
         ids = np.arange(sample_index, sample_index + count, dtype=np.int64)
         sample_index += count
         filename = f"episode_{episode_index:06d}.npz"
@@ -174,7 +220,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "target_progress": np.zeros(count, dtype=np.float16),
                 "target_progress_valid": np.zeros(count, dtype=np.bool_),
                 "target_complete": np.asarray(complete, dtype=np.bool_),
-                "target_failure": np.asarray(failure, dtype=np.bool_),
+                "target_failure": failure,
             },
             np,
         )
@@ -201,6 +247,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "action_dim": 7,
         "consumed_rollout_base_seeds": [base_seed],
         "contains_counterfactuals": False,
+        "failure_label": (
+            "privileged post-injection or unsuccessful-subgoal temporal onset; "
+            "never a runtime input"
+        ),
+        "failure_onset_steps": args.failure_onset_steps,
         "limited": False,
         "files": len(files_sha256),
         "samples": sample_index,
