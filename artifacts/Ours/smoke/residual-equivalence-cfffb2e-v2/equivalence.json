@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "base_seed": 30007,
+  "case": "Ideal/case1",
+  "forced_abstention_margin": 1000000,
+  "decision_rows": 42,
+  "episode_rows": 1,
+  "decision_projection_equal": true,
+  "episode_projection_equal": true,
+  "complete": true
+}
