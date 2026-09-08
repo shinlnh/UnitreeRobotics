@@ -7,9 +7,10 @@ Hugging Face repositories:
 - Benchmarks and other large data: <https://huggingface.co/datasets/shin0412/UnitreeRobotic>
 
 The Hugging Face branch graph follows the GitHub feature graph: A0 and A1
-branch from `main`, A2 branches from A1, and B branches from A2. Commit titles
-use the same Conventional Commit style as the corresponding GitHub artifact
-commit. Full GitHub source SHAs are stored in the Hugging Face commit messages.
+branch from `main`, A2 branches from A1, B branches from A2, and B-retry and
+Ours branch from B. Commit titles use the same Conventional Commit style as
+the corresponding GitHub artifact commit. Full GitHub source SHAs are stored
+in the Hugging Face commit messages.
 
 | Feature | GitHub source | Model commit | Dataset commit | Dataset payload added |
 | --- | --- | --- | --- | ---: |
@@ -17,6 +18,10 @@ commit. Full GitHub source SHAs are stored in the Hugging Face commit messages.
 | A1 | `68b1a1f39570731ded4b9d56c1d017dbe0f29478` | `11b5e08e71431035c75d3eeeee2bc6731725abca` | `b763ba56a08052406cb4ceb2856fb53c7fac4080` | 31,317,064,265 B |
 | A2 | `c9930fd0aa9ffec8d4fde817981680955ff9281f` | `6cfca341d8c9f2622aff7f59dfe0738112a0ed33` | `d7d0f516862720d1849baf2fa83d9d282be7f9d0` | 30,902,981,382 B |
 | B | `06ae5d385ad55415332e4f1688b7cd59f868ac96` | `34235eed4ad8cf2724a691a22dd28b93d0eb64a8` | `be9e12b06599e5916c582fe8e86ab62c2699e1b6` | 7,258,466,080 B |
+| Ours R0 | `b69ec837d088709f59015f46ee7742475b429022` | `ab8f52158020041eb36d4cf91924ea2c5c1232ce` | `dd29f40bfe20c13e107ed4fe3e4557d22e3431d3` | 86,859,304 B |
+
+The Ours entry is an intermediate, train-only R0 mirror. Development and final
+rollout artifacts are added only after their respective protocol gates.
 
 ## Branches
 
@@ -26,6 +31,7 @@ commit. Full GitHub source SHAs are stored in the Hugging Face commit messages.
 | A1 | `feat(A1)/implement-GR00T-RC` |
 | A2 | `feat(A2)/implement-GR00T-RC-fixed-hierarchy` |
 | B | `feat(B)/implement-GR00T-RC-SparkVLA-style-execution` |
+| Ours | `feat(Ours)/implement-learned-recovery` |
 
 ## Layout and restoration
 
@@ -58,6 +64,10 @@ Model LFS objects:
 | A1/A2/B base model shard 1 | `d273ca475107b081cb91ecb4f555b6ac46692ba0d8c337935c00a03dc889b973` |
 | A1/A2/B base model shard 2 | `244a7ea7e7b2510a31cad92a805f59651301277a9e36508f863012bde49ed4aa` |
 | B selector | `88a05811257384bbba867169b72103d3bc1e118f5813a9d6c4f4713b274e1f16` |
+| Ours R0 MLP H16 v00 | `f51a4f2bab79d025be1568af828fd3ad232001539bb82abc1a6f318d2431fe03` |
+| Ours R0 MLP H16 v01 | `6f2655b2ea43beb63ce43b72f2607383e66456cb1a1277f342ecf0cc6e3e1ad1` |
+| Ours R0 GRU H16 v02 | `2761206c91bbab52896e29ab469613f99de5af0181d94e3e2b61c10ab1dbca12` |
+| Ours R0 Transformer H8 v03 | `db0b846dbd7be90cc75c201b1475cb1e4d19f1e9ac9f97a08f907d224cc6a4a8` |
 
 Decision logs and auxiliary archives:
 
@@ -73,6 +83,8 @@ Decision logs and auxiliary archives:
 | B H16 decisions | `f8d24466d24973cf0155632ed642b68e47811689de2329271f909dcc20de4d33` |
 | B H8 decisions | `1878426a806d34f595571d7162d60fda222e9a7dfd7f928f622180f0dc518121` |
 | B selector feature archive | `173325dd3a697e6dfe3e640eb26aeb59366de14c500faf275b57060e67b56e88` |
+| Ours R0 counterfactual corpus manifest | `1f8d2040ee2ba9913608b6ad2003a6e4cfa681b62b31a57a4d6e3f9505ab075b` |
+| Ours R0 counterfactual branch log | `373f494d8435f8a61e3a05a256276af9a1bb63a92f878f37b1bedf54fa74b399` |
 
 Frame archive SHA-256 values, ordered as `Ideal`, `Memory_Execution`,
 `Memory_Exploration`, `Mix`, `Observation_Mismatching`, and
