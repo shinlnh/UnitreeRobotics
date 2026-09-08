@@ -189,7 +189,9 @@ H8/W64. They use fusion dropout 0.25--0.50, weight decay 0.05--0.10, and
 so absolute branch-return scale cannot dominate the discrete decision. All
 three train seeds are pooled, while the modulo-5
 episode holdout from every seed remains excluded from fitting. A recovery
-margin is calibrated on that holdout at false-recovery rate at most 5%. R0
+margin is calibrated on that holdout at false-recovery rate at most 5%, and the
+failure detector uses the same 5% false-positive constraint on those train-seed
+held-out episodes. R0
 ranks models by beneficial recovery rate at that operating point, then recovery
 recall, decision regret, balanced option recall, and registered id. This matrix
 is fixed before any v4 result is observed. Because the bounded controller emits

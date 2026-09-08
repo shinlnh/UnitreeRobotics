@@ -704,6 +704,55 @@ def evaluate(
     }
 
 
+def evaluate_failure(
+    model: Any,
+    corpus: LoadedCorpus,
+    ids: Any,
+    *,
+    batch_size: int,
+    device: str,
+    max_false_positive_rate: float,
+    np: Any,
+    torch: Any,
+) -> dict[str, Any] | None:
+    """Calibrate failure only on held-out episodes from training seeds."""
+
+    valid_ids = ids[corpus.target_failure_valid[ids]]
+    labels = corpus.target_failure[valid_ids]
+    if not len(labels) or not labels.any() or labels.all():
+        return None
+    probabilities: list[Any] = []
+    model.eval()
+    with torch.inference_mode():
+        for start in range(0, len(valid_ids), batch_size):
+            selected = valid_ids[start : start + batch_size]
+            batch = _batch(corpus, selected, device=device, np=np, torch=torch)
+            with torch.autocast(
+                device_type="cuda",
+                dtype=torch.bfloat16,
+                enabled=device.startswith("cuda"),
+            ):
+                outputs = model(
+                    batch["contexts"],
+                    batch["anchors"],
+                    batch["actions"],
+                    batch["selector"],
+                    batch["scalars"],
+                )
+            probabilities.append(outputs["failure_logit"].sigmoid().float().cpu().numpy())
+    threshold, calibration = calibrate_threshold(
+        np.concatenate(probabilities),
+        labels,
+        max_false_positive_rate=max_false_positive_rate,
+        np=np,
+    )
+    return {
+        "failure_threshold": threshold,
+        "failure": calibration,
+        "failure_calibration_samples": len(labels),
+    }
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     counts = (
         args.steps,
@@ -785,6 +834,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     torch.cuda.manual_seed_all(args.seed)
     torch.use_deterministic_algorithms(True, warn_only=True)
     corpus = load_corpus(dataset, args.history_length, np)
+    additional_development_ids: list[Any] = []
     for additional_dataset in additional_datasets:
         live_corpus = load_corpus(
             additional_dataset,
@@ -792,6 +842,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             np,
             require_development=False,
         )
+        offset = len(corpus.contexts)
+        additional_development_ids.append(live_corpus.development_ids + offset)
         corpus = merge_corpora(corpus, live_corpus, np)
     model_config = TemporalRecoveryModelConfig(
         encoder=args.encoder,
@@ -913,6 +965,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if selected_state is None or selected_metrics is None:
         raise RuntimeError("Ours training produced no selectable checkpoint")
     model.load_state_dict(selected_state)
+    if additional_development_ids:
+        failure_metrics = evaluate_failure(
+            model,
+            corpus,
+            np.concatenate(additional_development_ids),
+            batch_size=args.batch_size,
+            device=args.device,
+            max_false_positive_rate=args.max_false_positive_rate,
+            np=np,
+            torch=torch,
+        )
+        if failure_metrics is not None:
+            selected_metrics = dict(selected_metrics)
+            selected_metrics.update(failure_metrics)
     destination.mkdir(parents=True, exist_ok=True)
     weights_path = destination / "model.safetensors"
     save_file(
@@ -971,6 +1037,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "learning_rate": args.learning_rate,
         "weight_decay": args.weight_decay,
         "max_false_positive_rate": args.max_false_positive_rate,
+        "failure_calibration_scope": (
+            "held-out episodes from train base seeds"
+            if additional_development_ids
+            else "primary development split when labels are available"
+        ),
         "selection_rule": "max TPR at FPR<=limit, then min Brier/progress MAE, earliest tie",
         "selected_step": selected_step,
         "development_metrics": selected_metrics,
