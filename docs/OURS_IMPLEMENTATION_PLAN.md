@@ -358,6 +358,27 @@ head learns the causal residual advantage directly instead of spending
 capacity on a state-dependent common return offset. The centering flag and
 baseline option are recorded in checkpoint provenance.
 
+V9 completed all three train seeds with 189 labeled states and 929 branches.
+Nineteen states (10.0529%) contain a physically beneficial override, versus
+8/189 (4.2328%) in v8; all 19 v9 return improvements are physically aligned,
+with zero efficiency-only gains and zero physical regressions. The combination
+of a longer horizon and outcome-first target therefore exposes 2.375 times as
+many useful states, but this comparison does not attribute the increase to one
+change in isolation. Four late states are correctly truncated by the global
+budget contract and all corpus audits pass.
+
+Before any v9 model is trained, a train-seed-only split audit found that the
+legacy episode-index modulo-5 holdout contained zero positive override episodes
+for seeds `10007` and `11007`, and only two positive states in total. Model and
+margin selection on that partition would be underidentified. V9 therefore uses
+a declared episode-level stratified split: episodes are separated by whether
+they contain any strict physical override over `RETRY_CURRENT`, ranked within
+each class by SHA-256 of a fixed salt, train seed, and episode id, and 20% of
+each class (rounded up) is held out. This retains both classes in train and
+validation for every seed without choosing a modulo remainder from observed
+performance. The old split remains the v8 provenance; no rollout development
+or final seed informed this amendment.
+
 The six low-capacity R0 architectures and all optimizer settings remain
 identical to v5.  V8 models are diagnostic ablations; the R1b registry is ranked
 only from episode-held-out residual-v9 advantage against `RETRY_CURRENT`.
