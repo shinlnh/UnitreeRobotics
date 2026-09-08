@@ -58,7 +58,7 @@ def test_selective_consensus_reobserves_then_executes_medoid_nonstop_prefix() ->
     assert not cooldown.recovery_triggered
 
 
-def test_low_failure_stop_uses_one_prefix_without_extra_policy_call() -> None:
+def test_low_failure_stop_preserves_b_without_recovery() -> None:
     controller = SelectiveConsensusRecovery(
         completion_threshold=0.8,
         consensus_hypotheses=4,
@@ -77,10 +77,10 @@ def test_low_failure_stop_uses_one_prefix_without_extra_policy_call() -> None:
         failure_probability=0.1,
         np=np,
     )
-    assert directive.option == "CONSENSUS_PREFIX"
-    assert directive.candidate == 2
+    assert directive.option == "ACCEPT_B"
+    assert directive.candidate == 0
     assert directive.hypothesis_count == 1
-    assert directive.recovery_triggered
+    assert not directive.recovery_triggered
 
 
 def test_single_hypothesis_is_a_bounded_recovery_intervention() -> None:
@@ -131,7 +131,7 @@ def test_recovery_budget_resets_only_when_subgoal_changes() -> None:
         "valid": np.asarray([True, True, True] + [False] * 14),
         "completion_probability": 0.1,
         "progress_probability": 0.2,
-        "failure_probability": 0.1,
+        "failure_probability": 0.9,
         "np": np,
     }
     assert controller.decide(subgoal_index=0, **kwargs).recovery_triggered

@@ -21,7 +21,7 @@ class RecoveryDirective:
 
 
 class SelectiveConsensusRecovery:
-    """Reject premature STOP and execute a medoid proposal from live observations."""
+    """Recover only from low-completion, high-failure STOP proposals."""
 
     def __init__(
         self,
@@ -111,6 +111,7 @@ class SelectiveConsensusRecovery:
         if self._active_subgoal != subgoal_index:
             self._active_subgoal = subgoal_index
             self._recovery_attempts = 0
+            self._cooldown_remaining = 0
             self._clear_proposals()
         cooldown_active = self._cooldown_remaining > 0
         if cooldown_active:
@@ -188,13 +189,12 @@ class SelectiveConsensusRecovery:
 
         if failure_probability < self.failure_threshold or cooldown_active:
             self._clear_proposals()
-            self._recovery_attempts += 1
             return RecoveryDirective(
-                candidate=self._best_nonstop(scores, valid, np),
+                candidate=0,
                 action_chunk=action_chunk,
                 suppress_stop_confirmation=False,
-                option=RecoveryOption.CONSENSUS_PREFIX.value,
-                recovery_triggered=True,
+                option=RecoveryOption.ACCEPT_B.value,
+                recovery_triggered=False,
                 hypothesis_count=1,
                 completion_probability=completion_probability,
                 progress_probability=progress_probability,
