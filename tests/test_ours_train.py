@@ -10,7 +10,42 @@ from unitree_gr00t.ours_train import (
     evaluate_residual_options,
     merge_corpora,
     sample_training_ids,
+    validate_residual_advantage_manifests,
 )
+
+
+def _residual_advantage_manifest() -> dict:
+    return {
+        "counterfactual_sampling": {
+            "residual_retry_baseline": True,
+            "return_target": "outcome-first-physical-v1",
+            "cost_terms_in_target": False,
+            "global_step_budget_contract": (
+                "min-configured-rollout-and-source-global-steps-remaining-v1"
+            ),
+        }
+    }
+
+
+def test_residual_advantage_manifest_requires_physical_budgeted_targets() -> None:
+    manifest = _residual_advantage_manifest()
+    validate_residual_advantage_manifests([manifest])
+
+    for field, invalid in (
+        ("residual_retry_baseline", False),
+        ("return_target", "efficiency-shaped-v1"),
+        ("cost_terms_in_target", True),
+        ("global_step_budget_contract", "configured-rollout-only"),
+    ):
+        modified = _residual_advantage_manifest()
+        modified["counterfactual_sampling"][field] = invalid
+        with pytest.raises(ValueError, match="outcome-first"):
+            validate_residual_advantage_manifests([modified])
+
+
+def test_residual_advantage_manifest_requires_a_corpus() -> None:
+    with pytest.raises(ValueError, match="require residual counterfactual corpora"):
+        validate_residual_advantage_manifests([])
 
 
 def test_training_histories_reset_at_every_runtime_anchor() -> None:

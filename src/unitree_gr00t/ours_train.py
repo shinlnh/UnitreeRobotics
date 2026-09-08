@@ -20,6 +20,7 @@ from .ours import (
     RECOVERY_OPTIONS,
     RecoveryOption,
 )
+from .ours_counterfactual import OUTCOME_FIRST_RETURN_TARGET
 from .ours_data import OURS_CORPUS_MANIFEST, audit_recovery_corpus
 from .ours_model import (
     TemporalRecoveryModelConfig,
@@ -30,6 +31,9 @@ from .ours_model import (
 from .ours_option_audit import summarize_residual_predictions
 
 OURS_CHECKPOINT_PROVENANCE = "ours_recovery_provenance.json"
+RESIDUAL_GLOBAL_STEP_BUDGET_CONTRACT = (
+    "min-configured-rollout-and-source-global-steps-remaining-v1"
+)
 
 
 @dataclass(frozen=True)
@@ -64,6 +68,28 @@ class RecoveryCheckpointAudit:
     history_length: int
     completion_threshold: float
     valid: bool
+
+
+def validate_residual_advantage_manifests(manifests: list[dict[str, Any]]) -> None:
+    """Fail closed unless residual targets are physical and globally budgeted."""
+
+    if not manifests:
+        raise ValueError(
+            "residual option advantages require residual counterfactual corpora"
+        )
+    for manifest in manifests:
+        sampling = manifest.get("counterfactual_sampling", {})
+        if (
+            not bool(sampling.get("residual_retry_baseline"))
+            or sampling.get("return_target") != OUTCOME_FIRST_RETURN_TARGET
+            or sampling.get("cost_terms_in_target") is not False
+            or sampling.get("global_step_budget_contract")
+            != RESIDUAL_GLOBAL_STEP_BUDGET_CONTRACT
+        ):
+            raise ValueError(
+                "residual option advantages require outcome-first, cost-free "
+                "targets with the source global-step budget contract"
+            )
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -964,6 +990,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             raise ValueError(
                 "residual checkpoint selection requires residual counterfactual corpora"
             )
+    if residual_option_advantages:
+        validate_residual_advantage_manifests(additional_manifests)
 
     # CUDA requires this workspace contract for deterministic CuBLAS kernels.
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
