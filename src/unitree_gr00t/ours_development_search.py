@@ -165,6 +165,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "failure_threshold": manifest["failure_threshold"],
                 "consensus_cooldown_decisions": manifest["consensus_cooldown_decisions"],
                 "max_recovery_attempts": manifest.get("max_recovery_attempts"),
+                "min_recovery_elapsed_steps": manifest.get("min_recovery_elapsed_steps"),
                 "stagnation_boundary_steps": manifest["stagnation_boundary_steps"],
                 "task_macro_subtask_rate": task_macro_subtask_rate(rows),
                 "paired_task_macro": paired,

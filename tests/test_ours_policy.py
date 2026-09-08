@@ -139,6 +139,31 @@ def test_recovery_budget_resets_only_when_subgoal_changes() -> None:
     assert controller.decide(subgoal_index=1, **kwargs).recovery_triggered
 
 
+def test_failure_onset_guard_defers_early_recovery() -> None:
+    controller = SelectiveConsensusRecovery(
+        completion_threshold=0.8,
+        consensus_hypotheses=1,
+        min_recovery_elapsed_steps=75,
+    )
+    kwargs = {
+        "candidate": 0,
+        "action_chunk": np.ones((16, 7), dtype=np.float32),
+        "scores": np.asarray([4.0, 1.0, 3.0] + [0.0] * 14, dtype=np.float32),
+        "valid": np.asarray([True, True, True] + [False] * 14),
+        "completion_probability": 0.1,
+        "progress_probability": 0.2,
+        "failure_probability": 0.9,
+        "np": np,
+    }
+    early = controller.decide(subgoal_elapsed_steps=74, **kwargs)
+    onset = controller.decide(subgoal_elapsed_steps=75, **kwargs)
+    assert early.candidate == 0
+    assert early.option == "ACCEPT_B"
+    assert not early.recovery_triggered
+    assert onset.candidate > 0
+    assert onset.recovery_triggered
+
+
 def test_selective_consensus_accepts_action_and_high_confidence_stop() -> None:
     controller = SelectiveConsensusRecovery(completion_threshold=0.8, consensus_hypotheses=4)
     chunk = np.zeros((16, 7), dtype=np.float32)

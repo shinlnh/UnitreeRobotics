@@ -61,7 +61,8 @@ run_variant() {
   local failure_threshold="$5"
   local cooldown="$6"
   local max_attempts="$7"
-  local boundary="$8"
+  local min_elapsed="$8"
+  local boundary="$9"
   local checkpoint="${CHECKPOINT_ROOT}/${checkpoint_name}"
   local output="${OUTPUT_ROOT}/${variant_id}"
   if [[ -f "${output}/summary.json" ]] && \
@@ -101,6 +102,7 @@ run_variant() {
     --failure-threshold "${failure_threshold}" \
     --consensus-cooldown-decisions "${cooldown}" \
     --max-recovery-attempts "${max_attempts}" \
+    --min-recovery-elapsed-steps "${min_elapsed}" \
     "${boundary_args[@]}" \
     "${resume[@]}" \
     >"${OUTPUT_ROOT}/${variant_id}.log" 2>&1
@@ -114,25 +116,25 @@ run_variant() {
 # motivated the bounded-attempt fix. The remaining eleven are the corrected R1
 # search matrix and never use an elapsed-time forced boundary. An interrupted
 # second unbounded run is retained outside R1 as a failed ablation.
-# id checkpoint gate hypotheses failure-threshold cooldown max-attempts boundary
+# id checkpoint gate hypotheses failure-threshold cooldown max-attempts min-elapsed boundary
 variants=(
-  "r1-00-mlp025-comp-c1-b150 v01-mlp-h16-live0250 completion 1 0.90 16 1 150"
-  "r1-01-mlp025-comp-c4-f090-a1 v01-mlp-h16-live0250 completion 4 0.90 16 1 none"
-  "r1-02-mlp025-comp-c1-a1 v01-mlp-h16-live0250 completion 1 0.90 16 1 none"
-  "r1-03-mlp025-comp-c1-a2 v01-mlp-h16-live0250 completion 1 0.90 16 2 none"
-  "r1-04-mlp025-comp-c4-f095-a1 v01-mlp-h16-live0250 completion 4 0.95 16 1 none"
-  "r1-05-mlp025-comp-c4-f099-a1 v01-mlp-h16-live0250 completion 4 0.99 16 1 none"
-  "r1-06-mlp025-comp-c4-f095-a2 v01-mlp-h16-live0250 completion 4 0.95 16 2 none"
-  "r1-07-mlp025-progress-c1-a1 v01-mlp-h16-live0250 progress 1 0.90 16 1 none"
-  "r1-08-mlp025-maximum-c1-a1 v01-mlp-h16-live0250 maximum 1 0.90 16 1 none"
-  "r1-09-mlp0125-comp-c1-a1 v00-mlp-h16-live0125 completion 1 0.90 16 1 none"
-  "r1-10-mlp0500-comp-c1-a1 v02-mlp-h16-live0500 completion 1 0.90 16 1 none"
-  "r1-11-gru0500-comp-c1-a1 v06-gru-h16-live0500 completion 1 0.90 16 1 none"
+  "r1-00-mlp025-comp-c1-b150 v01-mlp-h16-live0250 completion 1 0.90 16 1 0 150"
+  "r1-01-mlp025-comp-c4-f090-a1-e000 v01-mlp-h16-live0250 completion 4 0.90 16 1 0 none"
+  "r1-02-mlp025-comp-c4-f090-a1-e075 v01-mlp-h16-live0250 completion 4 0.90 16 1 75 none"
+  "r1-03-mlp025-comp-c1-a1-e075 v01-mlp-h16-live0250 completion 1 0.90 16 1 75 none"
+  "r1-04-mlp025-comp-c1-a2-e075 v01-mlp-h16-live0250 completion 1 0.90 16 2 75 none"
+  "r1-05-mlp025-comp-c4-f095-a1-e075 v01-mlp-h16-live0250 completion 4 0.95 16 1 75 none"
+  "r1-06-mlp025-comp-c4-f099-a1-e075 v01-mlp-h16-live0250 completion 4 0.99 16 1 75 none"
+  "r1-07-mlp025-progress-c1-a1-e075 v01-mlp-h16-live0250 progress 1 0.90 16 1 75 none"
+  "r1-08-mlp025-maximum-c1-a1-e075 v01-mlp-h16-live0250 maximum 1 0.90 16 1 75 none"
+  "r1-09-mlp0125-comp-c1-a1-e075 v00-mlp-h16-live0125 completion 1 0.90 16 1 75 none"
+  "r1-10-mlp0500-comp-c1-a1-e075 v02-mlp-h16-live0500 completion 1 0.90 16 1 75 none"
+  "r1-11-gru0500-comp-c1-a1-e075 v06-gru-h16-live0500 completion 1 0.90 16 1 75 none"
 )
 
 current_checkpoint=""
 for specification in "${variants[@]}"; do
-  read -r variant_id checkpoint_name gate_signal hypotheses failure_threshold cooldown max_attempts boundary <<<"${specification}"
+  read -r variant_id checkpoint_name gate_signal hypotheses failure_threshold cooldown max_attempts min_elapsed boundary <<<"${specification}"
   if [[ "${checkpoint_name}" != "${current_checkpoint}" ]]; then
     stop_server
     start_server "${CHECKPOINT_ROOT}/${checkpoint_name}" "${checkpoint_name}"
@@ -140,5 +142,5 @@ for specification in "${variants[@]}"; do
   fi
   run_variant \
     "${variant_id}" "${checkpoint_name}" "${gate_signal}" "${hypotheses}" \
-    "${failure_threshold}" "${cooldown}" "${max_attempts}" "${boundary}"
+    "${failure_threshold}" "${cooldown}" "${max_attempts}" "${min_elapsed}" "${boundary}"
 done

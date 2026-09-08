@@ -31,6 +31,7 @@ class SelectiveConsensusRecovery:
         completion_threshold: float | None = None,
         consensus_hypotheses: int,
         max_recovery_attempts: int = 1,
+        min_recovery_elapsed_steps: int = 0,
         failure_threshold: float = 0.5,
         consensus_cooldown_decisions: int = 16,
         force_boundary_steps: int | None = None,
@@ -46,6 +47,8 @@ class SelectiveConsensusRecovery:
             raise OursContractError("consensus hypotheses must be positive")
         if max_recovery_attempts not in {1, 2}:
             raise OursContractError("max recovery attempts must be one or two")
+        if min_recovery_elapsed_steps < 0:
+            raise OursContractError("minimum recovery elapsed steps cannot be negative")
         if not 0.0 <= failure_threshold <= 1.0:
             raise OursContractError("failure threshold must be inside [0, 1]")
         if consensus_cooldown_decisions < 0:
@@ -56,6 +59,7 @@ class SelectiveConsensusRecovery:
         self.gate_threshold = selected_threshold
         self.consensus_hypotheses = consensus_hypotheses
         self.max_recovery_attempts = max_recovery_attempts
+        self.min_recovery_elapsed_steps = min_recovery_elapsed_steps
         self.failure_threshold = failure_threshold
         self.consensus_cooldown_decisions = consensus_cooldown_decisions
         self.force_boundary_steps = force_boundary_steps
@@ -187,7 +191,11 @@ class SelectiveConsensusRecovery:
                 progress_probability=progress_probability,
             )
 
-        if failure_probability < self.failure_threshold or cooldown_active:
+        if (
+            subgoal_elapsed_steps < self.min_recovery_elapsed_steps
+            or failure_probability < self.failure_threshold
+            or cooldown_active
+        ):
             self._clear_proposals()
             return RecoveryDirective(
                 candidate=0,
