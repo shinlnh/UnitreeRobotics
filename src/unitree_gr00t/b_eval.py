@@ -187,6 +187,8 @@ def _run_episode(
     recovery_triggers = 0
     recovery_reobservations = 0
     recovery_consensus_executions = 0
+    recovery_option_counts: dict[str, int] = {}
+    recovery_subgoal_transitions = 0
     zero_progress_decisions = 0
     policy_latencies: list[float] = []
     started = time.perf_counter()
@@ -300,10 +302,15 @@ def _run_episode(
                 raise RuntimeError("Ours recovery directive is invalid")
             if recovery_directive.recovery_triggered:
                 recovery_triggers += 1
+                recovery_option_counts[recovery_directive.option] = (
+                    recovery_option_counts.get(recovery_directive.option, 0) + 1
+                )
             if recovery_directive.option == "REOBSERVE":
                 recovery_reobservations += 1
             if recovery_directive.option == "CONSENSUS_PREFIX":
                 recovery_consensus_executions += 1
+            if recovery_directive.apply_subgoal_transition:
+                recovery_subgoal_transitions += 1
 
         if recovery_directive is not None and recovery_directive.apply_subgoal_transition:
             confirmation_state = StopConfirmationState()
@@ -687,6 +694,8 @@ def _run_episode(
                 "recovery_triggers": recovery_triggers,
                 "recovery_reobservations": recovery_reobservations,
                 "recovery_consensus_executions": recovery_consensus_executions,
+                "recovery_option_counts": dict(sorted(recovery_option_counts.items())),
+                "recovery_subgoal_transitions": recovery_subgoal_transitions,
             }
             if identity.recovery
             else {}
@@ -826,6 +835,22 @@ def _build_summary(
                 ),
                 "total_recovery_consensus_executions": sum(
                     int(result["recovery_consensus_executions"]) for result in results
+                ),
+                "total_recovery_option_counts": {
+                    option: sum(
+                        int(result["recovery_option_counts"].get(option, 0))
+                        for result in results
+                    )
+                    for option in sorted(
+                        {
+                            option
+                            for result in results
+                            for option in result["recovery_option_counts"]
+                        }
+                    )
+                },
+                "total_recovery_subgoal_transitions": sum(
+                    int(result["recovery_subgoal_transitions"]) for result in results
                 ),
             }
             if manifest.get("recovery")
