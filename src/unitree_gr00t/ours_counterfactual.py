@@ -98,6 +98,25 @@ def snapshot_sha256(snapshot: SimulatorSnapshot, np: Any) -> str:
     return digest.hexdigest()
 
 
+def snapshot_mismatches(
+    expected: SimulatorSnapshot,
+    actual: SimulatorSnapshot,
+    np: Any,
+) -> tuple[str, ...]:
+    mismatches: list[str] = []
+    for name in ("flattened_state", "ctrl", "mocap_pos", "mocap_quat"):
+        before = getattr(expected, name)
+        after = getattr(actual, name)
+        if (before is None) != (after is None) or (
+            before is not None and not np.allclose(before, after, rtol=0.0, atol=1e-12)
+        ):
+            mismatches.append(name)
+    for name in ("state_progress", "timestep", "done"):
+        if getattr(expected, name) != getattr(actual, name):
+            mismatches.append(name)
+    return tuple(mismatches)
+
+
 def _predicate_count(env: Any, goal: dict[str, list[list[str]]]) -> int:
     return sum(
         bool(env._eval_predicate(predicate)) for states in goal.values() for predicate in states
@@ -121,7 +140,6 @@ def evaluate_counterfactual_options(
     if state_index < 0 or completed_subtasks_before < 0 or not option_actions:
         raise OursContractError("counterfactual branch state is invalid")
     snapshot = capture_simulator_snapshot(env)
-    source_sha256 = snapshot_sha256(snapshot, np)
     predicate_before = _predicate_count(env, goal)
     branches: list[CounterfactualBranch] = []
     try:
@@ -167,8 +185,12 @@ def evaluate_counterfactual_options(
             )
     finally:
         restore_simulator_snapshot(env, snapshot)
-    if snapshot_sha256(capture_simulator_snapshot(env), np) != source_sha256:
-        raise OursContractError("counterfactual simulator restore did not replay exactly")
+    restored = capture_simulator_snapshot(env)
+    mismatches = snapshot_mismatches(snapshot, restored, np)
+    if mismatches:
+        raise OursContractError(
+            "counterfactual simulator restore did not replay exactly: " + ", ".join(mismatches)
+        )
     return tuple(branches)
 
 

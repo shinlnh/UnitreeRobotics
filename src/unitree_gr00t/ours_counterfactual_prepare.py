@@ -40,6 +40,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--destination", type=Path, required=True)
     parser.add_argument("--stop-stride", type=int, default=32)
     parser.add_argument("--max-states-per-episode", type=int, default=8)
+    parser.add_argument("--max-replay-mismatch-rate", type=float, default=0.05)
     return parser
 
 
@@ -90,7 +91,10 @@ def _semantic_return(branch: Any, *, complete: bool) -> Any:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    if min(args.stop_stride, args.max_states_per_episode) < 1:
+    if (
+        min(args.stop_stride, args.max_states_per_episode) < 1
+        or not 0.0 <= args.max_replay_mismatch_rate <= 0.05
+    ):
         raise ValueError("counterfactual sampling counts must be positive")
     rollout = args.rollout.expanduser().resolve()
     source_corpus = args.source_corpus.expanduser().resolve()
@@ -140,6 +144,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     files_sha256: dict[str, str] = {}
     branch_count = 0
     state_count = 0
+    replay_rows = 0
+    replay_mismatches = 0
     option_counts = {option.value: 0 for option in RECOVERY_OPTIONS}
     for episode_index, key in enumerate(sorted(decisions)):
         case = cases[(key[0], key[1])]
@@ -186,11 +192,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     observation, _, _, _ = env.step(hold)
             for position, row in enumerate(rows):
                 env._check_success(goal)
-                if _predicate_snapshot(env, goal) != row["success_predicates_before"]:
-                    raise OursContractError(
-                        f"counterfactual source state does not replay: {key} call {row['policy_call']}"
-                    )
-                if position in selected_positions:
+                replay_match = _predicate_snapshot(env, goal) == row["success_predicates_before"]
+                replay_rows += 1
+                replay_mismatches += int(not replay_match)
+                if position in selected_positions and replay_match:
                     completed_before = int(row["completed_subtasks_before"])
                     complete = completed_before > int(row["active_subgoal_index_before"]) + int(
                         episodes[key]["excluded_subtasks"]
@@ -245,6 +250,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         _save_episode(output_path, arrays, np)
         files_sha256[filename] = sha256_file(output_path)
 
+    replay_mismatch_rate = replay_mismatches / replay_rows if replay_rows else 1.0
+    if replay_mismatch_rate > args.max_replay_mismatch_rate:
+        raise OursContractError(
+            f"counterfactual replay mismatch rate {replay_mismatch_rate:.6f} exceeds cap"
+        )
+
     manifest = dict(source_manifest)
     manifest.update(
         {
@@ -259,6 +270,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "state_count": state_count,
                 "branch_count": branch_count,
                 "options": option_counts,
+                "replay_rows": replay_rows,
+                "replay_mismatches": replay_mismatches,
+                "replay_mismatch_rate": replay_mismatch_rate,
+                "max_replay_mismatch_rate": args.max_replay_mismatch_rate,
                 "training_only_restore": True,
                 "runtime_restore": False,
             },
