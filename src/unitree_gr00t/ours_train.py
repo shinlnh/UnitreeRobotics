@@ -877,6 +877,9 @@ def evaluate_residual_options(
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    residual_option_advantages = bool(
+        getattr(args, "residual_option_advantages", False)
+    )
     counts = (
         args.steps,
         args.batch_size,
@@ -901,7 +904,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         < 0.0
     ):
         raise ValueError("Ours training counts or calibration limit are invalid")
-    if args.residual_option_advantages and args.checkpoint_selection != "residual":
+    if residual_option_advantages and args.checkpoint_selection != "residual":
         raise ValueError(
             "residual option advantages require residual checkpoint selection"
         )
@@ -1057,7 +1060,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 option_classification_weight=args.option_classification_weight,
                 option_baseline_index=(
                     RECOVERY_OPTIONS.index(RecoveryOption.RETRY_CURRENT)
-                    if args.residual_option_advantages
+                    if residual_option_advantages
                     else None
                 ),
             )
@@ -1199,10 +1202,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "option_value_weight": args.option_value_weight,
         "option_rank_weight": args.option_rank_weight,
         "option_classification_weight": args.option_classification_weight,
-        "residual_option_advantages": args.residual_option_advantages,
+        "residual_option_advantages": residual_option_advantages,
         "option_value_baseline": (
             RecoveryOption.RETRY_CURRENT.value
-            if args.residual_option_advantages
+            if residual_option_advantages
             else None
         ),
         "selector_weights_sha256": manifest["selector_weights_sha256"],
