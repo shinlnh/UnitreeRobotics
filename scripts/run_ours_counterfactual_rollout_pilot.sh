@@ -15,7 +15,7 @@ MIN_SOURCE_ELAPSED_STEPS="${MIN_SOURCE_ELAPSED_STEPS:-75}"
 ROLLOUT_STEPS="${ROLLOUT_STEPS:-75}"
 MAX_POLICY_CALLS="${MAX_POLICY_CALLS:-24}"
 CONSENSUS_HYPOTHESES="${CONSENSUS_HYPOTHESES:-4}"
-mkdir -p logs "${ARTIFACT_ROOT}"
+mkdir -p "${ARTIFACT_ROOT}"
 
 if pgrep -f 'python .*unitree_gr00t\.(ours_server|b_server)' >/dev/null; then
   echo "Refusing to load a second GR00T server while another research server is active" >&2
@@ -44,7 +44,7 @@ PYTHONPATH=src "${SERVER_PYTHON}" -m unitree_gr00t.b_server \
   --host 0.0.0.0 \
   --port "${PORT}" \
   --seed 10007 \
-  >logs/ours-counterfactual-rollout-server.log 2>&1 &
+  >"${ARTIFACT_ROOT}/server.log" 2>&1 &
 server_pid="$!"
 for _ in $(seq 1 90); do
   if ! kill -0 "${server_pid}" 2>/dev/null; then
@@ -74,7 +74,7 @@ PYTHONPATH=src "${EVAL_PYTHON}" -m unitree_gr00t.ours_counterfactual_rollout_pre
   --rollout-steps "${ROLLOUT_STEPS}" \
   --max-policy-calls "${MAX_POLICY_CALLS}" \
   --consensus-hypotheses "${CONSENSUS_HYPOTHESES}" \
-  >logs/ours-counterfactual-rollout-pilot.log 2>&1
+  >"${ARTIFACT_ROOT}/generator.log" 2>&1
 
 PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_audit \
   --corpus "${DESTINATION}" \
