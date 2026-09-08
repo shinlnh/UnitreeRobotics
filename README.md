@@ -34,6 +34,10 @@ Project end-to-end để chạy một policy vision-language-action generalist t
 | B: GR00T-RC + SparkVLA-style execution | Có | `gr00t-g1 b-check` |
 | G1 real deployment interlock | Có | `gr00t-g1 deploy --mode real` |
 
+Model, benchmark và cache lớn được lưu theo đúng cây nhánh tại Hugging Face;
+xem [docs/HUGGING_FACE_ARTIFACTS.md](docs/HUGGING_FACE_ARTIFACTS.md) để tra
+branch, commit, layout và checksum.
+
 ## Ba demo Isaac Sim đã chạy thật
 
 Các launcher headless vẫn render và ghi MP4, nhưng chạy tách khỏi VS Code để tránh
