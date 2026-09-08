@@ -52,7 +52,11 @@ def _parser() -> argparse.ArgumentParser:
         type=int,
         help="Bounded outcome-blind ADVANCE fallback searched only on development runs",
     )
-    parser.add_argument("--failure-threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--failure-threshold",
+        type=float,
+        help="Development-only override; otherwise use checkpoint calibration",
+    )
     parser.add_argument("--max-recovery-attempts", type=int, choices=(1, 2), default=1)
     parser.add_argument("--min-recovery-elapsed-steps", type=int, default=75)
     parser.add_argument("--use-option-values", action="store_true")
@@ -74,12 +78,14 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     ):
         raise ValueError("collection and searched stagnation boundaries are mutually exclusive")
     if args.seed == 7 and (
-        args.gate_threshold_override is not None or args.stagnation_boundary_steps is not None
+        args.gate_threshold_override is not None
+        or args.failure_threshold is not None
+        or args.stagnation_boundary_steps is not None
     ):
         raise ValueError("held-out evaluation requires controls frozen into checkpoint provenance")
     if args.gate_threshold_override is not None and not 0.0 <= args.gate_threshold_override <= 1.0:
         raise ValueError("gate threshold override must be inside [0, 1]")
-    if not 0.0 <= args.failure_threshold <= 1.0:
+    if args.failure_threshold is not None and not 0.0 <= args.failure_threshold <= 1.0:
         raise ValueError("failure threshold must be inside [0, 1]")
     if args.consensus_cooldown_decisions < 0:
         raise ValueError("consensus cooldown cannot be negative")
@@ -104,6 +110,12 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         if args.gate_threshold_override is not None
         else checkpoint_gate_threshold
     )
+    checkpoint_failure_threshold = float(metrics.get("failure_threshold") or 0.5)
+    failure_threshold = (
+        float(args.failure_threshold)
+        if args.failure_threshold is not None
+        else checkpoint_failure_threshold
+    )
     boundary_steps = (
         args.collection_force_boundary_steps
         if args.collection_force_boundary_steps is not None
@@ -117,7 +129,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         min_recovery_elapsed_steps=args.min_recovery_elapsed_steps,
         use_option_values=args.use_option_values,
         option_value_margin=args.option_value_margin,
-        failure_threshold=args.failure_threshold,
+        failure_threshold=failure_threshold,
         consensus_cooldown_decisions=args.consensus_cooldown_decisions,
         force_boundary_steps=boundary_steps,
     )
@@ -141,7 +153,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "min_recovery_elapsed_steps": args.min_recovery_elapsed_steps,
         "use_option_values": args.use_option_values,
         "option_value_margin": args.option_value_margin,
-        "failure_threshold": args.failure_threshold,
+        "failure_threshold": failure_threshold,
+        "checkpoint_failure_threshold": checkpoint_failure_threshold,
+        "failure_threshold_override": args.failure_threshold,
         "consensus_cooldown_decisions": args.consensus_cooldown_decisions,
         "recovery_checkpoint_stage": recovery_provenance["stage"],
         "failure_detector": True,

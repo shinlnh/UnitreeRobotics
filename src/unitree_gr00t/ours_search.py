@@ -47,6 +47,7 @@ def build_r0_registry(checkpoint_root: Path, expected_variants: int = 12) -> dic
         dataset_hashes.add(str(record["dataset_manifest_sha256"]))
         metrics = record["development_metrics"]
         completion = metrics["completion"]
+        failure = metrics.get("failure")
         records.append(
             {
                 "variant_id": path.parent.name,
@@ -64,6 +65,17 @@ def build_r0_registry(checkpoint_root: Path, expected_variants: int = 12) -> dic
                 "brier": float(metrics["brier"]),
                 "ece_15": float(metrics["ece_15"]),
                 "progress_mae": float(metrics["progress_mae"]),
+                "failure_threshold": (
+                    float(metrics["failure_threshold"])
+                    if metrics.get("failure_threshold") is not None
+                    else None
+                ),
+                "failure_false_positive_rate": (
+                    float(failure["false_positive_rate"]) if failure is not None else None
+                ),
+                "failure_true_positive_rate": (
+                    float(failure["true_positive_rate"]) if failure is not None else None
+                ),
                 "b_false_stop_proposals": int(metrics["b_false_stop_proposals"]),
                 "gated_false_stops": int(metrics["gated_false_stops"]),
                 "b_true_stop_proposals": int(metrics["b_true_stop_proposals"]),
@@ -72,7 +84,9 @@ def build_r0_registry(checkpoint_root: Path, expected_variants: int = 12) -> dic
             }
         )
     if len(records) != expected_variants:
-        raise OursContractError(f"expected {expected_variants} R0 variants, found {len(records)}")
+        raise OursContractError(
+            f"expected {expected_variants} R0 variants, found {len(records)}"
+        )
     if len(dataset_hashes) != 1:
         raise OursContractError("R0 variants do not share one frozen corpus")
     records.sort(

@@ -400,7 +400,9 @@ def sample_training_ids(
         generator.choice(demo_negative, size=negative_count, replace=True),
     )
     if live_count:
-        option_ids = corpus.live_ids[corpus.target_option_valid[corpus.live_ids].sum(axis=1) >= 2]
+        option_ids = corpus.live_ids[
+            corpus.target_option_valid[corpus.live_ids].sum(axis=1) >= 2
+        ]
         option_count = (
             min(live_count, max(1, round(batch_size * option_batch_fraction)))
             if len(option_ids) and option_batch_fraction > 0.0
@@ -413,7 +415,9 @@ def sample_training_ids(
                 -np.inf,
             )
             winners = masked_values.argmax(axis=1)
-            winner_groups = [option_ids[winners == winner] for winner in np.unique(winners)]
+            winner_groups = [
+                option_ids[winners == winner] for winner in np.unique(winners)
+            ]
             per_group, remainder = divmod(option_count, len(winner_groups))
             sampled_options = [
                 generator.choice(
@@ -440,7 +444,9 @@ def sample_training_ids(
                     ),
                 )
             else:
-                parts += (generator.choice(corpus.live_ids, size=remaining_live, replace=True),)
+                parts += (
+                    generator.choice(corpus.live_ids, size=remaining_live, replace=True),
+                )
     ids = np.concatenate(parts)
     generator.shuffle(ids)
     return ids
@@ -597,6 +603,7 @@ def evaluate(
     model.eval()
     probabilities: list[Any] = []
     progress: list[Any] = []
+    failures: list[Any] = []
     with torch.inference_mode():
         for start in range(0, len(ids), batch_size):
             selected = ids[start : start + batch_size]
@@ -613,8 +620,10 @@ def evaluate(
                 )
             probabilities.append(outputs["completion_logit"].sigmoid().float().cpu().numpy())
             progress.append(outputs["progress_logit"].sigmoid().float().cpu().numpy())
+            failures.append(outputs["failure_logit"].sigmoid().float().cpu().numpy())
     probability = np.concatenate(probabilities)
     progress_prediction = np.concatenate(progress)
+    failure_probability = np.concatenate(failures)
     labels = corpus.target_complete[ids]
     b_stop = corpus.selector_candidates[ids] == 0
     if not b_stop.any() or not labels[b_stop].any() or labels[b_stop].all():
@@ -651,6 +660,17 @@ def evaluate(
         if progress_valid.any()
         else None
     )
+    failure_valid = corpus.target_failure_valid[ids]
+    failure_labels = corpus.target_failure[ids][failure_valid]
+    failure_threshold = None
+    failure_calibration = None
+    if len(failure_labels) and failure_labels.any() and not failure_labels.all():
+        failure_threshold, failure_calibration = calibrate_threshold(
+            failure_probability[failure_valid],
+            failure_labels,
+            max_false_positive_rate=max_false_positive_rate,
+            np=np,
+        )
     return {
         "samples": len(ids),
         "completion_threshold": threshold,
@@ -662,6 +682,8 @@ def evaluate(
         "brier": float(np.square(probability - labels.astype(np.float32)).mean()),
         "ece_15": _ece(probability, labels, np),
         "progress_mae": progress_mae,
+        "failure_threshold": failure_threshold,
+        "failure": failure_calibration,
         "b_stop_proposals": int(b_stop.sum()),
         "b_false_stop_proposals": int((b_stop & negative).sum()),
         "b_true_stop_proposals": int((b_stop & positive).sum()),
@@ -891,7 +913,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "live_training_samples": int(len(corpus.live_ids)),
         "counterfactual_training_states": int(
-            (corpus.target_option_valid[corpus.live_ids].sum(axis=1) >= 2).sum()
+            (
+                corpus.target_option_valid[corpus.live_ids].sum(axis=1) >= 2
+            ).sum()
         ),
         "live_batch_fraction": args.live_batch_fraction if additional_dataset else 0.0,
         "option_batch_fraction": (
