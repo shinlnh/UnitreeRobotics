@@ -11,6 +11,7 @@ MAX_STATES_PER_EPISODE="${MAX_STATES_PER_EPISODE:-8}"
 ROLLOUT_STEPS="${ROLLOUT_STEPS:-150}"
 MAX_POLICY_CALLS="${MAX_POLICY_CALLS:-48}"
 CONSENSUS_HYPOTHESES="${CONSENSUS_HYPOTHESES:-4}"
+MIN_STRICT_PREFERENCE_RATE="${MIN_STRICT_PREFERENCE_RATE:-0.05}"
 RETURN_TARGET="outcome-first-physical-v1"
 COLLECTION_ID="R0-residual-v9-outcome-first"
 
@@ -70,6 +71,7 @@ for base_seed in 10007 11007 12007; do
     PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_audit \
       --corpus "${destination}" \
       --output "${artifact_root}/corpus_audit.json" \
+      --min-strict-preference-rate "${MIN_STRICT_PREFERENCE_RATE}" \
       >"${artifact_root}/corpus_audit.log"
     continue
   fi
@@ -98,6 +100,7 @@ for base_seed in 10007 11007 12007; do
   PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_audit \
     --corpus "${destination}" \
     --output "${artifact_root}/corpus_audit.json" \
+    --min-strict-preference-rate "${MIN_STRICT_PREFERENCE_RATE}" \
     >"${artifact_root}/corpus_audit.log"
 done
 

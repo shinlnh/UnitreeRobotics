@@ -10,6 +10,7 @@ CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-checkpoints/robocerebra/GR00T-RC-CTR-search/
 ARTIFACT_ROOT="${ARTIFACT_ROOT:-artifacts/Ours/search/R0-residual-v8-confirmed}"
 COUNTERFACTUAL_PREFIX="${COUNTERFACTUAL_PREFIX:-ctr-counterfactual-rollout-v8-confirmed}"
 RESIDUAL_OPTION_ADVANTAGES="${RESIDUAL_OPTION_ADVANTAGES:-false}"
+MIN_STRICT_PREFERENCE_RATE="${MIN_STRICT_PREFERENCE_RATE:-0.10}"
 COUNTERFACTUAL_DATASETS=(
   "outputs/robocerebra/${COUNTERFACTUAL_PREFIX}-seed10007"
   "outputs/robocerebra/${COUNTERFACTUAL_PREFIX}-seed11007"
@@ -34,6 +35,7 @@ for dataset in "${COUNTERFACTUAL_DATASETS[@]}"; do
   PYTHONPATH=src .venv/bin/python -m unitree_gr00t.ours_counterfactual_audit \
     --corpus "${dataset}" \
     --output "${ARTIFACT_ROOT}/$(basename "${dataset}")-audit.json" \
+    --min-strict-preference-rate "${MIN_STRICT_PREFERENCE_RATE}" \
     >>"${ARTIFACT_ROOT}/corpus_audit.log"
   additional_args+=(--additional-train-dataset "${dataset}")
 done

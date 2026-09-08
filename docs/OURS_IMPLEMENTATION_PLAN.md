@@ -335,6 +335,14 @@ Every v9 branch is capped at
 `min(150, source_max_steps - source_step_before)`; the effective horizon and
 source budget are stored per branch and independently audited. Thus label
 generation cannot observe physical outcomes unavailable to the runtime policy.
+The first completed v9 train seed produced physical gains at 6/62 states and
+five unique-top preferences (8.0645%). The historical 10% per-seed strict-rate
+gate therefore stopped before another seed ran, even though it also confirmed
+zero cost-only gains and three distinct winning options. That failed audit is
+retained. Before seeds `11007` and `12007`, the v9 collection and training
+scripts declare a 5% per-seed learnability floor, still requiring at least 32
+labeled states and two distinct unique winners. This corpus-density check is
+separate from—and does not relax—the held-out 5% false-override safety cap.
 Because the runtime decision is an override of B-retry, v9 also centers every
 valid option target on the same state's `RETRY_CURRENT` return before value
 regression. Pairwise ranks and winning classes are unchanged, while the value
