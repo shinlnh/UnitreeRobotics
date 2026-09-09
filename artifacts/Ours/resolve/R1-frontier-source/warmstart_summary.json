@@ -1,0 +1,36 @@
+{
+  "complete": true,
+  "best_step": 0,
+  "accepted_warmstart": false,
+  "selection_gate": {
+    "minimum_positive_intervention_rate": 0.5,
+    "maximum_false_intervention_rate": 0.1,
+    "maximum_positive_mae_ratio": 1.0
+  },
+  "untrained_development": {
+    "loss": 1.0761892795562744,
+    "samples": 46.0,
+    "positive_samples": 14.0,
+    "positive_actor_mae": 0.21049970388412476,
+    "positive_proposal_mae": 0.21049970388412476,
+    "positive_base_mae": 0.21049970388412476,
+    "positive_mae_ratio": 1.0,
+    "positive_intervention_rate": 0.0,
+    "false_intervention_rate": 0.0,
+    "baseline_safe_residual_mae": 0.0
+  },
+  "selected_development": {
+    "loss": 1.0761892795562744,
+    "samples": 46.0,
+    "positive_samples": 14.0,
+    "positive_actor_mae": 0.21049970388412476,
+    "positive_proposal_mae": 0.21049970388412476,
+    "positive_base_mae": 0.21049970388412476,
+    "positive_mae_ratio": 1.0,
+    "positive_intervention_rate": 0.0,
+    "false_intervention_rate": 0.0,
+    "baseline_safe_residual_mae": 0.0
+  },
+  "checkpoint": "/HELIOS/Robotics/UnitreeRobotic/outputs/robocerebra/resolve-frontier-warmstart-r1-v4/actor.pt",
+  "checkpoint_sha256": "e64744e0d67749aab8f6af0a013f72ed83c1358a3b20782eccf4cb8b5326c4d1"
+}

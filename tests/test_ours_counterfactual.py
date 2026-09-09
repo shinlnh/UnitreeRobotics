@@ -44,12 +44,25 @@ class _Env:
     def __init__(self):
         self.sim = _Sim()
         self._state_progress = {"goal": 0}
+        self._last_regions = {"goal": "table"}
         self.timestep = 0
+        self.cur_time = 0.0
         self.done = False
+        controller = SimpleNamespace(
+            sim=self.sim,
+            goal_pos=np.zeros(3),
+            goal_ori=np.eye(3),
+            new_update=False,
+        )
+        self.robots = [SimpleNamespace(controller=controller, recent_actions=[np.zeros(1)])]
 
     def step(self, action: np.ndarray) -> tuple[None, int, bool, dict]:
         self.sim.value[0] += float(action[0])
         self.timestep += 1
+        self.cur_time += 0.05
+        self.robots[0].controller.goal_pos[0] += float(action[0])
+        self.robots[0].recent_actions.append(np.asarray(action).copy())
+        self._last_regions["goal"] = "moved"
         return None, 0, False, {}
 
     def _check_success(self, goal: object) -> tuple[None, int, bool]:
@@ -120,6 +133,10 @@ def test_counterfactual_options_branch_and_restore_exact_state() -> None:
     assert branches[1].policy_calls == 0
     assert env.sim.value.tolist() == [0.0, 0.0]
     assert env.timestep == 0
+    assert env.cur_time == 0.0
+    assert env.robots[0].controller.goal_pos.tolist() == [0.0, 0.0, 0.0]
+    assert len(env.robots[0].recent_actions) == 1
+    assert env._last_regions == {"goal": "table"}
 
 
 def test_counterfactual_options_reject_final_seed() -> None:

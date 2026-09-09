@@ -4,6 +4,29 @@ Status: active algorithm hypothesis, 2026-09-09. RESOLVE abbreviates **REcovery
 through Sufficiency-Ordered Latent Value Estimation**. MOSAIC is retained as a
 credit/certification layer inside RESOLVE; it is no longer the complete method.
 
+## Novelty exclusions fixed before experimentation
+
+The paper must not claim a separate recovery policy, residual RL on a VLA, or
+recovery-trajectory learning: those mechanisms are already represented by
+[RecoveryChaining](https://arxiv.org/abs/2410.13979),
+[PLD](https://arxiv.org/abs/2511.00091), and
+[RePO-VLA](https://arxiv.org/abs/2605.09410). Probability of necessity and
+sufficiency is classical, and 2026 CPTE already connects preference-based
+counterfactual effects—including conditional PNS—to policy learning
+([Parnas et al.](https://proceedings.mlr.press/v300/parnas26a.html)). Therefore
+neither the `min` bottleneck nor paired-potential-outcome policy learning alone
+is a novelty claim. The live algorithmic hypothesis is now narrower: propagate
+the effect of the *least necessary state-contingent future recovery macro* by a
+finite-horizon deletion Bellman recursion. Its novelty remains provisional
+until a broader theory audit and positive held-out experiments.
+
+The multi-world Bellman construction is not claimed by itself either. Joint
+MDPs already formalize shared-exogenous-randomness transitions and Bellman
+operators for joint return quantities ([Kaya et al., UAI
+2026](https://proceedings.mlr.press/v337/kaya26b.html)). RESOLVE must therefore
+show a recovery-specific learning or sampling result beyond merely placing the
+R/D/B worlds in a product state space.
+
 ## Why the method must be an RL policy
 
 CTR can only choose hand-written recovery options. BranchQ can compose choices
@@ -24,17 +47,29 @@ latent states are not supervised with a fixed taxonomy such as retry/backtrack;
 their semantics must emerge from physical recovery rollouts.
 
 The recovery actor is not merely a score head. A transformer predicts a
-state-conditioned residual distribution over the entire action chunk:
+state-conditioned residual distribution over the entire action chunk. The
+residual is applied in a bounded action-logit chart, rather than raw Euclidean
+action space:
 
 ```text
-a^R_t = clip(a^B_t + s_theta(h_t,z_t) tanh(delta_theta(h_t,z_t,a^B_t))).
+u_B = atanh(normalize_to_unit_box(clip(a^B)))
+u_R = u_B + s_theta(h_t,z_t) delta_theta(h_t,z_t,a^B_t)
+a^R = denormalize_from_unit_box(tanh(u_R)).
 ```
 
-The scale `s_theta` is learned under a constrained trust region rather than
-chosen as a fixed list of action options. The first implementation freezes the
-3B VLA and trains an independent 8-layer, width-512 recovery transformer plus
-twin critics. If mechanism and learning-rule gates pass, the registered scale-up
-is 12 layers at width 768; model size is not swept on benchmark seeds.
+The numerical implementation subtracts and restores the exact clipped B point,
+so a zero shift is bitwise B even at an action boundary while retaining the
+straight-through chart derivative. This fixes an R0 expressivity failure: only
+`4.6%` of 20,025 audited expert H16 chunks were reachable by the old raw
+`+/-0.25` residual box. The learned scale now changes distance in the logit
+chart; every executable action remains in bounds and the complete action box is
+reachable. This parameterization is an implementation prerequisite, not a
+novelty claim.
+
+The first implementation freezes the 3B VLA and trains an independent 8-layer,
+width-512 recovery transformer plus twin critics. If mechanism and learning-rule
+gates pass, the registered scale-up is 12 layers at width 768; model size is not
+swept on benchmark seeds.
 
 ## New learning object: counterfactual rescue Bellman triplet
 
@@ -102,21 +137,167 @@ three critics evaluate the same long physical horizon. A history-complete scalar
 Q can represent this behavior, but it does not directly estimate these two
 paired contrasts or impose their conjunctive bottleneck.
 
-With critic ensembles, policy improvement uses
+### All-position deletion-necessity recursion
+
+The local CRB above is insufficient as the final learning object. It checks the
+current structural slot but does not tell an earlier state whether a later macro
+is dispensable. Enumerating every future deletion at every update costs
+quadratically many continuations and still treats the deletion time as an
+open-loop index.
+
+For fixed `pi_R`, define the paired delete-now effect
 
 ```text
-lower_A^CRB_m
-  = min{LCB[Q^R_m - V^B_m], LCB[Q^R_m - Q^D_m]}.
+G_i^pi(x)
+  = Q_i^R,pi(x, c_i) - Q_i^D,pi(x, c_i).
+```
+
+Both terms use the same long horizon and adaptive downstream `pi_R`; only the
+current physical macro differs. Now introduce an auditor with one deletion
+token. Before using it, the auditor observes the current recovery state and may
+replace the current macro by B or defer the token. It chooses the deletion with
+the *smallest* causal cost to recovery. Its finite-horizon necessity value is
+
+```text
+N_H^pi(x) = G_H^pi(x)
+N_i^pi(x) = min { G_i^pi(x),
+                  E_{x' ~ P_R^pi(.|x)}[N_{i+1}^pi(x')] }.
+```
+
+The deletion must occur by the final registered slot. The active recovery
+advantage is therefore
+
+```text
+A_i^all-del(x) = min { V_i^R,pi(x) - V_i^B(x), N_i^pi(x) }.
+```
+
+This is not a renamed third critic. `G` evaluates a coupled physical
+counterfactual after deleting now; `N` is the lower Bellman envelope over all
+state-contingent future uses of the deletion token. A positive lower confidence
+bound on `N` implies that even the least damaging admissible one-macro deletion
+reduces reachability. It therefore implies every fixed-position deletion test,
+while allowing the weakest position to depend on observations encountered
+during recovery.
+
+For a fixed policy and finite absolute horizon, the recursion has a unique
+solution by backward induction. Its operator is monotone and non-expansive in
+the sup norm because stochastic expectation and pointwise `min` are both
+non-expansive; no discounted contraction is claimed. After `H` synchronous
+backups, every dependency reaches the forced-deletion boundary, so the result
+is independent of initialization. The repository test includes a stochastic
+two-state example where the auditor deletes immediately on one branch and
+waits on the other; the recurrence obtains a strictly tighter necessity value
+than any one open-loop deletion time.
+
+This certificate is stronger than deletion-minimality of one sampled open-loop
+sequence, but it does not establish globally shortest recovery or rule out a
+needlessly long sequence whose every step has been made necessary. The physical
+step-budget constraint remains essential. Joint/product MDP machinery and
+robust pointwise minima exist in prior work; any eventual novelty claim must be
+about this recovery-specific one-deletion recursion, its sample-efficient
+estimation, and empirical advantage—not those ingredients separately.
+
+With critic ensembles, policy improvement uses the all-deletion envelope
+
+```text
+lower_A^all-del_m
+  = min{LCB[V^R_m - V^B_m], LCB[N_m]}.
 
 log pi_{k+1}(c | h,z,m) / pi_{k+1}(B | h,z,m)
   = log pi_k(c | h,z,m) / pi_k(B | h,z,m)
-    + eta lower_A^CRB_m.
+    + eta lower_A^all-del_m.
 ```
 
 The explicit B atom makes this an exponentiated counterfactual policy-
 improvement step, implemented by KL projection into the recovery transformer.
 The paper must not call it an unbiased policy gradient without proving the
 shared-parameter projection result.
+
+### R0 causal-execution correction
+
+The first snapshot-based counterfactual artifacts are invalid and superseded.
+Teleporting MuJoCo `qpos/qvel` did not restore the OSC controller, evaluator,
+observable caches, warm-start forces, or the solver's numerical path. Even
+after expanding the snapshot, two separately replayed copies of the exact same
+policy (`D_last` and `B_last`) could diverge after many identical actions. Such
+divergence is simulator path noise, not a treatment effect.
+
+The corrected collector therefore resets one environment and exactly replays
+the logged source-action prefix before every *distinct* arm. It also applies a
+canonical-estimand rule:
+
+```text
+B_0 is executed once per physical anchor and reused for every program.
+B_last := D_last because their complete policies are mathematically identical.
+```
+
+This rule is more than an optimization: it prevents repeated evaluation of an
+identical estimand from manufacturing causal labels. Truly distinct R, D, and B
+arms remain paired by initial state, global budget, episode seed, and
+request-local diffusion seed. Final effects still require repeated physical
+seeds and grouped confidence intervals.
+
+The R1a learner is deliberately an anchor-time Monte Carlo program pilot, not
+yet the full closed-loop TD learner. Its actor and potential-outcome critics may
+see the current anchor context, the complete proposed latent code sequence, and
+the first VLA/residual chunk available at that decision. They may not see later
+contexts or chunks produced after the intervention. R1a tests whether paired
+R/D/B supervision improves held-out program selection over an ordinary
+return-only actor-critic with identical programs, initialization, architecture,
+optimizer, and update count. Passing R1a does not by itself validate the
+Bellman contribution; the later closed-loop learner must train on per-anchor
+transitions and exercise `T^RDB` directly.
+
+### R0 result and resulting data correction
+
+The fixed-program mechanism did not pass the ordered-progress gate. In the
+canonical depth-2 corpus, 24 physical programs produced one predicate hit that
+was deletion-redundant and zero ordered-subtask or final-success hits. Three
+long-horizon, budget-capped subgoal-backtrack trials then produced `0/3`
+ordered-subtask rescues and `0/3` final rescues. One trial reached two milk
+predicates while the first ordered bowl subtask remained incomplete; that is
+evidence that unordered "any predicate" is a misleading recovery target, not a
+success.
+
+Consequently fixed latent-noise programs and fixed subgoal rewind are frozen as
+negative ablations. R1 begins from controlled failures sampled near successful
+expert continuations and uses `next_ordered_subtask` as the first optimization
+head. The 203,410 existing frozen-GR00T/subgoal feature states are used to
+warm-start the action class on expert continuations (`183,430` train and
+`19,980` development) before paired sparse RL. This warm-start is supervised
+initialization only; it cannot validate the counterfactual operator.
+
+### R1 frontier source and warm-start result
+
+The executable frontier collector restores the exact demonstration XML and
+state, then compares the logged expert continuation with frozen B under the
+same physical horizon and policy-call budget. Anchor ordering is a registered
+SHA-256 permutation rather than manifest order. The complete train-only source
+contains 599 selected anchors: 597 valid paired arms and two exclusions whose
+goal predicate became true during executable reset post-processing. The valid
+arms divide into 75 expert-only rescues, 101 B-only outcomes, 74 both-success
+outcomes, and 347 unresolved both-failure outcomes. The 75 rescues span 70
+source-demonstration groups and all three scenes. Raw corpus hash, arm counts,
+and exclusion reasons are recorded in the R1 artifact report.
+
+The registered 4-layer, width-256 supervised warm-start did **not** pass its
+predefined development gate even after the positive source grew from 15 to 75
+pairs. The best admissible checkpoint remained exact B at step zero. At the
+final step, the learned proposal intervened on 50% of positive development
+pairs but also on 28.125% of B-safe pairs, while its positive action MAE was
+1.231 times B's MAE. The gate required at least 50% positive intervention, at
+most 10% false intervention, and an MAE ratio below one. This result rejects
+frontier behavior cloning as the recovery learner; it is not a reason to tune
+the deployment threshold. The actor checkpoint is retained only as a negative
+initialization artifact. The next method stage must learn from paired physical
+R/D/B transitions and the all-position deletion target.
+
+Collection throughput is an implementation concern, not an algorithmic claim.
+Eight simulator workers were empirically the useful operating point: a
+16-anchor timing probe took 20 seconds and reached a sampled 94% GPU
+utilization, versus 31 seconds with four workers. The reusable runner uses two
+micro-shards per worker and a dynamic worker pool so variable episode lengths
+do not leave the GPU idle behind one long static shard.
 
 ## Program discovery and certification
 
@@ -174,9 +355,11 @@ width 512, 8 heads, and a 2048 feed-forward width. Heads produce:
 Training is staged but the algorithm is not changed between stages:
 
 1. **R0 mechanics:** exact-zero actor equals B; paired R/D/B replay and absolute-
-   time RNG restore pass deterministic tests.
-2. **R1 critic warm start:** fit reachability critics on existing failed B
-   anchors plus new paired train-seed branches. No actor benchmark claim.
+   time RNG restore pass deterministic tests. Fixed flow-noise and subgoal-
+   backtrack programs are retained as failed ablations.
+2. **R1 actor/critic warm start:** initialize the reachable action class on
+   successful expert continuations, then fit reachability critics on controlled
+   failures plus paired train-seed branches. No actor benchmark claim.
 3. **R2 off-policy RL:** alternate simulator collection and CRB actor/critic
    updates on seeds `10007`--`15007`; use prioritized replay by critic uncertainty
    and rare milestone transition.

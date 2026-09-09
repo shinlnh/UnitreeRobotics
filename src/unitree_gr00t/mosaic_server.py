@@ -7,7 +7,7 @@ import json
 import random
 from pathlib import Path
 
-from .a1 import inspect_a1_checkpoint
+from .a1 import inspect_a1_checkpoint, sha256_file
 from .b import inspect_selector_checkpoint, verify_a1_weight_hashes
 from .b_model import SelectorModelConfig, build_selector
 from .b_runtime import build_selector_sim_policy
@@ -27,6 +27,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--code-dimension", type=int, default=4)
     parser.add_argument("--basis-seed", type=int, default=10007)
     parser.add_argument("--maximum-angle", type=float, default=0.2)
+    parser.add_argument("--resolve-actor-checkpoint", type=Path)
     return parser
 
 
@@ -50,6 +51,12 @@ def run(args: argparse.Namespace) -> None:
     from gr00t.policy.server_client import PolicyServer
     from safetensors.torch import load_file
 
+    # Counterfactual arms are invalid if identical request seeds can produce
+    # different action chunks. Fail on a nondeterministic CUDA kernel instead
+    # of silently turning numerical jitter into a causal effect.
+    torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -89,6 +96,26 @@ def run(args: argparse.Namespace) -> None:
         basis_seed=args.basis_seed,
         maximum_angle=args.maximum_angle,
     )
+    resolve_actor_sha256 = None
+    if args.resolve_actor_checkpoint is not None:
+        from .resolve_model import ResolveModelConfig, build_recovery_actor
+        from .resolve_runtime import build_resolve_sim_policy
+
+        actor_checkpoint = args.resolve_actor_checkpoint.expanduser().resolve()
+        payload = torch.load(actor_checkpoint, map_location=args.device, weights_only=True)
+        if payload.get("stage") != "RESOLVE-decisive-frontier-warm-start":
+            raise RuntimeError("RESOLVE server actor checkpoint has an incompatible stage")
+        actor_config = ResolveModelConfig(**payload["model_config"])
+        actor = build_recovery_actor(actor_config).to(args.device)
+        actor.load_state_dict(payload["model_state_dict"], strict=True)
+        actor.eval()
+        resolve_actor_sha256 = sha256_file(actor_checkpoint)
+        policy = build_resolve_sim_policy(
+            policy,
+            actor,
+            actor_config,
+            actor_sha256=resolve_actor_sha256,
+        )
     print(
         json.dumps(
             {
@@ -101,6 +128,12 @@ def run(args: argparse.Namespace) -> None:
                 "code_dimension": args.code_dimension,
                 "basis_seed": args.basis_seed,
                 "maximum_angle": args.maximum_angle,
+                "resolve_actor_checkpoint": (
+                    None
+                    if args.resolve_actor_checkpoint is None
+                    else str(args.resolve_actor_checkpoint.expanduser().resolve())
+                ),
+                "resolve_actor_sha256": resolve_actor_sha256,
                 "host": args.host,
                 "port": args.port,
                 "seed": args.seed,

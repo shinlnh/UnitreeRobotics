@@ -152,6 +152,11 @@ def build_selector_sim_policy(
                 "decision_seed": decision_seed,
                 "runtime_provenance": dict(runtime_provenance or {}),
             }
+            if bool(selector_options.get("capture_training_context", False)):
+                # Training collectors need the exact causal token associated
+                # with each *observed* R or D state.  Keeping this opt-in
+                # avoids transferring a 2048-D tensor during deployment.
+                selector_info["training_context"] = context[0].cpu().numpy()
             if subgoal_start:
                 selector_info["raw_anchor"] = context[0].cpu().numpy()
             return action, dict(info) | {"b_selector": selector_info}

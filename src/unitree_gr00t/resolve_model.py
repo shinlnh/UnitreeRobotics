@@ -25,7 +25,11 @@ class ResolveModelConfig:
     critic_ensemble: int = 2
     cost_count: int = 3
     dropout: float = 0.0
-    maximum_residual_scale: float = 0.25
+    # Recovery is residual in the unconstrained action-logit space.  A zero
+    # residual is exactly executable B, while a sufficiently large shift can
+    # still reach the complete bounded action domain.
+    maximum_residual_scale: float = 4.0
+    gripper_index: int | None = 6
     minimum_log_scale: float = -5.0
     maximum_log_scale: float = 0.5
 
@@ -63,7 +67,8 @@ def _validate(config: ResolveModelConfig) -> None:
         or config.model_width % config.transformer_heads
         or config.critic_ensemble < 2
         or not 0.0 <= config.dropout < 1.0
-        or not 0.0 < config.maximum_residual_scale <= 1.0
+        or not 0.0 < config.maximum_residual_scale <= 16.0
+        or (config.gripper_index is not None and not 0 <= config.gripper_index < config.action_dim)
         or not config.minimum_log_scale < config.maximum_log_scale
     ):
         raise OursContractError("RESOLVE model dimensions are invalid")
@@ -93,9 +98,7 @@ def build_recovery_actor(config: ResolveModelConfig) -> Any:
             )
             # One extra state is the pre-recovery / no-program state.
             self.latent_embedding = nn.Embedding(config.latent_codes + 1, width)
-            self.program_position_embedding = nn.Embedding(
-                config.maximum_program_depth, width
-            )
+            self.program_position_embedding = nn.Embedding(config.maximum_program_depth, width)
             self.milestone_embedding = nn.Embedding(config.milestone_count, width)
             self.position_embedding = nn.Embedding(config.history_length, width)
             layer = nn.TransformerEncoderLayer(
@@ -115,6 +118,19 @@ def build_recovery_actor(config: ResolveModelConfig) -> Any:
             self.residual_mean_head = nn.Linear(width, action_width)
             self.residual_log_scale_head = nn.Linear(width, action_width)
             self.residual_trust_head = nn.Linear(width, action_width)
+            # The deployable actor must begin as exact B, not as a random
+            # intervention.  RL/SFT then earns every deviation and every
+            # decision not to hand off from that point.
+            nn.init.zeros_(self.latent_head.weight)
+            nn.init.zeros_(self.latent_head.bias)
+            with torch.no_grad():
+                self.latent_head.bias[-1] = 4.0
+            nn.init.zeros_(self.residual_mean_head.weight)
+            nn.init.zeros_(self.residual_mean_head.bias)
+            nn.init.zeros_(self.residual_log_scale_head.weight)
+            nn.init.constant_(self.residual_log_scale_head.bias, -2.5)
+            nn.init.zeros_(self.residual_trust_head.weight)
+            nn.init.zeros_(self.residual_trust_head.bias)
 
         def forward(
             self,
@@ -127,8 +143,7 @@ def build_recovery_actor(config: ResolveModelConfig) -> Any:
         ) -> dict[str, Any]:
             batch, history, width = contexts.shape
             if (
-                (batch, history, width)
-                != (batch, config.history_length, config.context_width)
+                (batch, history, width) != (batch, config.history_length, config.context_width)
                 or base_action_chunks.shape
                 != (batch, history, config.action_horizon, config.action_dim)
                 or scalars.shape != (batch, history, config.scalar_width)
@@ -157,18 +172,22 @@ def build_recovery_actor(config: ResolveModelConfig) -> Any:
             mean = self.residual_mean_head(state).view(
                 batch, config.action_horizon, config.action_dim
             )
-            log_scale = self.residual_log_scale_head(state).view_as(mean).clamp(
-                config.minimum_log_scale, config.maximum_log_scale
+            log_scale = (
+                self.residual_log_scale_head(state)
+                .view_as(mean)
+                .clamp(config.minimum_log_scale, config.maximum_log_scale)
             )
-            trust = config.maximum_residual_scale * self.residual_trust_head(state).view_as(
-                mean
-            ).sigmoid()
+            trust = (
+                config.maximum_residual_scale
+                * self.residual_trust_head(state).view_as(mean).sigmoid()
+            )
             return {
                 "state": state,
                 "latent_logits": self.latent_head(state),
                 "residual_mean": mean,
                 "residual_log_scale": log_scale,
                 "residual_trust": trust,
+                "gripper_index": config.gripper_index,
             }
 
     return RecoveryActor()
@@ -196,9 +215,7 @@ def build_reachability_critics(config: ResolveModelConfig) -> Any:
                 nn.LayerNorm(config.scalar_width), nn.Linear(config.scalar_width, width)
             )
             self.latent_embedding = nn.Embedding(config.latent_codes + 1, width)
-            self.program_position_embedding = nn.Embedding(
-                config.maximum_program_depth, width
-            )
+            self.program_position_embedding = nn.Embedding(config.maximum_program_depth, width)
             self.milestone_embedding = nn.Embedding(config.milestone_count, width)
             self.position_embedding = nn.Embedding(config.history_length, width)
             layer = nn.TransformerEncoderLayer(
@@ -256,8 +273,13 @@ def build_reachability_critics(config: ResolveModelConfig) -> Any:
             self.baseline_head = nn.Sequential(
                 nn.LayerNorm(width), nn.Linear(width, config.milestone_count)
             )
-            self.cost_head = nn.Sequential(
-                nn.LayerNorm(width), nn.Linear(width, config.cost_count)
+            self.cost_head = nn.Sequential(nn.LayerNorm(width), nn.Linear(width, config.cost_count))
+            # N is an effect in [-1, 1], not another reachability probability.
+            # Its target is the lower all-position deletion Bellman envelope.
+            self.necessity_head = nn.Sequential(
+                nn.LayerNorm(width),
+                nn.Linear(width, config.milestone_count),
+                nn.Tanh(),
             )
 
         def forward(
@@ -270,7 +292,7 @@ def build_reachability_critics(config: ResolveModelConfig) -> Any:
             milestone_ids: Any,
             residual_chunk: Any,
             next_latent_id: Any,
-        ) -> tuple[Any, Any]:
+        ) -> tuple[Any, Any, Any]:
             batch = contexts.shape[0]
             if (
                 contexts.shape != (batch, config.history_length, config.context_width)
@@ -285,8 +307,7 @@ def build_reachability_critics(config: ResolveModelConfig) -> Any:
                 or latent_history.shape != (batch, config.history_length)
                 or program_positions.shape != (batch, config.history_length)
                 or milestone_ids.shape != (batch,)
-                or residual_chunk.shape
-                != (batch, config.action_horizon, config.action_dim)
+                or residual_chunk.shape != (batch, config.action_horizon, config.action_dim)
                 or next_latent_id.shape != (batch,)
             ):
                 raise ValueError("RESOLVE critic input shapes are invalid")
@@ -299,11 +320,13 @@ def build_reachability_critics(config: ResolveModelConfig) -> Any:
                 milestone_ids,
             )
             latent = self.next_latent(next_latent_id)
-            recovery_state = state + latent + self.recovery_action(
-                residual_chunk.flatten(start_dim=1)
+            recovery_state = (
+                state + latent + self.recovery_action(residual_chunk.flatten(start_dim=1))
             )
-            deletion_state = state + latent + self.recovery_action(
-                torch.zeros_like(residual_chunk).flatten(start_dim=1)
+            deletion_state = (
+                state
+                + latent
+                + self.recovery_action(torch.zeros_like(residual_chunk).flatten(start_dim=1))
             )
             reachability = torch.stack(
                 (
@@ -313,7 +336,11 @@ def build_reachability_critics(config: ResolveModelConfig) -> Any:
                 ),
                 dim=1,
             )
-            return reachability, self.cost_head(recovery_state)
+            return (
+                reachability,
+                self.cost_head(recovery_state),
+                self.necessity_head(recovery_state),
+            )
 
     class ReachabilityCriticEnsemble(nn.Module):
         def __init__(self) -> None:
@@ -328,6 +355,7 @@ def build_reachability_critics(config: ResolveModelConfig) -> Any:
             return {
                 "reachability_logits": torch.stack([item[0] for item in values]),
                 "cost_predictions": torch.stack([item[1] for item in values]),
+                "necessity_values": torch.stack([item[2] for item in values]),
             }
 
     return ReachabilityCriticEnsemble()
@@ -345,14 +373,55 @@ def sample_recovery_action(
     mean = actor_outputs["residual_mean"]
     log_scale = actor_outputs["residual_log_scale"]
     trust = actor_outputs["residual_trust"]
-    if base_action_chunk.shape != mean.shape or log_scale.shape != mean.shape or trust.shape != mean.shape:
+    if (
+        base_action_chunk.shape != mean.shape
+        or log_scale.shape != mean.shape
+        or trust.shape != mean.shape
+    ):
         raise ValueError("RESOLVE sampled-action shapes are invalid")
     distribution = torch.distributions.Normal(mean, log_scale.exp())
-    raw = mean if deterministic else distribution.rsample()
-    squashed = torch.tanh(raw)
-    residual = trust * squashed
-    corrected = base_action_chunk + residual
-    log_probability = distribution.log_prob(raw) - torch.log1p(-squashed.square() + 1e-6)
+    raw_shift = mean if deterministic else distribution.rsample()
+
+    # Put B and the learned correction in one bounded coordinate chart.  This
+    # avoids the old failure mode where a small Euclidean residual could not
+    # reverse a saturated B command.  At raw_shift == 0 the mapping is exactly
+    # executable B; as the logit shift grows it covers the full action box.
+    epsilon = 1e-5
+    executable_base = base_action_chunk.clamp(-1.0, 1.0)
+    executable_unit = executable_base
+    base_unit = executable_unit.clamp(-1.0 + epsilon, 1.0 - epsilon)
+    gripper_index = actor_outputs.get("gripper_index")
+    if gripper_index is not None:
+        executable_base = executable_base.clone()
+        executable_base[..., gripper_index] = base_action_chunk[..., gripper_index].clamp(0.0, 1.0)
+        executable_unit = executable_unit.clone()
+        executable_unit[..., gripper_index] = 2.0 * executable_base[..., gripper_index] - 1.0
+        base_unit = base_unit.clone()
+        base_unit[..., gripper_index] = executable_unit[..., gripper_index].clamp(
+            -1.0 + epsilon, 1.0 - epsilon
+        )
+    latent_action = torch.atanh(base_unit) + trust * raw_shift
+    squashed = torch.tanh(latent_action)
+    # Subtract the epsilon-interior chart origin and add back exact executable
+    # B.  Therefore a zero shift is bitwise B even when B lies on a boundary.
+    projected_unit = (executable_unit + squashed - base_unit).clamp(-1.0, 1.0)
+    # Forward is bitwise B at zero, but the straight-through value retains the
+    # chart derivative so an exactly abstaining initialization can still learn.
+    exact_base_straight_through = projected_unit + (executable_unit - projected_unit).detach()
+    corrected_unit = torch.where(raw_shift == 0.0, exact_base_straight_through, projected_unit)
+    corrected = corrected_unit
+    if gripper_index is not None:
+        corrected = corrected.clone()
+        corrected[..., gripper_index] = 0.5 * (corrected_unit[..., gripper_index] + 1.0)
+    residual = corrected - executable_base
+
+    # Density of the bounded action under the residual-logit transform.  The
+    # gripper's [-1,1] -> [0,1] affine map contributes an extra factor 1/2.
+    log_jacobian = torch.log(trust.clamp_min(1e-8)) + torch.log1p(-squashed.square() + 1e-6)
+    if gripper_index is not None:
+        log_jacobian = log_jacobian.clone()
+        log_jacobian[..., gripper_index] -= __import__("math").log(2.0)
+    log_probability = distribution.log_prob(raw_shift) - log_jacobian
     log_probability = log_probability.flatten(start_dim=1).sum(dim=1)
     latent_distribution = torch.distributions.Categorical(logits=actor_outputs["latent_logits"])
     next_latent = (
@@ -370,9 +439,7 @@ def sample_recovery_action(
     }
 
 
-def conservative_crb_from_logits(
-    critic_outputs: dict[str, Any], milestone_ids: Any
-) -> Any:
+def conservative_crb_from_logits(critic_outputs: dict[str, Any], milestone_ids: Any) -> Any:
     """Compute the differentiable conservative CRB for each batch item."""
 
     torch = _torch()
@@ -390,12 +457,43 @@ def conservative_crb_from_logits(
     return recovery - torch.maximum(deletion, baseline)
 
 
+def conservative_all_deletion_advantage(critic_outputs: dict[str, Any], milestone_ids: Any) -> Any:
+    """Apply the deployable lower envelope ``min(R-B, N)``.
+
+    Twin critics are only an operational epistemic guard: the recovery and
+    necessity lower envelopes are compared against the baseline upper
+    envelope. Statistical claims still require paired grouped intervals.
+    """
+
+    torch = _torch()
+    logits = critic_outputs["reachability_logits"]
+    necessity = critic_outputs["necessity_values"]
+    if (
+        logits.ndim != 4
+        or logits.shape[2] != 3
+        or necessity.shape != logits[:, :, 0].shape
+        or milestone_ids.shape != (logits.shape[1],)
+    ):
+        raise ValueError("RESOLVE all-deletion critic-output shapes are invalid")
+    probabilities = logits.sigmoid()
+    recovery_lower = probabilities[:, :, 0].min(dim=0).values
+    baseline_upper = probabilities[:, :, 2].max(dim=0).values
+    necessity_lower = necessity.min(dim=0).values
+    indices = milestone_ids[:, None]
+    superiority = recovery_lower.gather(1, indices).squeeze(1) - baseline_upper.gather(
+        1, indices
+    ).squeeze(1)
+    required = necessity_lower.gather(1, indices).squeeze(1)
+    return torch.minimum(superiority, required)
+
+
 def reachability_critic_loss(
     critic_outputs: dict[str, Any],
     reachability_targets: Any,
     cost_targets: Any,
     *,
     reachability_valid: Any | None = None,
+    necessity_targets: Any | None = None,
 ) -> tuple[Any, dict[str, Any]]:
     """Fit physical R/D/B reachability and separately reported constraint costs."""
 
@@ -403,15 +501,11 @@ def reachability_critic_loss(
     functional = torch.nn.functional
     logits = critic_outputs["reachability_logits"]
     costs = critic_outputs["cost_predictions"]
-    if (
-        reachability_targets.shape != logits.shape[1:]
-        or cost_targets.shape != costs.shape[1:]
-    ):
+    necessity = critic_outputs["necessity_values"]
+    if reachability_targets.shape != logits.shape[1:] or cost_targets.shape != costs.shape[1:]:
         raise ValueError("RESOLVE critic target shapes are invalid")
     expanded_targets = reachability_targets.to(logits.dtype).unsqueeze(0).expand_as(logits)
-    losses = functional.binary_cross_entropy_with_logits(
-        logits, expanded_targets, reduction="none"
-    )
+    losses = functional.binary_cross_entropy_with_logits(logits, expanded_targets, reduction="none")
     if reachability_valid is not None:
         if reachability_valid.shape != reachability_targets.shape:
             raise ValueError("RESOLVE reachability-valid shape is invalid")
@@ -422,11 +516,21 @@ def reachability_critic_loss(
     cost_loss = functional.smooth_l1_loss(
         costs, cost_targets.to(costs.dtype).unsqueeze(0).expand_as(costs)
     )
-    total = reachability_loss + cost_loss
+    if necessity_targets is None:
+        necessity_loss = necessity.sum() * 0.0
+    else:
+        if necessity_targets.shape != necessity.shape[1:]:
+            raise ValueError("RESOLVE necessity target shape is invalid")
+        necessity_loss = functional.smooth_l1_loss(
+            necessity,
+            necessity_targets.to(necessity.dtype).unsqueeze(0).expand_as(necessity),
+        )
+    total = reachability_loss + cost_loss + necessity_loss
     return total, {
         "loss": total.detach(),
         "reachability_loss": reachability_loss.detach(),
         "cost_loss": cost_loss.detach(),
+        "necessity_loss": necessity_loss.detach(),
     }
 
 

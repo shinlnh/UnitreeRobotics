@@ -5,6 +5,7 @@ from unitree_gr00t.resolve_model import (
     ResolveModelConfig,
     build_reachability_critics,
     build_recovery_actor,
+    conservative_all_deletion_advantage,
     conservative_crb_from_logits,
     count_trainable_parameters,
     reachability_critic_loss,
@@ -29,7 +30,8 @@ def small_config() -> ResolveModelConfig:
         milestone_count=3,
         critic_ensemble=2,
         cost_count=3,
-        maximum_residual_scale=0.2,
+        maximum_residual_scale=4.0,
+        gripper_index=None,
     )
 
 
@@ -69,9 +71,66 @@ def test_recovery_actor_emits_a_new_bounded_action_and_latent_program() -> None:
         config.action_horizon,
         config.action_dim,
     )
-    assert sampled["residual_action"].abs().max() <= config.maximum_residual_scale
+    assert sampled["corrected_action"].abs().max() <= 1.0
     assert sampled["handoff"].shape == (2,)
+    assert sampled["handoff"].all()
     assert count_trainable_parameters(actor) > 0
+
+
+def test_zero_logit_residual_is_exact_executable_baseline() -> None:
+    config = small_config()
+    actor = build_recovery_actor(config)
+    outputs = actor(*inputs(config))
+    assert torch.count_nonzero(outputs["residual_mean"]) == 0
+    base = torch.tensor(
+        [[[2.0, -2.0], [0.25, -0.5], [0.0, 0.75]]] * 2,
+        dtype=torch.float32,
+    )
+    sampled = sample_recovery_action(outputs, base, deterministic=True)
+    assert torch.allclose(sampled["corrected_action"], base.clamp(-1.0, 1.0))
+    assert torch.allclose(sampled["residual_action"], torch.zeros_like(base))
+    assert torch.isfinite(sampled["action_log_probability"]).all()
+    sampled["corrected_action"].sum().backward()
+    assert actor.residual_mean_head.weight.grad.abs().sum() > 0
+
+
+def test_gripper_uses_zero_one_action_domain() -> None:
+    config = ResolveModelConfig(
+        history_length=2,
+        context_width=8,
+        action_horizon=2,
+        action_dim=3,
+        scalar_width=2,
+        model_width=8,
+        transformer_layers=1,
+        transformer_heads=2,
+        feedforward_width=16,
+        latent_codes=2,
+        milestone_count=2,
+        critic_ensemble=2,
+        cost_count=2,
+        maximum_residual_scale=4.0,
+        gripper_index=2,
+    )
+    actor = build_recovery_actor(config)
+    args = (
+        torch.zeros(1, 2, 8),
+        torch.zeros(1, 2, 2, 3),
+        torch.zeros(1, 2, 2),
+        torch.zeros(1, 2, dtype=torch.long),
+        torch.zeros(1, 2, dtype=torch.long),
+        torch.zeros(1, dtype=torch.long),
+    )
+    outputs = actor(*args)
+    outputs["residual_mean"] = torch.zeros_like(outputs["residual_mean"])
+    outputs["residual_trust"] = torch.ones_like(outputs["residual_trust"])
+    base = torch.tensor([[[2.0, -2.0, 1.5], [0.0, 0.0, -0.5]]])
+    sampled = sample_recovery_action(outputs, base, deterministic=True)
+    assert torch.allclose(
+        sampled["corrected_action"],
+        torch.tensor([[[1.0, -1.0, 1.0], [0.0, 0.0, 0.0]]]),
+    )
+    assert sampled["corrected_action"][..., 2].min() >= 0.0
 
 
 def test_twin_critics_keep_recovery_deletion_and_baseline_separate() -> None:
@@ -94,6 +153,11 @@ def test_twin_critics_keep_recovery_deletion_and_baseline_separate() -> None:
         2,
         config.cost_count,
     )
+    assert outputs["necessity_values"].shape == (
+        config.critic_ensemble,
+        2,
+        config.milestone_count,
+    )
     # D is the exact-zero residual through the shared recovery continuation
     # head, so it cannot drift into an independently renamed critic.
     assert torch.equal(
@@ -104,6 +168,7 @@ def test_twin_critics_keep_recovery_deletion_and_baseline_separate() -> None:
         outputs,
         torch.zeros(2, 3, config.milestone_count),
         torch.zeros(2, config.cost_count),
+        necessity_targets=torch.zeros(2, config.milestone_count),
     )
     loss.backward()
     assert torch.isfinite(loss)
@@ -123,6 +188,21 @@ def test_conservative_crb_uses_recovery_lower_and_counterfactual_upper() -> None
     outputs = {"reachability_logits": torch.logit(probabilities)}
     crb = conservative_crb_from_logits(outputs, torch.tensor([0]))
     assert crb.item() == pytest.approx(0.4)
+
+
+def test_all_deletion_actor_advantage_requires_superiority_and_every_macro() -> None:
+    probabilities = torch.tensor(
+        [
+            [[[0.9], [0.2], [0.4]], [[0.8], [0.2], [0.3]]],
+            [[[0.8], [0.3], [0.35]], [[0.9], [0.2], [0.4]]],
+        ]
+    )
+    outputs = {
+        "reachability_logits": torch.logit(probabilities),
+        "necessity_values": torch.tensor([[[0.25], [-0.10]], [[0.20], [0.05]]]),
+    }
+    advantage = conservative_all_deletion_advantage(outputs, torch.tensor([0, 0]))
+    assert advantage.tolist() == pytest.approx([0.2, -0.1])
 
 
 def test_invalid_recovery_model_configuration_is_rejected() -> None:
