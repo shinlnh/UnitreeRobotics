@@ -53,7 +53,38 @@ the final Ours benchmark. It is a claim boundary, not a leaderboard claim.
   task-stratified confidence intervals, immutable negative variants, and strict
   separation of train, development, and final outcomes.
 
-## Distinction of the working method
+## Nearest value, chunk, and recovery methods
+
+- [V-VLAPS v3](https://arxiv.org/abs/2601.00969v3) trains a value head over a
+  frozen VLA's latent representation from offline Monte Carlo returns and uses
+  it to guide MCTS at inference. This is the closest value-guided VLA method.
+  BranchQ must therefore distinguish direct candidate ranking and execution,
+  SMDP TD credit, its joint subgoal/hypothesis/prefix lattice, and absence of
+  runtime simulator search; “a value function for a frozen VLA” is not novel.
+- [Q-chunking](https://arxiv.org/abs/2507.07969) supplies unbiased n-step TD
+  formulations for temporally extended action chunks in offline-to-online RL.
+  BranchQ's claim cannot be Q-learning over variable action prefixes alone.
+- [Conservative Q-Learning](https://arxiv.org/abs/2006.04779) regularizes
+  offline value estimates against overestimating out-of-distribution actions.
+  Its conservative objective is an ingredient, not a BranchQ contribution.
+- [SPIBB](https://arxiv.org/abs/1712.06924) formalizes safe improvement by
+  constraining poorly supported decisions to a baseline policy. BranchQ's
+  exact-B candidate and minimum-support fallback are related to this principle;
+  confidence fallback must not be described as the first safe policy
+  improvement method.
+- [CycleVLA](https://arxiv.org/abs/2601.02295) adds progress prediction,
+  planner-driven backtracking, and model-based refinement to VLA execution.
+  BranchQ differs only if recovery sequences emerge from learned continuation
+  values rather than a separately defined planner/state machine.
+- [FLARE](https://arxiv.org/abs/2608.26645) separates Retry and Reset responses
+  under an online multimodal monitor. It is a direct fixed-recovery taxonomy
+  comparator for the CTR ablation.
+- [Bellman-Guided Retrials](https://arxiv.org/abs/2406.15917) changes strategy
+  across repeated attempts using Bellman-guided value reasoning. Its setting is
+  not the same physical VLA SMDP, but it prevents a broad claim that Bellman
+  values have never been used to guide retry behavior.
+
+## Distinction of the retired CTR method
 
 CTR keeps the A1 VLA and B selector frozen. Simulator snapshots are used only
 to label same-state, common-random-number option returns on reserved train
@@ -72,6 +103,75 @@ alone. It is the combination of:
 3. a frozen VLA plus a small temporal value/classification head; and
 4. safety-constrained selective intervention, with failure and recovery margins
    calibrated under a 5% false-intervention ceiling.
+
+CTR v9 and all seven seed-22007 R1b variants are now negative ablations. The
+best variant changes the outcome by only +1/537 completed subtasks, its paired
+task-macro confidence interval includes zero, and it achieves 0/60 final
+success. It must not be presented as the working method.
+
+## Closest methods to the active program-induction hypothesis
+
+- [RecoveryChaining](https://arxiv.org/abs/2410.13979) uses hierarchical RL to
+  learn a separate recovery policy with nominal controllers as temporally
+  extended handoff options. A two-policy architecture, failure-conditioned
+  activation, and learned return-to-nominal behavior are therefore not new.
+- [Self-Improving VLAs via Residual RL](https://arxiv.org/abs/2511.00091)
+  freezes a VLA, trains lightweight residual RL specialists on base-policy
+  failure regions, and distills their successful trajectories. Residual action
+  learning and base-policy probing are required baselines, not contributions.
+- [RePO-VLA](https://arxiv.org/abs/2605.09410) learns from success, failure, and
+  corrective trajectories using a progress-aware semantic value and value-
+  conditioned refinement. Recovery-driven VLA optimization is not new.
+- [Policy-Conditioned Counterfactual Credit](https://arxiv.org/abs/2606.05263)
+  uses deletion and other interventions for counterfactual credit in long-
+  horizon language-agent RL. Broad claims about first deletion-based policy
+  credit are invalid even though its setting and estimator differ.
+
+- [VLA-ATTC](https://arxiv.org/abs/2605.01194) learns a relative action critic
+  for pairwise selection among inference-time candidates. MOSAIC-VLA must beat a
+  relative-critic baseline and cannot claim that relative action comparison is
+  new. VLA-ATTC does not, from its published description, estimate the mixed
+  physical effect of ordered interventions against all factorial ablations.
+- [Selected Diffusion Noise](https://arxiv.org/abs/2606.14084) treats diffusion
+  noise as a test-time control variable and selects separated, smooth action
+  candidates. Therefore noise steering alone is not a contribution. MOSAIC uses
+  it only as a continuous proposal family for adaptive programs.
+- [TTT-VLA](https://arxiv.org/abs/2606.03127) optimizes a latent prompt at test
+  time using an auxiliary self-supervised task. MOSAIC neither updates the VLA
+  nor uses a proxy task at deployment; its labels are paired physical outcomes.
+- [Mostly Harmless VLA Steering](https://arxiv.org/abs/2606.12299) uses
+  conformalized improvement prediction for closed-loop language steering. A
+  confidence fallback is therefore only a safety implementation detail here,
+  not a novelty point.
+- [Null Counterfactual Factor Interactions](https://arxiv.org/abs/2505.03172)
+  defines object interaction through null counterfactual dynamics and improves
+  hindsight relabeling. It makes a broad “first counterfactual interaction in
+  robot learning” claim invalid.
+- [Factorial causal effects](https://academic.oup.com/jrsssb/article/77/4/727/7040593),
+  [dynamic treatment effects](https://arxiv.org/abs/1805.09397), and
+  [Q/A-learning for dynamic regimes](https://arxiv.org/abs/1202.4177) establish
+  that factorial interaction contrasts and sequential treatment regimes are
+  classical. The paired cross-temporal curvature quartet is therefore only a
+  mechanism diagnostic; neither its formula nor the interaction concept is a
+  MOSAIC novelty claim.
+
+## Active RESOLVE-VLA claim boundary
+
+BranchQ remains a history-complete value-learning baseline. The factorial
+curvature quartet remains a diagnostic. MOSAIC is the deletion-minimal credit
+and certification layer. The active hypothesis is a dedicated residual recovery
+transformer trained with a three-world reachability Bellman system: learned
+recovery continuation `R`, current-macro deletion `D`, and pure frozen baseline
+`B`. Its counterfactual rescue bottleneck is positive only when `R` beats pure B
+and the current adaptive macro is necessary relative to D. Final programs are
+then audited with MOSAIC's `d+2` paired arms.
+
+This is a candidate contribution, not a novelty assertion. It is rejected
+unless the coupled Bellman operator survives theoretical comparison with causal
+policy-gradient/dynamic-regime methods and its compute-matched recovery policy
+beats PLD-style residual SAC, RecoveryChaining-style handoff, RePO-style
+refinement, standard actor-critic, BranchQ, and sequence-only MOSAIC on held-out
+physical outcomes.
 
 ## Claim rules
 
